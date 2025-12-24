@@ -286,12 +286,12 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="person" size={24} color="#A855F7" />
-            <Text style={styles.sectionTitle}>Profil Bilgileri</Text>
+            <Text style={styles.sectionTitle}>Profile Information</Text>
           </View>
 
           <View style={styles.settingCard}>
             <View style={styles.profileItem}>
-              <Text style={styles.profileLabel}>İsim</Text>
+              <Text style={styles.profileLabel}>Name</Text>
               <Text style={styles.profileValue}>{userName || 'Dr. Robert Chen'}</Text>
             </View>
 
@@ -307,7 +307,7 @@ export default function SettingsScreen() {
             <View style={styles.divider} />
 
             <View style={styles.profileItem}>
-              <Text style={styles.profileLabel}>Bölüm</Text>
+              <Text style={styles.profileLabel}>Department</Text>
               <Text style={styles.profileValue}>Computer Science</Text>
             </View>
           </View>

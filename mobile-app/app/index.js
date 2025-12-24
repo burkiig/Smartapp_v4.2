@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,93 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert, // EKLE
+  Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from './context/UserContext';
+
+// Smart Attendance Logo Component with Premium Animations
+const SmartAttendanceLogo = () => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    // Fade-in and scale animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Shimmer animation loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.delay(1000),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const shimmerTranslate = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-250, 250],
+  });
+
+  return (
+    <Animated.View 
+      style={[
+        styles.logoContainer,
+        { 
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }]
+        }
+      ]}
+    >
+      <View style={styles.logoWrapper}>
+        {/* Logo Icon */}
+        <View style={styles.logoIconContainer}>
+          <Ionicons name="school" size={64} color="#5B7FFF" />
+        </View>
+        
+        {/* Shimmer overlay */}
+        <Animated.View
+          style={[
+            styles.shimmerOverlay,
+            {
+              transform: [{ translateX: shimmerTranslate }],
+            },
+          ]}
+        />
+      </View>
+      
+      {/* Logo Text */}
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <Text style={styles.logoTitle}>Smart Attendance</Text>
+      </Animated.View>
+    </Animated.View>
+  );
+};
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -23,15 +104,15 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // YENİ: User type değiştiğinde alanları temizle
+  // Clear fields when user type changes
   const handleUserTypeChange = (type) => {
     setUserType(type);
-    setEmail('');      // Email'i temizle
-    setPassword('');   // Şifreyi temizle
+    setEmail('');      // Clear email
+    setPassword('');   // Clear password
   };
 
   const handleSignIn = () => {
-    // YENİ: Boş alan kontrolü ve uyarılar
+    // Validate empty fields
     if (!email.trim() && !password.trim()) {
       Alert.alert(
         'Missing Information',
@@ -59,7 +140,7 @@ export default function LoginScreen() {
       return;
     }
 
-    // Giriş yap
+    // Login
     const name = userType === 'instructor' ? 'Dr. Robert Chen' : 'John Doe';
     login(userType, email, name);
     
@@ -86,9 +167,7 @@ export default function LoginScreen() {
         >
           {/* Logo and Header */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="school" size={48} color="#fff" />
-            </View>
+            <SmartAttendanceLogo />
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
               {userType === 'instructor' 
@@ -236,18 +315,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#5B7FFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  logoWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 30,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#5B7FFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+    marginBottom: 16,
+  },
+  logoIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: 'rgba(91, 127, 255, 0.2)',
+    transform: [{ skewX: '-20deg' }],
+  },
+  logoTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#5B7FFF',
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 28,

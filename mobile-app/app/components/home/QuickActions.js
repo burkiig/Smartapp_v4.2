@@ -14,20 +14,7 @@ const ACTIONS = [
 export default function QuickActions({ hasFaceRegistered, onFaceScan, onQRScan, onExcuse, onHistory }) {
   const handlePress = (id) => {
     const actions = {
-      face: () => {
-        if (!hasFaceRegistered) {
-          Alert.alert(
-            'Face Not Registered',
-            'You need to register your face first. Would you like to register now?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Register Face', onPress: onFaceScan },
-            ]
-          );
-        } else {
-          onFaceScan();
-        }
-      },
+      face: onFaceScan,
       qr: onQRScan,
       excuse: onExcuse,
       history: onHistory,

@@ -23,6 +23,7 @@ export default function ClassDetailsScreen() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('Instructor unavailable');
   const [searchQuery, setSearchQuery] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Mock data - gerçekte params'tan gelecek
   const classInfo = {
@@ -37,11 +38,11 @@ export default function ClassDetailsScreen() {
     flagged: 2
   };
 
-  const [students] = useState([
+  const [students, setStudents] = useState([
     { id: 'STU12001', name: 'Alice Anderson', status: 'present', avatar: 'AA' },
     { id: 'STU12002', name: 'Bob Brown', status: 'present', avatar: 'BB' },
     { id: 'STU12003', name: 'Charlie Davis', status: 'absent', avatar: 'CD' },
-    { id: 'STU12004', name: 'Diana Evans', status: 'flagged', avatar: 'DE' },
+    { id: 'STU12004', name: 'Diana Evans', status: 'excused', avatar: 'DE' },
     { id: 'STU12005', name: 'Ethan Foster', status: 'present', avatar: 'EF' },
     { id: 'STU12006', name: 'Fiona Garcia', status: 'present', avatar: 'FG' },
     { id: 'STU12007', name: 'George Harris', status: 'present', avatar: 'GH' },
@@ -73,7 +74,26 @@ export default function ClassDetailsScreen() {
   };
 
   const handleMarkAttendance = (studentId, newStatus) => {
-    Alert.alert('Success', `Attendance for ${studentId} updated to ${newStatus}`);
+    setStudents(prevStudents =>
+      prevStudents.map(student =>
+        student.id === studentId ? { ...student, status: newStatus } : student
+      )
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSaveAttendance = () => {
+    // TODO: API çağrısı yapılacak
+    Alert.alert(
+      'Success',
+      'Attendance has been saved successfully!',
+      [
+        {
+          text: 'OK',
+          onPress: () => setHasUnsavedChanges(false)
+        }
+      ]
+    );
   };
 
   const getStatusColor = (status) => {
@@ -82,7 +102,7 @@ export default function ClassDetailsScreen() {
         return '#10B981';
       case 'absent':
         return '#EF4444';
-      case 'flagged':
+      case 'excused':
         return '#F59E0B';
       default:
         return '#6B7280';
@@ -92,13 +112,13 @@ export default function ClassDetailsScreen() {
   const getStatusText = (status) => {
     switch (status) {
       case 'present':
-        return 'Mevcut';
+        return 'Present';
       case 'absent':
-        return 'Yok';
-      case 'flagged':
-        return 'Flagged';
+        return 'Absent';
+      case 'excused':
+        return 'Excused';
       default:
-        return 'Bilinmiyor';
+        return 'Unknown';
     }
   };
 
@@ -119,25 +139,52 @@ export default function ClassDetailsScreen() {
         </View>
       </View>
       <View style={styles.studentRight}>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {getStatusText(item.status)}
-          </Text>
-        </View>
-        {activeTab === 'manual' && (
-          <View style={styles.quickActions}>
+        {activeTab === 'manual' ? (
+          <View style={styles.attendanceButtons}>
             <TouchableOpacity
-              style={styles.quickActionButton}
+              style={[
+                styles.attendanceBtn,
+                item.status === 'present' && styles.activePresentBtn
+              ]}
               onPress={() => handleMarkAttendance(item.id, 'present')}
             >
-              <Ionicons name="checkmark" size={18} color="#10B981" />
+              <Text style={[
+                styles.attendanceBtnText,
+                item.status === 'present' && styles.activePresentText
+              ]}>P</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity
-              style={styles.quickActionButton}
+              style={[
+                styles.attendanceBtn,
+                item.status === 'excused' && styles.activeExcusedBtn
+              ]}
+              onPress={() => handleMarkAttendance(item.id, 'excused')}
+            >
+              <Text style={[
+                styles.attendanceBtnText,
+                item.status === 'excused' && styles.activeExcusedText
+              ]}>E</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.attendanceBtn,
+                item.status === 'absent' && styles.activeAbsentBtn
+              ]}
               onPress={() => handleMarkAttendance(item.id, 'absent')}
             >
-              <Ionicons name="close" size={18} color="#EF4444" />
+              <Text style={[
+                styles.attendanceBtnText,
+                item.status === 'absent' && styles.activeAbsentText
+              ]}>A</Text>
             </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+              {getStatusText(item.status)}
+            </Text>
           </View>
         )}
       </View>
@@ -174,17 +221,17 @@ export default function ClassDetailsScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{classInfo.totalStudents}</Text>
-              <Text style={styles.statLabel}>Toplam</Text>
+              <Text style={styles.statLabel}>Total</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{classInfo.present}</Text>
-              <Text style={styles.statLabel}>Mevcut</Text>
+              <Text style={styles.statLabel}>Present</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{classInfo.absent}</Text>
-              <Text style={styles.statLabel}>Yok</Text>
+              <Text style={styles.statLabel}>Absent</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -212,7 +259,7 @@ export default function ClassDetailsScreen() {
           onPress={() => setActiveTab('overview')}
         >
           <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
-            Genel
+            Overview
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -237,7 +284,7 @@ export default function ClassDetailsScreen() {
       {activeTab === 'overview' && (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Zaman Çizelgesi</Text>
+            <Text style={styles.sectionTitle}>Timeline</Text>
             {timeline.map((item, index) => (
               <View key={index} style={styles.timelineItem}>
                 <View style={[
@@ -264,7 +311,7 @@ export default function ClassDetailsScreen() {
               </View>
               <View style={styles.infoRow}>
                 <Ionicons name="time" size={20} color="#5B7FFF" />
-                <Text style={styles.infoRowText}>Süre: 80 dakika</Text>
+                <Text style={styles.infoRowText}>Duration: 80 minutes</Text>
               </View>
               <View style={styles.infoRow}>
                 <Ionicons name="location" size={20} color="#A855F7" />
@@ -294,6 +341,17 @@ export default function ClassDetailsScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
+          {activeTab === 'manual' && hasUnsavedChanges && (
+            <View style={styles.saveButtonContainer}>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveAttendance}
+              >
+                <Ionicons name="save-outline" size={20} color="#fff" />
+                <Text style={styles.saveButtonText}>Save Attendance</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </>
       )}
 
@@ -313,7 +371,7 @@ export default function ClassDetailsScreen() {
               style={[styles.reasonOption, cancelReason === 'Instructor unavailable' && styles.reasonOptionActive]}
               onPress={() => setCancelReason('Instructor unavailable')}
             >
-              <Text style={styles.reasonText}>Öğretmen müsait değil</Text>
+              <Text style={styles.reasonText}>Instructor unavailable</Text>
               {cancelReason === 'Instructor unavailable' && (
                 <Ionicons name="checkmark-circle" size={20} color="#5B7FFF" />
               )}
@@ -323,7 +381,7 @@ export default function ClassDetailsScreen() {
               style={[styles.reasonOption, cancelReason === 'Technical issues' && styles.reasonOptionActive]}
               onPress={() => setCancelReason('Technical issues')}
             >
-              <Text style={styles.reasonText}>Teknik sorun</Text>
+              <Text style={styles.reasonText}>Technical issues</Text>
               {cancelReason === 'Technical issues' && (
                 <Ionicons name="checkmark-circle" size={20} color="#5B7FFF" />
               )}
@@ -333,7 +391,7 @@ export default function ClassDetailsScreen() {
               style={[styles.reasonOption, cancelReason === 'Holiday/Event' && styles.reasonOptionActive]}
               onPress={() => setCancelReason('Holiday/Event')}
             >
-              <Text style={styles.reasonText}>Tatil/Etkinlik</Text>
+              <Text style={styles.reasonText}>Holiday/Event</Text>
               {cancelReason === 'Holiday/Event' && (
                 <Ionicons name="checkmark-circle" size={20} color="#5B7FFF" />
               )}
@@ -609,17 +667,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  quickActions: {
+  attendanceButtons: {
     flexDirection: 'row',
     gap: 6,
   },
-  quickActionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+  attendanceBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  attendanceBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  activePresentBtn: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  activePresentText: {
+    color: '#10B981',
+  },
+  activeExcusedBtn: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  activeExcusedText: {
+    color: '#F59E0B',
+  },
+  activeAbsentBtn: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#EF4444',
+  },
+  activeAbsentText: {
+    color: '#EF4444',
+  },
+  saveButtonContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5B7FFF',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#5B7FFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,

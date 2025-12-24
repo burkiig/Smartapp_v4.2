@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Login.css';
 
 function Login({ onLogin }) {
@@ -7,6 +7,12 @@ function Login({ onLogin }) {
   const [selectedRole, setSelectedRole] = useState('instructor');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [logoLoaded, setLogoLoaded] = useState(false);
+
+  useEffect(() => {
+    // Trigger animations after component mounts
+    setTimeout(() => setLogoLoaded(true), 100);
+  }, []);
 
   const roles = [
     { id: 'instructor', name: 'Instructor', icon: '👨‍🏫', color: '#4f46e5' },
@@ -113,8 +119,16 @@ function Login({ onLogin }) {
 
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">
-            <span className="logo-icon">📋</span>
+          <div className={`login-logo ${logoLoaded ? 'logo-loaded' : ''}`}>
+            <div className="logo-shimmer-wrapper">
+              <div className="logo-icon-container">
+                <span className="logo-icon">🎓</span>
+              </div>
+              <div className="shimmer-effect"></div>
+            </div>
+            <div className="logo-text-container">
+              <span className="logo-text">Smart Attendance</span>
+            </div>
           </div>
           <h1 className="login-title">Smart Attendance System</h1>
           <p className="login-subtitle">Web Panel Login</p>

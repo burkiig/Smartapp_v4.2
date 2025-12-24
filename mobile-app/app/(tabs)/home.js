@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '../context/UserContext';
+import { Camera } from 'expo-camera';
 import InstructorHome from '../screens/InstructorHome';
 import ExcuseModal from '../components/ExcuseModal';
 import Header from '../components/home/Header';
@@ -45,21 +46,80 @@ export default function HomeScreen() {
     method: 'Face ID',
   };
 
+  const requestCameraPermission = async () => {
+    try {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      return status === 'granted';
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      return false;
+    }
+  };
+
+  const checkCameraPermission = async () => {
+    const { status } = await Camera.getCameraPermissionsAsync();
+    return status === 'granted';
+  };
+
+  const handleCameraAction = async (action, actionName) => {
+    // Check if permission is already granted
+    const hasPermission = await checkCameraPermission();
+    
+    if (hasPermission) {
+      action();
+      return;
+    }
+
+    // Directly request permission
+    const granted = await requestCameraPermission();
+    
+    if (granted) {
+      action();
+    } else {
+      // Permission denied - show alert with settings option
+      Alert.alert(
+        'Camera Permission Required',
+        `${actionName} requires camera access to mark attendance. Please enable camera permission in your device settings.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+    }
+  };
+
+  const handleFaceScan = () => {
+    handleCameraAction(
+      () => router.push(hasFaceRegistered ? '/face-scan' : '/register-face'),
+      'Face Scan'
+    );
+  };
+
+  const handleQRScan = () => {
+    handleCameraAction(
+      () => router.push('/qr-scan'),
+      'QR Code Scan'
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <Header userName={userName} />
         
         {!hasFaceRegistered && (
-          <FaceWarning onRegister={() => router.push('/register-face')} />
+          <FaceWarning onRegister={() => handleCameraAction(
+            () => router.push('/register-face'),
+            'Face Registration'
+          )} />
         )}
         
         <LiveClassCard liveClass={liveClass} />
         
         <QuickActions
           hasFaceRegistered={hasFaceRegistered}
-          onFaceScan={() => router.push(hasFaceRegistered ? '/face-scan' : '/register-face')}
-          onQRScan={() => router.push('/qr-scan')}
+          onFaceScan={handleFaceScan}
+          onQRScan={handleQRScan}
           onExcuse={() => setExcuseModalVisible(true)}
           onHistory={() => router.push('/(tabs)/history')}
         />

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   Animated,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -47,13 +48,27 @@ export default function RegisterFaceScreen() {
           <Ionicons name="camera-outline" size={64} color="#5B7FFF" />
           <Text style={styles.permissionTitle}>Camera Permission Required</Text>
           <Text style={styles.permissionText}>
-            We need camera access to register your face for attendance
+            Face registration requires camera access. Please enable camera permission to register your face for attendance.
           </Text>
           <TouchableOpacity
             style={styles.permissionButton}
             onPress={requestPermission}
           >
+            <Ionicons name="camera" size={20} color="#fff" />
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => Linking.openSettings()}
+          >
+            <Ionicons name="settings-outline" size={20} color="#5B7FFF" />
+            <Text style={styles.settingsButtonText}>Open Settings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButtonAlt}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonAltText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -322,15 +337,43 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#5B7FFF',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
+    marginBottom: 12,
   },
   permissionButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  settingsButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#5B7FFF',
+  },
+  backButtonAlt: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  backButtonAltText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
   },
 });
 

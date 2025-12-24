@@ -74,7 +74,7 @@ export default function TabLayout() {
             ),
           }}
         />
-        {/* Eski tabları gizle */}
+        {/* Hide old tabs */}
         <Tabs.Screen
           name="home"
           options={{
@@ -146,7 +146,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Yeni tabları gizle */}
+      {/* Hide new tabs */}
       <Tabs.Screen
         name="dashboard"
         options={{

@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Dimensions,
   Alert,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,17 +50,42 @@ export default function QRScanScreen() {
 
   if (hasPermission === null) {
     return (
-      <View style={styles.container}>
-        <Text>Requesting camera permission...</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="camera-outline" size={64} color="#3B82F6" />
+          <Text style={styles.permissionTitle}>Requesting Permission...</Text>
+          <Text style={styles.permissionText}>
+            Please wait while we request camera access
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (hasPermission === false) {
     return (
-      <View style={styles.container}>
-        <Text>No access to camera</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="close-circle-outline" size={64} color="#EF4444" />
+          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
+          <Text style={styles.permissionText}>
+            QR Code scanning requires camera access. Please enable camera permission in your device settings to mark attendance.
+          </Text>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => Linking.openSettings()}
+          >
+            <Ionicons name="settings-outline" size={20} color="#fff" />
+            <Text style={styles.settingsButtonText}>Open Settings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButtonAlt}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonAltText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -391,5 +417,51 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.95)',
+  },
+  permissionContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#F9FAFB',
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  settingsButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  backButtonAlt: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  backButtonAltText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
   },
 });
