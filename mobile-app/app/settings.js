@@ -36,17 +36,17 @@ export default function SettingsScreen() {
   const [gpsVerification, setGpsVerification] = useState(true);
 
   const handleSave = () => {
-    Alert.alert('Başarılı', 'Ayarlar kaydedildi!');
+    Alert.alert('Success', 'Settings saved!');
   };
 
   const handleReset = () => {
     Alert.alert(
-      'Ayarları Sıfırla',
-      'Tüm ayarları varsayılana döndürmek istediğinizden emin misiniz?',
+      'Reset Settings',
+      'Are you sure you want to reset all settings to default?',
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Sıfırla',
+          text: 'Reset',
           style: 'destructive',
           onPress: () => {
             setEmailNotifications(true);
@@ -75,8 +75,8 @@ export default function SettingsScreen() {
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Ayarlar</Text>
-          <Text style={styles.headerSubtitle}>Tercihlerinizi yönetin</Text>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerSubtitle}>Manage your preferences</Text>
         </View>
         <View style={styles.placeholder} />
       </View>
@@ -86,15 +86,15 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="notifications" size={24} color="#5B7FFF" />
-            <Text style={styles.sectionTitle}>Bildirimler</Text>
+            <Text style={styles.sectionTitle}>Notifications</Text>
           </View>
 
           <View style={styles.settingCard}>
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Email Bildirimleri</Text>
+                <Text style={styles.settingLabel}>Email Notifications</Text>
                 <Text style={styles.settingDescription}>
-                  Yoklama uyarılarını email ile al
+                  Receive attendance alerts via email
                 </Text>
               </View>
               <Switch
@@ -109,9 +109,9 @@ export default function SettingsScreen() {
 
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Push Bildirimleri</Text>
+                <Text style={styles.settingLabel}>Push Notifications</Text>
                 <Text style={styles.settingDescription}>
-                  Bayraklı yoklamalar için bildirim al
+                  Get notifications for flagged attendance
                 </Text>
               </View>
               <Switch
@@ -136,7 +136,7 @@ export default function SettingsScreen() {
                 color={notifyFlagged ? '#5B7FFF' : '#9CA3AF'}
               />
               <Text style={styles.checkboxText}>
-                Öğrenci yoklaması bayraklandığında
+                When student attendance is flagged
               </Text>
             </TouchableOpacity>
 
@@ -149,7 +149,7 @@ export default function SettingsScreen() {
                 size={24}
                 color={notifySessionEnds ? '#5B7FFF' : '#9CA3AF'}
               />
-              <Text style={styles.checkboxText}>Yoklama oturumu bittiğinde</Text>
+              <Text style={styles.checkboxText}>When attendance session ends</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -161,7 +161,7 @@ export default function SettingsScreen() {
                 size={24}
                 color={notifyClassStart ? '#5B7FFF' : '#9CA3AF'}
               />
-              <Text style={styles.checkboxText}>Ders başlamak üzereyken</Text>
+              <Text style={styles.checkboxText}>When class is about to start</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -170,13 +170,13 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="settings" size={24} color="#10B981" />
-            <Text style={styles.sectionTitle}>Tercihler</Text>
+            <Text style={styles.sectionTitle}>Preferences</Text>
           </View>
 
           <View style={styles.settingCard}>
             <TouchableOpacity style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Dil</Text>
+                <Text style={styles.settingLabel}>Language</Text>
                 <Text style={styles.settingValue}>{language}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -186,9 +186,9 @@ export default function SettingsScreen() {
 
             <TouchableOpacity style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Saat Formatı</Text>
+                <Text style={styles.settingLabel}>Time Format</Text>
                 <Text style={styles.settingValue}>
-                  {timeFormat === '12-hour' ? '12 saat (2:30 PM)' : '24 saat (14:30)'}
+                  {timeFormat === '12-hour' ? '12 hour (2:30 PM)' : '24 hour (14:30)'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -198,9 +198,9 @@ export default function SettingsScreen() {
 
             <TouchableOpacity style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Tema</Text>
+                <Text style={styles.settingLabel}>Theme</Text>
                 <Text style={styles.settingValue}>
-                  {theme === 'light' ? 'Açık' : 'Koyu'}
+                  {theme === 'light' ? 'Light' : 'Dark'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -212,15 +212,15 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="flash" size={24} color="#F59E0B" />
-            <Text style={styles.sectionTitle}>Otomatik Yoklama</Text>
+            <Text style={styles.sectionTitle}>Auto Attendance</Text>
           </View>
 
           <View style={styles.settingCard}>
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Otomatik Yoklama</Text>
+                <Text style={styles.settingLabel}>Auto Attendance</Text>
                 <Text style={styles.settingDescription}>
-                  Oturumları otomatik aç/kapat
+                  Automatically open/close sessions
                 </Text>
               </View>
               <Switch
@@ -235,9 +235,9 @@ export default function SettingsScreen() {
 
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Yüz Tanıma</Text>
+                <Text style={styles.settingLabel}>Face Recognition</Text>
                 <Text style={styles.settingDescription}>
-                  Face ID ile yoklama al
+                  Take attendance with Face ID
                 </Text>
               </View>
               <Switch
@@ -253,7 +253,7 @@ export default function SettingsScreen() {
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>QR Code</Text>
-                <Text style={styles.settingDescription}>QR kod ile yoklama al</Text>
+                <Text style={styles.settingDescription}>Take attendance with QR code</Text>
               </View>
               <Switch
                 value={qrCode}
@@ -267,9 +267,9 @@ export default function SettingsScreen() {
 
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>GPS Doğrulama</Text>
+                <Text style={styles.settingLabel}>GPS Verification</Text>
                 <Text style={styles.settingDescription}>
-                  Konum ile doğrula
+                  Verify with location
                 </Text>
               </View>
               <Switch
@@ -317,12 +317,12 @@ export default function SettingsScreen() {
         <View style={styles.actionsSection}>
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.saveButtonText}>Değişiklikleri Kaydet</Text>
+            <Text style={styles.saveButtonText}>Save Changes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
             <Ionicons name="refresh" size={20} color="#EF4444" />
-            <Text style={styles.resetButtonText}>Ayarları Sıfırla</Text>
+            <Text style={styles.resetButtonText}>Reset Settings</Text>
           </TouchableOpacity>
         </View>
 

@@ -56,12 +56,12 @@ export default function ClassDetailsScreen() {
 
   const handleCancelClass = () => {
     Alert.alert(
-      'Dersi İptal Et',
-      `Ders iptal edilecek. Sebep: ${cancelReason}`,
+      'Cancel Class',
+      `Class will be cancelled. Reason: ${cancelReason}`,
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Go Back', style: 'cancel' },
         {
-          text: 'İptal Et',
+          text: 'Cancel Class',
           style: 'destructive',
           onPress: () => {
             setShowCancelModal(false);
@@ -73,7 +73,7 @@ export default function ClassDetailsScreen() {
   };
 
   const handleMarkAttendance = (studentId, newStatus) => {
-    Alert.alert('Başarılı', `${studentId} için yoklama ${newStatus} olarak güncellendi`);
+    Alert.alert('Success', `Attendance for ${studentId} updated to ${newStatus}`);
   };
 
   const getStatusColor = (status) => {
@@ -96,7 +96,7 @@ export default function ClassDetailsScreen() {
       case 'absent':
         return 'Yok';
       case 'flagged':
-        return 'Bayraklı';
+        return 'Flagged';
       default:
         return 'Bilinmiyor';
     }
@@ -189,7 +189,7 @@ export default function ClassDetailsScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{classInfo.flagged}</Text>
-              <Text style={styles.statLabel}>Bayraklı</Text>
+              <Text style={styles.statLabel}>Flagged</Text>
             </View>
           </View>
           <View style={styles.classInfo}>
@@ -220,7 +220,7 @@ export default function ClassDetailsScreen() {
           onPress={() => setActiveTab('students')}
         >
           <Text style={[styles.tabText, activeTab === 'students' && styles.tabTextActive]}>
-            Öğrenciler
+            Students
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -228,7 +228,7 @@ export default function ClassDetailsScreen() {
           onPress={() => setActiveTab('manual')}
         >
           <Text style={[styles.tabText, activeTab === 'manual' && styles.tabTextActive]}>
-            Manuel Yoklama
+            Manual Attendance
           </Text>
         </TouchableOpacity>
       </View>
@@ -256,11 +256,11 @@ export default function ClassDetailsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Oturum Bilgisi</Text>
+            <Text style={styles.sectionTitle}>Session Info</Text>
             <View style={styles.infoCard}>
               <View style={styles.infoRow}>
                 <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                <Text style={styles.infoRowText}>Otomatik yoklama aktif</Text>
+                <Text style={styles.infoRowText}>Auto attendance active</Text>
               </View>
               <View style={styles.infoRow}>
                 <Ionicons name="time" size={20} color="#5B7FFF" />
@@ -268,7 +268,7 @@ export default function ClassDetailsScreen() {
               </View>
               <View style={styles.infoRow}>
                 <Ionicons name="location" size={20} color="#A855F7" />
-                <Text style={styles.infoRowText}>Konum: {classInfo.room}</Text>
+                <Text style={styles.infoRowText}>Location: {classInfo.room}</Text>
               </View>
             </View>
           </View>
@@ -281,7 +281,7 @@ export default function ClassDetailsScreen() {
             <Ionicons name="search" size={20} color="#9CA3AF" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Öğrenci ara..."
+              placeholder="Search student..."
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholderTextColor="#9CA3AF"
@@ -306,8 +306,8 @@ export default function ClassDetailsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Dersi İptal Et</Text>
-            <Text style={styles.modalSubtitle}>İptal sebebi seçin</Text>
+            <Text style={styles.modalTitle}>Cancel Class</Text>
+            <Text style={styles.modalSubtitle}>Select cancellation reason</Text>
 
             <TouchableOpacity
               style={[styles.reasonOption, cancelReason === 'Instructor unavailable' && styles.reasonOptionActive]}
@@ -344,13 +344,13 @@ export default function ClassDetailsScreen() {
                 style={styles.modalCancelButton}
                 onPress={() => setShowCancelModal(false)}
               >
-                <Text style={styles.modalCancelText}>Vazgeç</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalConfirmButton}
                 onPress={handleCancelClass}
               >
-                <Text style={styles.modalConfirmText}>İptal Et</Text>
+                <Text style={styles.modalConfirmText}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>

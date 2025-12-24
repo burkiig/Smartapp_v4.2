@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '../context/UserContext';
@@ -35,8 +35,8 @@ export default function ReportsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Raporlar</Text>
-            <Text style={styles.headerSubtitle}>İstatistikler ve analiz</Text>
+            <Text style={styles.headerTitle}>Reports</Text>
+            <Text style={styles.headerSubtitle}>Statistics and analysis</Text>
           </View>
           <TouchableOpacity style={styles.settingsButton}>
             <Ionicons name="settings-outline" size={24} color="#1F2937" />
@@ -51,45 +51,45 @@ export default function ReportsScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.overallGradient}
           >
-            <Text style={styles.overallTitle}>Genel Katılım Oranı</Text>
+            <Text style={styles.overallTitle}>Overall Attendance Rate</Text>
             <Text style={styles.overallValue}>{stats.avgAttendance}%</Text>
             <View style={styles.overallBar}>
               <View style={[styles.overallProgress, { width: `${stats.avgAttendance}%` }]} />
             </View>
-            <Text style={styles.overallSubtitle}>Bu dönem - {stats.totalClasses} ders</Text>
+            <Text style={styles.overallSubtitle}>This semester - {stats.totalClasses} classes</Text>
           </LinearGradient>
         </View>
 
         {/* Quick Stats */}
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Özet İstatistikler</Text>
+          <Text style={styles.sectionTitle}>Summary Statistics</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Ionicons name="calendar" size={24} color="#5B7FFF" />
               <Text style={styles.statValue}>{stats.totalClasses}</Text>
-              <Text style={styles.statLabel}>Toplam Ders</Text>
+              <Text style={styles.statLabel}>Total Classes</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="people" size={24} color="#10B981" />
               <Text style={styles.statValue}>{stats.totalStudents}</Text>
-              <Text style={styles.statLabel}>Toplam Öğrenci</Text>
+              <Text style={styles.statLabel}>Total Students</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="trending-up" size={24} color="#F59E0B" />
               <Text style={styles.statValue}>{stats.thisWeekClasses}</Text>
-              <Text style={styles.statLabel}>Bu Hafta</Text>
+              <Text style={styles.statLabel}>This Week</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="flag" size={24} color="#EF4444" />
               <Text style={styles.statValue}>{stats.flaggedCount}</Text>
-              <Text style={styles.statLabel}>Bayraklı</Text>
+              <Text style={styles.statLabel}>Flagged</Text>
             </View>
           </View>
         </View>
 
         {/* Export Options */}
         <View style={styles.exportSection}>
-          <Text style={styles.sectionTitle}>Rapor Dışa Aktar</Text>
+          <Text style={styles.sectionTitle}>Export Report</Text>
           
           <TouchableOpacity style={styles.exportCard}>
             <View style={styles.exportLeft}>
@@ -97,8 +97,8 @@ export default function ReportsScreen() {
                 <Ionicons name="document-text" size={24} color="#EF4444" />
               </View>
               <View>
-                <Text style={styles.exportTitle}>PDF Rapor</Text>
-                <Text style={styles.exportSubtitle}>Detaylı katılım raporu</Text>
+                <Text style={styles.exportTitle}>PDF Report</Text>
+                <Text style={styles.exportSubtitle}>Detailed attendance report</Text>
               </View>
             </View>
             <Ionicons name="download-outline" size={24} color="#6B7280" />
@@ -110,8 +110,8 @@ export default function ReportsScreen() {
                 <Ionicons name="grid" size={24} color="#10B981" />
               </View>
               <View>
-                <Text style={styles.exportTitle}>Excel Tablosu</Text>
-                <Text style={styles.exportSubtitle}>Ham veri (.xlsx)</Text>
+                <Text style={styles.exportTitle}>Excel Spreadsheet</Text>
+                <Text style={styles.exportSubtitle}>Raw data (.xlsx)</Text>
               </View>
             </View>
             <Ionicons name="download-outline" size={24} color="#6B7280" />
@@ -123,8 +123,8 @@ export default function ReportsScreen() {
                 <Ionicons name="bar-chart" size={24} color="#3B82F6" />
               </View>
               <View>
-                <Text style={styles.exportTitle}>Grafik Rapor</Text>
-                <Text style={styles.exportSubtitle}>Görsel analiz (PNG)</Text>
+                <Text style={styles.exportTitle}>Chart Report</Text>
+                <Text style={styles.exportSubtitle}>Visual analysis (PNG)</Text>
               </View>
             </View>
             <Ionicons name="download-outline" size={24} color="#6B7280" />
@@ -138,7 +138,7 @@ export default function ReportsScreen() {
           <TouchableOpacity style={styles.periodButton}>
             <View style={styles.periodLeft}>
               <Ionicons name="calendar-outline" size={20} color="#5B7FFF" />
-              <Text style={styles.periodText}>Günlük Rapor</Text>
+              <Text style={styles.periodText}>Daily Report</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -146,7 +146,7 @@ export default function ReportsScreen() {
           <TouchableOpacity style={styles.periodButton}>
             <View style={styles.periodLeft}>
               <Ionicons name="calendar-outline" size={20} color="#5B7FFF" />
-              <Text style={styles.periodText}>Haftalık Rapor</Text>
+              <Text style={styles.periodText}>Weekly Report</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -154,7 +154,7 @@ export default function ReportsScreen() {
           <TouchableOpacity style={styles.periodButton}>
             <View style={styles.periodLeft}>
               <Ionicons name="calendar-outline" size={20} color="#5B7FFF" />
-              <Text style={styles.periodText}>Aylık Rapor</Text>
+              <Text style={styles.periodText}>Monthly Report</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>

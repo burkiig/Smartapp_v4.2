@@ -4,10 +4,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
@@ -132,47 +132,39 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Settings</Text>
 
           <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="notifications" size={20} color="#3B82F6" />
-              </View>
+            <View style={[styles.settingIcon, { backgroundColor: '#DBEAFE' }]}>
+              <Ionicons name="notifications" size={20} color="#3B82F6" />
+            </View>
+            <View style={styles.settingContent}>
               <Text style={styles.settingText}>Notifications</Text>
-            </View>
-            <View style={styles.settingRight}>
               <Text style={styles.settingValue}>Manage your notifications</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#F3E8FF' }]}>
-                <Ionicons name="lock-closed" size={20} color="#A855F7" />
-              </View>
+            <View style={[styles.settingIcon, { backgroundColor: '#F3E8FF' }]}>
+              <Ionicons name="lock-closed" size={20} color="#A855F7" />
+            </View>
+            <View style={styles.settingContent}>
               <Text style={styles.settingText}>Privacy & Security</Text>
+              <Text style={styles.settingValue}>Manage your privacy</Text>
             </View>
-            <View style={styles.settingRight}>
-              <Text style={styles.settingValue}>Manage your privacy settings</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.settingItem, styles.logoutItem]}
             onPress={handleLogout}
           >
-            <View style={styles.settingLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="log-out" size={20} color="#EF4444" />
-              </View>
-              <Text style={[styles.settingText, { color: '#EF4444' }]}>
-                Logout
-              </Text>
+            <View style={[styles.settingIcon, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="log-out" size={20} color="#EF4444" />
             </View>
-            <View style={styles.settingRight}>
+            <View style={styles.settingContent}>
+              <Text style={[styles.settingText, { color: '#EF4444' }]}>Logout</Text>
               <Text style={styles.settingValue}>Sign out from your account</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
 
@@ -317,7 +309,6 @@ const styles = StyleSheet.create({
   },
   settingItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -333,11 +324,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FEE2E2',
   },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
   settingIcon: {
     width: 40,
     height: 40,
@@ -346,20 +332,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  settingContent: {
+    flex: 1,
+  },
   settingText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#1F2937',
-  },
-  settingRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 2,
   },
   settingValue: {
     fontSize: 12,
     color: '#9CA3AF',
-    maxWidth: 150,
   },
   appInfo: {
     alignItems: 'center',

@@ -24,15 +24,15 @@ export default function MoreScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Çıkış Yap',
-      'Çıkış yapmak istediğinizden emin misiniz?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
         {
-          text: 'İptal',
+          text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Çıkış Yap',
+          text: 'Logout',
           style: 'destructive',
           onPress: () => {
             logout();
@@ -49,8 +49,8 @@ export default function MoreScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Diğer</Text>
-            <Text style={styles.headerSubtitle}>Ayarlar ve daha fazlası</Text>
+            <Text style={styles.headerTitle}>More</Text>
+            <Text style={styles.headerSubtitle}>Settings and more</Text>
           </View>
         </View>
 
@@ -72,7 +72,7 @@ export default function MoreScreen() {
 
         {/* Management Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Yönetim</Text>
+          <Text style={styles.sectionTitle}>Management</Text>
           
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
@@ -80,8 +80,8 @@ export default function MoreScreen() {
                 <Ionicons name="people" size={24} color="#3B82F6" />
               </View>
               <View>
-                <Text style={styles.menuTitle}>Öğrenci Listesi</Text>
-                <Text style={styles.menuSubtitle}>Tüm öğrencileri görüntüle</Text>
+                <Text style={styles.menuTitle}>Student List</Text>
+                <Text style={styles.menuSubtitle}>View all students</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -93,8 +93,8 @@ export default function MoreScreen() {
                 <Ionicons name="person-add" size={24} color="#10B981" />
               </View>
               <View>
-                <Text style={styles.menuTitle}>Öğrenci Kaydet</Text>
-                <Text style={styles.menuSubtitle}>Yeni öğrenci ekle</Text>
+                <Text style={styles.menuTitle}>Register Student</Text>
+                <Text style={styles.menuSubtitle}>Add new student</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -106,8 +106,8 @@ export default function MoreScreen() {
                 <Ionicons name="book" size={24} color="#A855F7" />
               </View>
               <View>
-                <Text style={styles.menuTitle}>Derslerim</Text>
-                <Text style={styles.menuSubtitle}>Aktif dersler</Text>
+                <Text style={styles.menuTitle}>My Classes</Text>
+                <Text style={styles.menuSubtitle}>Active classes</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -116,14 +116,14 @@ export default function MoreScreen() {
 
         {/* Settings Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ayarlar</Text>
+          <Text style={styles.sectionTitle}>Settings</Text>
           
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
               <View style={[styles.menuIcon, { backgroundColor: '#FEF3C7' }]}>
                 <Ionicons name="notifications" size={24} color="#F59E0B" />
               </View>
-              <Text style={styles.menuTitle}>Bildirimler</Text>
+              <Text style={styles.menuTitle}>Notifications</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -133,7 +133,7 @@ export default function MoreScreen() {
               <View style={[styles.menuIcon, { backgroundColor: '#EEF2FF' }]}>
                 <Ionicons name="lock-closed" size={24} color="#5B7FFF" />
               </View>
-              <Text style={styles.menuTitle}>Gizlilik ve Güvenlik</Text>
+              <Text style={styles.menuTitle}>Privacy & Security</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -146,7 +146,7 @@ export default function MoreScreen() {
               <View style={[styles.menuIcon, { backgroundColor: '#D1FAE5' }]}>
                 <Ionicons name="cog" size={24} color="#10B981" />
               </View>
-              <Text style={styles.menuTitle}>Genel Ayarlar</Text>
+              <Text style={styles.menuTitle}>General Settings</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -184,7 +184,7 @@ export default function MoreScreen() {
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-            <Text style={styles.logoutText}>Çıkış Yap</Text>
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
 

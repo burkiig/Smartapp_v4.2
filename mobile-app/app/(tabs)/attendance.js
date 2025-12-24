@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
 
@@ -19,7 +19,7 @@ export default function AttendanceScreen() {
     return <StudentProfile />;
   }
 
-  const [flaggedAttendance] = useState([
+  const [flaggedAttendance, setFlaggedAttendance] = useState([
     {
       id: 1,
       student: 'Sarah Johnson',
@@ -28,7 +28,8 @@ export default function AttendanceScreen() {
       timestamp: '2025-12-07 09:05',
       reason: 'Face verification failed',
       method: 'FACE',
-      location: '95%'
+      location: '95%',
+      status: 'pending'
     },
     {
       id: 2,
@@ -38,7 +39,8 @@ export default function AttendanceScreen() {
       timestamp: '2025-12-07 14:12',
       reason: 'GPS unstable',
       method: 'QR',
-      location: '62%'
+      location: '62%',
+      status: 'pending'
     },
     {
       id: 3,
@@ -48,7 +50,8 @@ export default function AttendanceScreen() {
       timestamp: '2025-12-07 09:08',
       reason: 'Device integrity warning',
       method: 'FACE + QR',
-      location: '88%'
+      location: '88%',
+      status: 'pending'
     },
     {
       id: 4,
@@ -58,104 +61,148 @@ export default function AttendanceScreen() {
       timestamp: '2025-12-07 14:15',
       reason: 'Location mismatch',
       method: 'QR',
-      location: '45%'
+      location: '45%',
+      status: 'pending'
     },
   ]);
 
   const handleApprove = (id) => {
-    console.log('Approved:', id);
+    setFlaggedAttendance(prev =>
+      prev.map(record =>
+        record.id === id ? { ...record, status: 'approved' } : record
+      )
+    );
   };
 
   const handleReject = (id) => {
-    console.log('Rejected:', id);
+    setFlaggedAttendance(prev =>
+      prev.map(record =>
+        record.id === id ? { ...record, status: 'rejected' } : record
+      )
+    );
+  };
+
+  const handleUndo = (id) => {
+    setFlaggedAttendance(prev =>
+      prev.map(record =>
+        record.id === id ? { ...record, status: 'pending' } : record
+      )
+    );
   };
 
   const handleViewDetails = (id) => {
     console.log('View details:', id);
   };
 
-  const renderFlaggedItem = ({ item }) => (
-    <View style={styles.flaggedCard}>
-      <View style={styles.flaggedHeader}>
-        <View style={styles.studentInfo}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {item.student.split(' ').map(n => n[0]).join('')}
-            </Text>
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'approved':
+        return { text: 'Approved', color: '#10B981', bgColor: '#D1FAE5' };
+      case 'rejected':
+        return { text: 'Rejected', color: '#EF4444', bgColor: '#FEE2E2' };
+      default:
+        return { text: 'Pending', color: '#92400E', bgColor: '#FEF3C7' };
+    }
+  };
+
+  const renderFlaggedItem = ({ item }) => {
+    const statusBadge = getStatusBadge(item.status);
+    
+    return (
+      <View style={styles.flaggedCard}>
+        <View style={styles.flaggedHeader}>
+          <View style={styles.studentInfo}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {item.student.split(' ').map(n => n[0]).join('')}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.studentName}>{item.student}</Text>
+              <Text style={styles.studentId}>{item.studentId}</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.studentName}>{item.student}</Text>
-            <Text style={styles.studentId}>{item.studentId}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusBadge.bgColor }]}>
+            <Text style={[styles.statusText, { color: statusBadge.color }]}>{statusBadge.text}</Text>
           </View>
         </View>
-        <View style={styles.pendingBadge}>
-          <Text style={styles.pendingText}>Bekliyor</Text>
-        </View>
-      </View>
 
-      <View style={styles.flaggedDetails}>
-        <View style={styles.detailRow}>
-          <Ionicons name="book-outline" size={16} color="#6B7280" />
-          <Text style={styles.detailText}>{item.course}</Text>
+        <View style={styles.flaggedDetails}>
+          <View style={styles.detailRow}>
+            <Ionicons name="book-outline" size={16} color="#6B7280" />
+            <Text style={styles.detailText}>{item.course}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="time-outline" size={16} color="#6B7280" />
+            <Text style={styles.detailText}>{item.timestamp}</Text>
+          </View>
         </View>
-        <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={16} color="#6B7280" />
-          <Text style={styles.detailText}>{item.timestamp}</Text>
-        </View>
-      </View>
 
-      <View style={styles.reasonContainer}>
-        <View style={styles.reasonBadge}>
-          <Ionicons name="alert-circle" size={16} color="#DC2626" />
-          <Text style={styles.reasonText}>{item.reason}</Text>
+        <View style={styles.reasonContainer}>
+          <View style={styles.reasonBadge}>
+            <Ionicons name="alert-circle" size={16} color="#DC2626" />
+            <Text style={styles.reasonText}>{item.reason}</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.flaggedFooter}>
-        <View style={styles.methodBadge}>
-          <Text style={styles.methodText}>{item.method}</Text>
+        <View style={styles.flaggedFooter}>
+          <View style={styles.methodBadge}>
+            <Text style={styles.methodText}>{item.method}</Text>
+          </View>
+          <View style={styles.locationBadge}>
+            <Ionicons name="location" size={14} color="#10B981" />
+            <Text style={styles.locationText}>{item.location}</Text>
+          </View>
         </View>
-        <View style={styles.locationBadge}>
-          <Ionicons name="location" size={14} color="#10B981" />
-          <Text style={styles.locationText}>{item.location}</Text>
-        </View>
-      </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.approveButton}
-          onPress={() => handleApprove(item.id)}
-        >
-          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-          <Text style={styles.approveButtonText}>Onayla</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.rejectButton}
-          onPress={() => handleReject(item.id)}
-        >
-          <Ionicons name="close-circle" size={20} color="#EF4444" />
-          <Text style={styles.rejectButtonText}>Reddet</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.detailsButton}
-          onPress={() => handleViewDetails(item.id)}
-        >
-          <Ionicons name="eye-outline" size={20} color="#5B7FFF" />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          {item.status === 'pending' ? (
+            <>
+              <TouchableOpacity 
+                style={styles.approveButton}
+                onPress={() => handleApprove(item.id)}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                <Text style={styles.approveButtonText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.rejectButton}
+                onPress={() => handleReject(item.id)}
+              >
+                <Ionicons name="close-circle" size={20} color="#EF4444" />
+                <Text style={styles.rejectButtonText}>Reject</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity 
+              style={styles.undoButton}
+              onPress={() => handleUndo(item.id)}
+            >
+              <Ionicons name="arrow-undo" size={20} color="#5B7FFF" />
+              <Text style={styles.undoButtonText}>Undo</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => handleViewDetails(item.id)}
+          >
+            <Ionicons name="eye-outline" size={20} color="#5B7FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Bayraklı Yoklamalar</Text>
-          <Text style={styles.headerSubtitle}>Manuel onay bekleyen kayıtlar</Text>
+          <Text style={styles.headerTitle}>Flagged Attendance</Text>
+          <Text style={styles.headerSubtitle}>Records awaiting manual approval</Text>
         </View>
         <View style={styles.countBadge}>
-          <Text style={styles.countText}>{flaggedAttendance.length}</Text>
+          <Text style={styles.countText}>{flaggedAttendance.filter(r => r.status === 'pending').length}</Text>
         </View>
       </View>
 
@@ -163,15 +210,15 @@ export default function AttendanceScreen() {
       <View style={styles.filterSection}>
         <TouchableOpacity style={styles.filterButton}>
           <Ionicons name="funnel-outline" size={18} color="#1F2937" />
-          <Text style={styles.filterButtonText}>Filtrele</Text>
+          <Text style={styles.filterButtonText}>Filter</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterButton}>
           <Ionicons name="swap-vertical-outline" size={18} color="#1F2937" />
-          <Text style={styles.filterButtonText}>Sırala</Text>
+          <Text style={styles.filterButtonText}>Sort</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.selectAllButton}>
           <Ionicons name="checkmark-done" size={18} color="#5B7FFF" />
-          <Text style={styles.selectAllText}>Tümünü Seç</Text>
+          <Text style={styles.selectAllText}>Select All</Text>
         </TouchableOpacity>
       </View>
 
@@ -315,16 +362,14 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
-  pendingBadge: {
-    backgroundColor: '#FEF3C7',
+  statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
-  pendingText: {
+  statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#92400E',
   },
   flaggedDetails: {
     flexDirection: 'row',
@@ -426,6 +471,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: '#EEF2FF',
+  },
+  undoButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#EEF2FF',
+  },
+  undoButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5B7FFF',
   },
 });
 

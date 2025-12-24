@@ -113,7 +113,7 @@ function ClassDetails({ classData, onBack }) {
                   </td>
                   <td>
                     <span className={`status-badge-small ${student.status}`}>
-                      {student.status === 'present' ? '✓ Present' : '○ Absent'}
+                      {student.status === 'present' ? '✓ Present' : student.status === 'excused' ? '📝 Excused' : '○ Absent'}
                     </span>
                     {student.flagged && <span className="flagged-text">• Flagged</span>}
                   </td>
@@ -122,9 +122,10 @@ function ClassDetails({ classData, onBack }) {
                       className="action-select"
                       onChange={(e) => handleMarkAttendance(student.id, e.target.value)}
                     >
-                      <option value="">Mark {student.status === 'present' ? 'Absent' : 'Present'}</option>
+                      <option value="">Change Status</option>
                       <option value="present">Mark Present</option>
                       <option value="absent">Mark Absent</option>
+                      <option value="excused">Mark Excused</option>
                     </select>
                   </td>
                 </tr>

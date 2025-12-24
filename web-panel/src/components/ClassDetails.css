@@ -580,6 +580,11 @@
   color: #DC2626;
 }
 
+.status-badge-small.excused {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
 .flagged-text {
   color: #F59E0B;
   font-size: 12px;

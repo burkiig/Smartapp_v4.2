@@ -7,8 +7,20 @@ export default function RootLayout() {
     <UserProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen 
+          name="index" 
+          options={{ 
+            gestureEnabled: false,
+            animation: 'none'
+          }} 
+        />
+        <Stack.Screen 
+          name="(tabs)" 
+          options={{ 
+            gestureEnabled: false,
+            headerShown: false
+          }} 
+        />
       </Stack>
     </UserProvider>
   );

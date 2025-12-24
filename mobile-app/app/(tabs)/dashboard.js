@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,7 +45,7 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Merhaba,</Text>
+            <Text style={styles.greeting}>Hello,</Text>
             <Text style={styles.userName}>{userName || 'Dr. Robert Chen'}</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
@@ -66,7 +66,7 @@ export default function DashboardScreen() {
           >
             <Ionicons name="calendar-outline" size={24} color="#5B7FFF" />
             <Text style={styles.statValue}>{todayStats.totalClassesToday}</Text>
-            <Text style={styles.statLabel}>Bugünkü Dersler</Text>
+            <Text style={styles.statLabel}>Today's Classes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -78,7 +78,7 @@ export default function DashboardScreen() {
           >
             <Ionicons name="play-circle-outline" size={24} color="#10B981" />
             <Text style={styles.statValue}>{todayStats.activeSession}</Text>
-            <Text style={styles.statLabel}>Aktif Oturum</Text>
+            <Text style={styles.statLabel}>Active Session</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -87,7 +87,7 @@ export default function DashboardScreen() {
           >
             <Ionicons name="flag-outline" size={24} color="#F59E0B" />
             <Text style={styles.statValue}>{todayStats.flaggedCount}</Text>
-            <Text style={styles.statLabel}>Bayraklı</Text>
+            <Text style={styles.statLabel}>Flagged</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -96,13 +96,13 @@ export default function DashboardScreen() {
           >
             <Ionicons name="people-outline" size={24} color="#A855F7" />
             <Text style={styles.statValue}>{todayStats.studentsOnline}</Text>
-            <Text style={styles.statLabel}>Aktif Öğrenci</Text>
+            <Text style={styles.statLabel}>Active Students</Text>
           </TouchableOpacity>
         </View>
 
         {/* Next Class */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sıradaki Ders</Text>
+          <Text style={styles.sectionTitle}>Next Class</Text>
           <TouchableOpacity 
             style={styles.classCard}
             onPress={() => router.push({
@@ -141,7 +141,7 @@ export default function DashboardScreen() {
               <View style={styles.attendanceBar}>
                 <View style={styles.attendanceInfo}>
                   <Text style={styles.attendanceText}>
-                    {nextClass.studentsPresent}/{nextClass.studentsEnrolled} Öğrenci
+                    {nextClass.studentsPresent}/{nextClass.studentsEnrolled} Students
                   </Text>
                   <Text style={styles.attendancePercent}>
                     {Math.round((nextClass.studentsPresent / nextClass.studentsEnrolled) * 100)}%
@@ -162,7 +162,7 @@ export default function DashboardScreen() {
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hızlı Aksiyonlar</Text>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
             <TouchableOpacity 
               style={styles.actionButton}
@@ -174,7 +174,7 @@ export default function DashboardScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#EEF2FF' }]}>
                 <Ionicons name="play-circle" size={28} color="#5B7FFF" />
               </View>
-              <Text style={styles.actionText}>Oturum Başlat</Text>
+              <Text style={styles.actionText}>Start Session</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -184,7 +184,7 @@ export default function DashboardScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#FEF3C7' }]}>
                 <Ionicons name="flag" size={28} color="#F59E0B" />
               </View>
-              <Text style={styles.actionText}>Bayraklıları Gör</Text>
+              <Text style={styles.actionText}>View Flagged</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -194,7 +194,7 @@ export default function DashboardScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#D1FAE5' }]}>
                 <Ionicons name="people" size={28} color="#10B981" />
               </View>
-              <Text style={styles.actionText}>Öğrenci Listesi</Text>
+              <Text style={styles.actionText}>Student List</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -204,7 +204,7 @@ export default function DashboardScreen() {
               <View style={[styles.actionIcon, { backgroundColor: '#F3E8FF' }]}>
                 <Ionicons name="document-text" size={28} color="#A855F7" />
               </View>
-              <Text style={styles.actionText}>Rapor Al</Text>
+              <Text style={styles.actionText}>Get Report</Text>
             </TouchableOpacity>
           </View>
         </View>

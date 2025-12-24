@@ -7,11 +7,14 @@ import {
   SafeAreaView,
   ScrollView,
   FlatList,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '../context/UserContext';
 import InstructorHistory from '../screens/InstructorHistory';
+import ExcuseModal from '../components/ExcuseModal';
+import { canSubmitExcuse, getExcuseStatusColor } from '../utils/excuseHelpers';
 
 const mockData = [
   {
@@ -21,22 +24,30 @@ const mockData = [
     location: 'Main Building',
     status: 'Present',
     method: 'Face ID',
+    canExcuse: false,
+    excuseStatus: null,
   },
   {
     id: '2',
     date: '2025-11-29',
     time: '09:15 AM',
     location: 'Main Building',
-    status: 'Late',
-    method: 'QR Code',
+    status: 'Absent',
+    method: null,
+    canExcuse: true,
+    excuseStatus: null,
   },
   {
     id: '3',
     date: '2025-11-28',
     time: '08:55 AM',
     location: 'Main Building',
-    status: 'Present',
-    method: 'Face ID',
+    status: 'Absent',
+    method: null,
+    canExcuse: true,
+    excuseStatus: 'pending',
+    excuseType: 'health',
+    excuseDate: '2025-11-28 10:30',
   },
   {
     id: '4',
@@ -45,46 +56,101 @@ const mockData = [
     location: 'Main Building',
     status: 'Present',
     method: 'QR Code',
+    canExcuse: false,
+    excuseStatus: null,
   },
   {
     id: '5',
     date: '2025-11-26',
     time: '08:30 AM',
     location: 'Main Building',
+    status: 'Absent',
+    method: null,
+    canExcuse: false,
+    excuseStatus: 'approved',
+    excuseType: 'school_activity',
+  },
+  {
+    id: '6',
+    date: '2025-11-25',
+    time: '09:00 AM',
+    location: 'Main Building',
     status: 'Late',
     method: 'Face ID',
+    canExcuse: false,
+    excuseStatus: null,
   },
 ];
 
 export default function HistoryScreen() {
   const { userType } = useUser();
   const [filter, setFilter] = useState('All');
+  const [showExcuseModal, setShowExcuseModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [attendanceData, setAttendanceData] = useState(mockData);
 
   // Instructor için ayrı ekran göster
   if (userType === 'instructor') {
     return <InstructorHistory />;
   }
 
-  const getStatusColor = (status) => {
+  const handleExcuseSubmit = (excuseData) => {
+    console.log('Excuse submitted:', excuseData);
+    
+    // Update the record with excuse status
+    setAttendanceData(prev =>
+      prev.map(record =>
+        record.id === excuseData.attendanceId
+          ? { ...record, excuseStatus: 'pending', excuseType: excuseData.type, excuseDate: excuseData.submittedAt }
+          : record
+      )
+    );
+    
+    Alert.alert('Success', 'Your excuse has been submitted for review');
+  };
+
+  const handleExcusePress = (record) => {
+    setSelectedRecord(record);
+    setShowExcuseModal(true);
+  };
+
+  const getStatusColor = (status, excuseStatus) => {
+    if (excuseStatus === 'approved') return '#10B981';
+    if (excuseStatus === 'pending') return '#F59E0B';
+    
     switch (status) {
       case 'Present':
         return '#10B981';
       case 'Late':
         return '#F59E0B';
+      case 'Absent':
+        return '#EF4444';
       default:
         return '#6B7280';
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status, excuseStatus) => {
+    if (excuseStatus === 'approved') return 'checkmark-done-circle';
+    if (excuseStatus === 'pending') return 'time';
+    
     switch (status) {
       case 'Present':
         return 'checkmark-circle';
       case 'Late':
         return 'time';
+      case 'Absent':
+        return 'close-circle';
       default:
         return 'close-circle';
     }
+  };
+
+  const getStatusLabel = (status, excuseStatus) => {
+    if (excuseStatus === 'approved') return 'Excused';
+    if (excuseStatus === 'pending') return 'Excuse Pending';
+    if (excuseStatus === 'rejected') return 'Absent';
+    return status;
   };
 
   const getMethodIcon = (method) => {
@@ -117,24 +183,35 @@ export default function HistoryScreen() {
           <Ionicons name="location" size={14} color="#9CA3AF" />
           {' ' + item.location}
         </Text>
+        
+        {/* Excuse Button for Absent records */}
+        {item.status === 'Absent' && !item.excuseStatus && item.canExcuse && (
+          <TouchableOpacity 
+            style={styles.excuseButton}
+            onPress={() => handleExcusePress(item)}
+          >
+            <Ionicons name="document-text" size={14} color="#5B7FFF" />
+            <Text style={styles.excuseButtonText}>Submit Excuse</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.recordRight}>
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: getStatusColor(item.status) + '20' },
+            { backgroundColor: getStatusColor(item.status, item.excuseStatus) + '20' },
           ]}
         >
           <Ionicons
-            name={getStatusIcon(item.status)}
+            name={getStatusIcon(item.status, item.excuseStatus)}
             size={16}
-            color={getStatusColor(item.status)}
+            color={getStatusColor(item.status, item.excuseStatus)}
           />
           <Text
-            style={[styles.statusText, { color: getStatusColor(item.status) }]}
+            style={[styles.statusText, { color: getStatusColor(item.status, item.excuseStatus) }]}
           >
-            {item.status}
+            {getStatusLabel(item.status, item.excuseStatus)}
           </Text>
         </View>
       </View>
@@ -230,11 +307,19 @@ export default function HistoryScreen() {
       </View>
 
       <FlatList
-        data={mockData}
+        data={attendanceData}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+      />
+
+      {/* Excuse Modal */}
+      <ExcuseModal
+        visible={showExcuseModal}
+        onClose={() => setShowExcuseModal(false)}
+        attendanceRecord={selectedRecord}
+        onSubmit={handleExcuseSubmit}
       />
     </SafeAreaView>
   );
@@ -454,5 +539,21 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  excuseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  excuseButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#5B7FFF',
   },
 });

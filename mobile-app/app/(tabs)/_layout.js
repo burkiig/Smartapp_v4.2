@@ -12,6 +12,7 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          gestureEnabled: false,
           tabBarActiveTintColor: '#5B7FFF',
           tabBarInactiveTintColor: '#9CA3AF',
           tabBarStyle: {
@@ -101,6 +102,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        gestureEnabled: false,
         tabBarActiveTintColor: '#5B7FFF',
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {

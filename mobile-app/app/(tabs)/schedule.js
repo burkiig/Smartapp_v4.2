@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   FlatList,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../context/UserContext';
+import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+const { width } = Dimensions.get('window');
 
 export default function ScheduleScreen() {
   const router = useRouter();
@@ -23,15 +28,51 @@ export default function ScheduleScreen() {
   }
 
   const [selectedFilter, setSelectedFilter] = useState('today');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(new Date().getDay()); // Start with today
+  
+  // Set selected day to today on mount
+  useEffect(() => {
+    const today = new Date();
+    setSelectedDay(today.getDay());
+  }, []);
+  
+  // Bottom Sheet refs
+  const bottomSheetRef = useRef(null);
+  const snapPoints = useMemo(() => ['65%'], []);
+  
+  // Callbacks
+  const handleOpenCalendar = useCallback(() => {
+    bottomSheetRef.current?.expand();
+  }, []);
+  
+  const handleCloseCalendar = useCallback(() => {
+    bottomSheetRef.current?.close();
+  }, []);
+  
+  const renderBackdrop = useCallback(
+    (props) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.5}
+      />
+    ),
+    []
+  );
 
-  const [classes] = useState([
+  // All classes data with day of week (0-6)
+  const [allClasses] = useState([
+    // Wednesday (3)
     {
       id: 1,
       course: 'CS101',
       title: 'Introduction to Programming',
       time: '09:00 - 10:30',
       room: 'Room 401',
-      day: 'today',
+      dayOfWeek: 3,
       status: 'completed',
       students: '42/45',
       color: '#10B981'
@@ -42,7 +83,7 @@ export default function ScheduleScreen() {
       title: 'Data Structures',
       time: '14:00 - 15:30',
       room: 'Lab 204',
-      day: 'today',
+      dayOfWeek: 3,
       status: 'in-progress',
       students: '28/38',
       color: '#F59E0B'
@@ -53,34 +94,74 @@ export default function ScheduleScreen() {
       title: 'Algorithms',
       time: '16:00 - 17:30',
       room: 'Room 405',
-      day: 'today',
+      dayOfWeek: 3,
       status: 'upcoming',
       students: '0/32',
       color: '#5B7FFF'
     },
+    // Monday (1)
     {
       id: 4,
       course: 'CS102',
       title: 'Advanced Programming',
       time: '10:00 - 11:30',
       room: 'Lab 301',
-      day: 'tomorrow',
+      dayOfWeek: 1,
       status: 'upcoming',
       students: '0/40',
       color: '#5B7FFF'
     },
     {
       id: 5,
-      course: 'CS202',
-      title: 'Database Systems',
-      time: '13:00 - 14:30',
-      room: 'Room 402',
-      day: 'thisweek',
+      course: 'CS150',
+      title: 'Web Development',
+      time: '14:00 - 15:30',
+      room: 'Lab 205',
+      dayOfWeek: 1,
       status: 'upcoming',
       students: '0/35',
       color: '#5B7FFF'
     },
+    // Tuesday (2)
+    {
+      id: 6,
+      course: 'CS202',
+      title: 'Database Systems',
+      time: '13:00 - 14:30',
+      room: 'Room 402',
+      dayOfWeek: 2,
+      status: 'upcoming',
+      students: '0/35',
+      color: '#5B7FFF'
+    },
+    // Thursday (4)
+    {
+      id: 7,
+      course: 'CS250',
+      title: 'Software Engineering',
+      time: '11:00 - 12:30',
+      room: 'Room 303',
+      dayOfWeek: 4,
+      status: 'upcoming',
+      students: '0/30',
+      color: '#5B7FFF'
+    },
+    // Friday (5)
+    {
+      id: 8,
+      course: 'CS302',
+      title: 'Machine Learning',
+      time: '15:00 - 16:30',
+      room: 'Lab 401',
+      dayOfWeek: 5,
+      status: 'upcoming',
+      students: '0/25',
+      color: '#5B7FFF'
+    },
   ]);
+  
+  // Filter classes by selected day
+  const filteredClasses = allClasses.filter(cls => cls.dayOfWeek === selectedDay);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -104,12 +185,79 @@ export default function ScheduleScreen() {
     }
   };
 
-  const filteredClasses = classes.filter(cls => {
-    if (selectedFilter === 'today') return cls.day === 'today';
-    if (selectedFilter === 'tomorrow') return cls.day === 'tomorrow';
-    if (selectedFilter === 'thisweek') return true;
-    return true;
-  });
+
+  // Calendar helper functions
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    return { daysInMonth, startingDayOfWeek };
+  };
+  
+  const formatMonthYear = (date) => {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+  
+  const getDayName = (dayIndex) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dayIndex];
+  };
+  
+  const getDayNumber = (date, dayIndex) => {
+    const today = new Date(date);
+    const currentDay = today.getDay();
+    const diff = dayIndex - currentDay;
+    today.setDate(today.getDate() + diff);
+    return today.getDate();
+  };
+  
+  const isSameDay = (date1, date2) => {
+    return date1.getDate() === date2.getDate() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getFullYear() === date2.getFullYear();
+  };
+  
+  const isToday = (date) => {
+    return isSameDay(date, new Date());
+  };
+  
+  const handleDateSelect = (day) => {
+    const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    setSelectedDate(newDate);
+    setSelectedDay(newDate.getDay()); // Update selected day to match the date
+    handleCloseCalendar();
+  };
+  
+  const handleDaySelect = (dayIndex) => {
+    setSelectedDay(dayIndex);
+    // Update selected date to match the day
+    const today = new Date();
+    const currentDay = today.getDay();
+    const diff = dayIndex - currentDay;
+    const newDate = new Date(today);
+    newDate.setDate(today.getDate() + diff);
+    setSelectedDate(newDate);
+  };
+  
+  const handlePreviousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+  };
+  
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+  };
+  
+  const handleToday = () => {
+    const today = new Date();
+    setCurrentMonth(today);
+    setSelectedDate(today);
+  };
 
   const renderClassItem = ({ item }) => (
     <TouchableOpacity 
@@ -146,49 +294,55 @@ export default function ScheduleScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Ders Programı</Text>
-          <Text style={styles.headerSubtitle}>Haftalık ders takvimi</Text>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Class Schedule</Text>
+            <Text style={styles.headerSubtitle}>Weekly class calendar</Text>
+          </View>
+          <TouchableOpacity style={styles.calendarButton} onPress={handleOpenCalendar}>
+            <Ionicons name="calendar-outline" size={24} color="#5B7FFF" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.calendarButton}>
-          <Ionicons name="calendar-outline" size={24} color="#5B7FFF" />
-        </TouchableOpacity>
-      </View>
 
-      {/* Filters */}
+      {/* Weekly Day Selector */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        style={styles.filterContainer}
-        contentContainerStyle={styles.filterContent}
+        style={styles.daySelector}
+        contentContainerStyle={styles.daySelectorContent}
       >
-        <TouchableOpacity
-          style={[styles.filterChip, selectedFilter === 'today' && styles.filterChipActive]}
-          onPress={() => setSelectedFilter('today')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'today' && styles.filterTextActive]}>
-            Bugün
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, selectedFilter === 'tomorrow' && styles.filterChipActive]}
-          onPress={() => setSelectedFilter('tomorrow')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'tomorrow' && styles.filterTextActive]}>
-            Yarın
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, selectedFilter === 'thisweek' && styles.filterChipActive]}
-          onPress={() => setSelectedFilter('thisweek')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'thisweek' && styles.filterTextActive]}>
-            Bu Hafta
-          </Text>
-        </TouchableOpacity>
+        {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
+          const today = new Date();
+          const isToday = today.getDay() === dayIndex;
+          const isSelected = selectedDay === dayIndex;
+          
+          return (
+            <TouchableOpacity
+              key={dayIndex}
+              style={[
+                styles.dayButton,
+                isSelected && styles.dayButtonActive,
+              ]}
+              onPress={() => handleDaySelect(dayIndex)}
+            >
+              <Text style={[
+                styles.dayName,
+                isSelected && styles.dayNameActive,
+              ]}>
+                {getDayName(dayIndex)}
+              </Text>
+              <Text style={[
+                styles.dayNumber,
+                isSelected && styles.dayNumberActive,
+              ]}>
+                {getDayNumber(today, dayIndex)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Class List */}
@@ -199,7 +353,93 @@ export default function ScheduleScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+      
+      {/* Bottom Sheet Calendar */}
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose={true}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={styles.bottomSheetBackground}
+        handleIndicatorStyle={styles.bottomSheetIndicator}
+      >
+        <View style={styles.calendarContainer}>
+          {/* Calendar Header */}
+          <View style={styles.calendarHeader}>
+            <TouchableOpacity onPress={handlePreviousMonth} style={styles.monthButton}>
+              <Ionicons name="chevron-back" size={24} color="#1F2937" />
+            </TouchableOpacity>
+            <Text style={styles.monthYearText}>{formatMonthYear(currentMonth)}</Text>
+            <TouchableOpacity onPress={handleNextMonth} style={styles.monthButton}>
+              <Ionicons name="chevron-forward" size={24} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Day Names */}
+          <View style={styles.dayNamesContainer}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+              <View key={index} style={styles.dayNameCell}>
+                <Text style={styles.dayNameText}>{day}</Text>
+              </View>
+            ))}
+          </View>
+          
+          {/* Calendar Grid */}
+          <View style={styles.calendarGrid}>
+            {(() => {
+              const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
+              const days = [];
+              
+              // Empty cells before first day
+              for (let i = 0; i < startingDayOfWeek; i++) {
+                days.push(
+                  <View key={`empty-${i}`} style={styles.dayCell} />
+                );
+              }
+              
+              // Days of the month
+              for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                const isSelected = isSameDay(currentDate, selectedDate);
+                const isTodayDate = isToday(currentDate);
+                
+                days.push(
+                  <TouchableOpacity
+                    key={day}
+                    style={[
+                      styles.dayCell,
+                      isSelected && styles.selectedDayCell,
+                      isTodayDate && !isSelected && styles.todayDayCell,
+                    ]}
+                    onPress={() => handleDateSelect(day)}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        isSelected && styles.selectedDayText,
+                        isTodayDate && !isSelected && styles.todayDayText,
+                      ]}
+                    >
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              return days;
+            })()}
+          </View>
+          
+          {/* Today Button */}
+          <TouchableOpacity style={styles.todayButton} onPress={handleToday}>
+            <Ionicons name="today-outline" size={20} color="#5B7FFF" />
+            <Text style={styles.todayButtonText}>Go to Today</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -235,32 +475,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filterContainer: {
+  daySelector: {
     marginTop: 16,
     marginBottom: 16,
   },
-  filterContent: {
+  daySelectorContent: {
     paddingHorizontal: 20,
-    gap: 8,
+    gap: 12,
   },
-  filterChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
+  dayButton: {
+    width: 56,
+    height: 72,
+    borderRadius: 16,
     backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  filterChipActive: {
+  dayButtonActive: {
     backgroundColor: '#5B7FFF',
     borderColor: '#5B7FFF',
   },
-  filterText: {
-    fontSize: 13,
-    fontWeight: '500',
+  dayName: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#6B7280',
+    marginBottom: 4,
   },
-  filterTextActive: {
+  dayNameActive: {
+    color: '#fff',
+  },
+  dayNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  dayNumberActive: {
     color: '#fff',
   },
   listContent: {
@@ -331,6 +582,104 @@ const styles = StyleSheet.create({
   },
   studentCount: {
     fontSize: 13,
+    fontWeight: '600',
+    color: '#5B7FFF',
+  },
+  // Bottom Sheet Styles
+  bottomSheetBackground: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  bottomSheetIndicator: {
+    backgroundColor: '#D1D5DB',
+    width: 40,
+    height: 4,
+  },
+  calendarContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  monthButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthYearText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  dayNamesContainer: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  dayNameCell: {
+    width: (width - 40) / 7,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  dayNameText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+  },
+  dayCell: {
+    width: (width - 40) / 7,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  selectedDayCell: {
+    backgroundColor: '#5B7FFF',
+    borderRadius: 12,
+  },
+  todayDayCell: {
+    borderWidth: 2,
+    borderColor: '#5B7FFF',
+    borderRadius: 12,
+  },
+  dayText: {
+    fontSize: 15,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  selectedDayText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  todayDayText: {
+    color: '#5B7FFF',
+    fontWeight: '700',
+  },
+  todayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  todayButtonText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#5B7FFF',
   },
