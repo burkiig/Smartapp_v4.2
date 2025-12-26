@@ -1,10 +1,23 @@
-.settings-container {
+.settings-page-container {
   max-width: 900px;
   margin: 0 auto;
+  padding: 24px;
 }
 
 .settings-header {
   margin-bottom: 32px;
+}
+
+.page-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1d1d1f;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #6B7280;
 }
 
 .settings-content {
@@ -14,7 +27,7 @@
   margin-bottom: 32px;
 }
 
-/* Settings Section */
+/* Settings Section (Card-like) */
 .settings-section {
   background: white;
   border-radius: 12px;
@@ -265,24 +278,6 @@ input:checked + .toggle-slider:before {
   justify-content: flex-end;
 }
 
-.save-btn {
-  padding: 12px 32px;
-  background: #0071e3;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.save-btn:hover {
-  background: #0077ed;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .settings-section {
@@ -297,8 +292,8 @@ input:checked + .toggle-slider:before {
     flex-direction: column;
   }
 
-  .save-btn {
-    width: 100%;
+  .settings-footer {
+    position: relative;
   }
 }
 

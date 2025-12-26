@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import './WeeklySchedule.css';
+import './WeeklySchedulePage.css';
 
-function WeeklySchedule() {
+export const WeeklySchedulePage = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -185,8 +185,5 @@ function WeeklySchedule() {
       </div>
     </div>
   );
-}
-
-export default WeeklySchedule;
-
+};
 

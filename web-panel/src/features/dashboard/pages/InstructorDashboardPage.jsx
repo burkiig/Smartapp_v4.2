@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import Dashboard from '../../../components/Dashboard';
-import WeeklySchedule from '../../../components/WeeklySchedule';
 import Register from '../../../components/Register';
 import { AttendancePage } from '../../attendance/pages';
 import { StudentsPage } from '../../attendance/pages/StudentsPage';
 import { RecordsPage } from '../../attendance/pages/RecordsPage';
-import Settings from '../../../components/Settings';
+import { WeeklySchedulePage } from '../../schedule/pages/WeeklySchedulePage';
+import { SettingsPage } from '../../settings/pages/SettingsPage';
 import './InstructorDashboardPage.css';
 
 const INSTRUCTOR_MENU_ITEMS = [
@@ -27,7 +27,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
       case 'dashboard':
         return <Dashboard />;
       case 'schedule':
-        return <WeeklySchedule />;
+        return <WeeklySchedulePage />;
       case 'register':
         return <Register />;
       case 'attendance':
@@ -37,7 +37,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
       case 'reports':
         return <RecordsPage />;
       case 'settings':
-        return <Settings />;
+        return <SettingsPage />;
       default:
         return <Dashboard />;
     }

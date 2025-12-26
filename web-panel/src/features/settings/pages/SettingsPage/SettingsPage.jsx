@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import './Settings.css';
+import { Button } from '../../../../shared/components/ui/Button';
+import './SettingsPage.css';
 
-function Settings() {
+export const SettingsPage = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [notifyFlagged, setNotifyFlagged] = useState(true);
@@ -19,7 +20,7 @@ function Settings() {
   };
 
   return (
-    <div className="settings-container">
+    <div className="settings-page-container">
       <div className="settings-header">
         <h1 className="page-title">Settings</h1>
         <p className="page-subtitle">Manage your preferences and notifications</p>
@@ -204,13 +205,11 @@ function Settings() {
 
       {/* Save Button */}
       <div className="settings-footer">
-        <button className="save-btn" onClick={handleSave}>
+        <Button onClick={handleSave} variant="primary" size="large">
           Save Changes
-        </button>
+        </Button>
       </div>
     </div>
   );
-}
-
-export default Settings;
+};
 
