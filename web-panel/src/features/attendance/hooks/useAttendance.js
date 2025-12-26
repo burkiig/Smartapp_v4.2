@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   fetchFlaggedRecords,
   approveFlaggedRecord,
@@ -93,19 +93,19 @@ export const useAttendance = () => {
     }
   }, []);
 
-  // Filter records by active tab
-  const filteredRecords = flaggedRecords.filter(record => {
-    if (activeTab === 'all') return true;
-    return record.status === activeTab;
-  });
+  // Memoize filtered records to prevent unnecessary re-renders
+  const filteredRecords = useMemo(() => {
+    if (activeTab === 'all') return flaggedRecords;
+    return flaggedRecords.filter(record => record.status === activeTab);
+  }, [flaggedRecords, activeTab]);
 
-  // Get tab counts
-  const tabCounts = {
+  // Memoize tab counts to prevent unnecessary recalculations
+  const tabCounts = useMemo(() => ({
     all: flaggedRecords.length,
     pending: flaggedRecords.filter(r => r.status === 'pending').length,
     approved: flaggedRecords.filter(r => r.status === 'approved').length,
     rejected: flaggedRecords.filter(r => r.status === 'rejected').length
-  };
+  }), [flaggedRecords]);
 
   return {
     flaggedRecords,

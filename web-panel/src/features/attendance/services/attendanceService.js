@@ -51,15 +51,17 @@ const mockFlaggedRecords = [
  */
 export const fetchFlaggedRecords = async () => {
   try {
-    const response = await axios.get(`${API_URL}/api/attendance/flagged`);
-    if (response.data.success) {
+    const response = await axios.get(`${API_URL}/api/attendance/flagged`, {
+      timeout: 5000 // 5 second timeout
+    });
+    if (response.data && response.data.success) {
       return { success: true, data: response.data.records || [] };
     }
-    throw new Error('Failed to fetch flagged records');
+    throw new Error('Invalid response format');
   } catch (error) {
-    console.error('Error fetching flagged records:', error);
-    // Return mock data on error
-    return { success: true, data: mockFlaggedRecords };
+    console.warn('API unavailable, using mock data:', error.message);
+    // Return mock data on error - system continues to work
+    return { success: true, data: [...mockFlaggedRecords] };
   }
 };
 

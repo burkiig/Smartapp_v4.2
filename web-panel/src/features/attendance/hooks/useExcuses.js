@@ -52,40 +52,56 @@ export const useExcuses = () => {
 
   // Approve excuse
   const approve = useCallback(async (excuseId) => {
+    console.log('🟢 useExcuses.approve called with ID:', excuseId);
     try {
+      console.log('⏳ Calling approveExcuse service...');
       const result = await approveExcuse(excuseId);
-      if (result.success) {
-        setExcuseRecords(prev =>
-          prev.map(record =>
+      console.log('📦 approveExcuse service result:', result);
+      
+      if (result && result.success) {
+        console.log('✅ Service call successful, updating state...');
+        setExcuseRecords(prev => {
+          const updated = prev.map(record =>
             record.id === excuseId ? { ...record, status: 'approved' } : record
-          )
-        );
+          );
+          console.log('🔄 State updated. New records:', updated);
+          return updated;
+        });
         return { success: true };
       }
+      console.warn('⚠️ Service returned unsuccessful result');
       return { success: false, error: 'Failed to approve excuse' };
     } catch (err) {
-      console.error('Error approving excuse:', err);
+      console.error('❌ Error in useExcuses.approve:', err);
       return { success: false, error: err.message };
     }
   }, []);
 
   // Reject excuse
   const reject = useCallback(async (excuseId, reason) => {
+    console.log('🔴 useExcuses.reject called with ID:', excuseId, 'Reason:', reason);
     try {
+      console.log('⏳ Calling rejectExcuse service...');
       const result = await rejectExcuse(excuseId, reason);
-      if (result.success) {
-        setExcuseRecords(prev =>
-          prev.map(record =>
+      console.log('📦 rejectExcuse service result:', result);
+      
+      if (result && result.success) {
+        console.log('✅ Service call successful, updating state...');
+        setExcuseRecords(prev => {
+          const updated = prev.map(record =>
             record.id === excuseId 
               ? { ...record, status: 'rejected', rejectReason: reason } 
               : record
-          )
-        );
+          );
+          console.log('🔄 State updated. New records:', updated);
+          return updated;
+        });
         return { success: true };
       }
+      console.warn('⚠️ Service returned unsuccessful result');
       return { success: false, error: 'Failed to reject excuse' };
     } catch (err) {
-      console.error('Error rejecting excuse:', err);
+      console.error('❌ Error in useExcuses.reject:', err);
       return { success: false, error: err.message };
     }
   }, []);

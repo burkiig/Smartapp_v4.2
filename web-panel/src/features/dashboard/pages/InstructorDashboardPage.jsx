@@ -3,7 +3,7 @@ import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import Dashboard from '../../../components/Dashboard';
 import WeeklySchedule from '../../../components/WeeklySchedule';
 import Register from '../../../components/Register';
-import Attendance from '../../../components/Attendance';
+import { AttendancePage } from '../../attendance/pages';
 import Students from '../../../components/Students';
 import Records from '../../../components/Records';
 import Settings from '../../../components/Settings';
@@ -31,7 +31,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
       case 'register':
         return <Register />;
       case 'attendance':
-        return <Attendance />;
+        return <AttendancePage />;
       case 'students':
         return <Students />;
       case 'reports':

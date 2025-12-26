@@ -4,18 +4,91 @@ import './ExcuseDetailsModal.css';
 function ExcuseDetailsModal({ excuse, onClose, onApprove, onReject }) {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleApprove = () => {
-    onApprove(excuse.id);
-    onClose();
+  // Props validation
+  if (!onApprove || !onReject) {
+    console.error('ExcuseDetailsModal: onApprove or onReject props are missing!', {
+      onApprove: !!onApprove,
+      onReject: !!onReject
+    });
+  }
+
+  const handleApprove = async () => {
+    console.log('🔵 Approve button clicked for excuse ID:', excuse.id);
+    
+    if (!onApprove) {
+      console.error('❌ onApprove function is not provided!');
+      alert('Error: Approve function is not available');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      console.log('⏳ Calling onApprove...');
+      const result = await onApprove(excuse.id);
+      console.log('✅ onApprove result:', result);
+      
+      if (result && result.success) {
+        console.log('✅ Approve successful, closing modal');
+        onClose();
+      } else {
+        console.warn('⚠️ Approve returned unsuccessful result:', result);
+        alert(result?.error || 'Failed to approve excuse');
+      }
+    } catch (error) {
+      console.error('❌ Error in handleApprove:', error);
+      alert('An error occurred while approving the excuse');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleReject = () => {
-    if (rejectReason.trim()) {
-      onReject(excuse.id, rejectReason);
-      onClose();
-    } else {
+  const handleReject = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    console.log('🔴 handleReject called for excuse ID:', excuse.id);
+    console.log('📝 Current rejectReason:', rejectReason);
+    console.log('🔧 onReject type:', typeof onReject);
+    console.log('🔧 onReject value:', onReject);
+    
+    if (!rejectReason || !rejectReason.trim()) {
+      console.warn('⚠️ Reject reason is empty');
       alert('Please provide a reason for rejection');
+      return;
+    }
+
+    if (!onReject) {
+      console.error('❌ onReject function is not provided!');
+      console.error('❌ Props received:', { excuse: !!excuse, onClose: !!onClose, onApprove: !!onApprove, onReject: !!onReject });
+      alert('Error: Reject function is not available. Please check console for details.');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      console.log('⏳ Calling onReject with ID:', excuse.id, 'and reason:', rejectReason);
+      const result = await onReject(excuse.id, rejectReason);
+      console.log('✅ onReject returned result:', result);
+      
+      if (result && result.success) {
+        console.log('✅ Reject successful, closing modal');
+        onClose();
+      } else {
+        console.warn('⚠️ Reject returned unsuccessful result:', result);
+        const errorMsg = result?.error || 'Failed to reject excuse';
+        alert(errorMsg);
+        console.error('❌ Reject failed with error:', errorMsg);
+      }
+    } catch (error) {
+      console.error('❌ Error in handleReject:', error);
+      console.error('❌ Error stack:', error.stack);
+      alert('An error occurred while rejecting the excuse: ' + error.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -123,10 +196,18 @@ function ExcuseDetailsModal({ excuse, onClose, onApprove, onReject }) {
         {/* Actions */}
         {!showRejectInput ? (
           <div className="excuse-actions">
-            <button className="excuse-btn approve-btn" onClick={handleApprove}>
-              ✓ Approve Excuse
+            <button 
+              className="excuse-btn approve-btn" 
+              onClick={handleApprove}
+              disabled={isProcessing || !onApprove}
+            >
+              {isProcessing ? '⏳ Processing...' : '✓ Approve Excuse'}
             </button>
-            <button className="excuse-btn reject-btn" onClick={() => setShowRejectInput(true)}>
+            <button 
+              className="excuse-btn reject-btn" 
+              onClick={() => setShowRejectInput(true)}
+              disabled={isProcessing}
+            >
               ✗ Reject Excuse
             </button>
           </div>
@@ -136,15 +217,67 @@ function ExcuseDetailsModal({ excuse, onClose, onApprove, onReject }) {
               className="reject-reason-input"
               placeholder="Please provide a reason for rejection..."
               value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                console.log('📝 Reject reason changed:', value);
+                setRejectReason(value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.ctrlKey && rejectReason.trim() && !isProcessing) {
+                  e.preventDefault();
+                  handleReject(e);
+                }
+              }}
               rows={3}
+              disabled={isProcessing}
             />
             <div className="excuse-actions">
-              <button className="excuse-btn secondary-btn" onClick={() => setShowRejectInput(false)}>
+              <button 
+                className="excuse-btn secondary-btn" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowRejectInput(false);
+                  setRejectReason('');
+                }}
+                disabled={isProcessing}
+              >
                 Cancel
               </button>
-              <button className="excuse-btn reject-btn" onClick={handleReject}>
-                Confirm Rejection
+              <button 
+                className="excuse-btn reject-btn" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔴 Confirm Rejection button clicked');
+                  console.log('📝 Reject reason value:', rejectReason);
+                  console.log('📝 Reject reason trimmed:', rejectReason.trim());
+                  console.log('📝 Reject reason length:', rejectReason.trim().length);
+                  console.log('🔧 onReject function exists:', !!onReject);
+                  console.log('🔧 onReject type:', typeof onReject);
+                  console.log('⏳ isProcessing:', isProcessing);
+                  
+                  if (!rejectReason.trim()) {
+                    console.warn('⚠️ Cannot reject: reason is empty');
+                    alert('Please provide a reason for rejection');
+                    return;
+                  }
+                  
+                  if (!onReject) {
+                    console.error('❌ Cannot reject: onReject is not provided');
+                    alert('Error: Reject function is not available');
+                    return;
+                  }
+                  
+                  handleReject(e);
+                }}
+                disabled={isProcessing}
+                style={{ 
+                  opacity: (!rejectReason.trim() || isProcessing) ? 0.5 : 1,
+                  cursor: (!rejectReason.trim() || isProcessing) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isProcessing ? '⏳ Processing...' : 'Confirm Rejection'}
               </button>
             </div>
           </div>

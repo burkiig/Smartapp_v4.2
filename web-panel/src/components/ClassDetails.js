@@ -1,10 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useClassDetails } from '../features/attendance/hooks/useClassDetails';
+import { Badge } from '../shared/components/ui/Badge';
 import './ClassDetails.css';
 
 function ClassDetails({ classData, onBack }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showManualAttendance, setShowManualAttendance] = useState(false);
   const [cancelReason, setCancelReason] = useState('Instructor unavailable');
+  
+  // Initialize students state with mock data
+  const [students, setStudents] = useState([
+    { id: 'STU12001', name: 'Alice Anderson', status: 'present', avatar: 'AA' },
+    { id: 'STU12002', name: 'Bob Brown', status: 'present', avatar: 'BB' },
+    { id: 'STU12003', name: 'Charlie Davis', status: 'absent', avatar: 'CD' },
+    { id: 'STU12004', name: 'Diana Evans', status: 'absent', avatar: 'DE', flagged: true },
+    { id: 'STU12005', name: 'Ethan Foster', status: 'present', avatar: 'EF' },
+    { id: 'STU12006', name: 'Fiona Garcia', status: 'present', avatar: 'FG' },
+    { id: 'STU12007', name: 'George Harris', status: 'present', avatar: 'GH' },
+    { id: 'STU12008', name: 'Hannah Irving', status: 'absent', avatar: 'HI' },
+    { id: 'STU12009', name: 'Ian Johnson', status: 'present', avatar: 'IJ' },
+    { id: 'STU12010', name: 'Julie King', status: 'present', avatar: 'JK' }
+  ]);
+
+  const { markAttendance: markAttendanceHook, cancelClass: cancelClassHook } = useClassDetails();
 
   // Mock data
   const classInfo = {
@@ -33,26 +51,34 @@ function ClassDetails({ classData, onBack }) {
     systemNote: 'The system automatically opened and closed the attendance session. No manual intervention was required.'
   };
 
-  const students = [
-    { id: 'STU12001', name: 'Alice Anderson', status: 'present', avatar: 'AA' },
-    { id: 'STU12002', name: 'Bob Brown', status: 'present', avatar: 'BB' },
-    { id: 'STU12003', name: 'Charlie Davis', status: 'absent', avatar: 'CD' },
-    { id: 'STU12004', name: 'Diana Evans', status: 'absent', avatar: 'DE', flagged: true },
-    { id: 'STU12005', name: 'Ethan Foster', status: 'present', avatar: 'EF' },
-    { id: 'STU12006', name: 'Fiona Garcia', status: 'present', avatar: 'FG' },
-    { id: 'STU12007', name: 'George Harris', status: 'present', avatar: 'GH' },
-    { id: 'STU12008', name: 'Hannah Irving', status: 'absent', avatar: 'HI' },
-    { id: 'STU12009', name: 'Ian Johnson', status: 'present', avatar: 'IJ' },
-    { id: 'STU12010', name: 'Julie King', status: 'present', avatar: 'JK' }
-  ];
+  // Calculate stats from students state
+  const stats = useMemo(() => {
+    const present = students.filter(s => s.status === 'present').length;
+    const absent = students.filter(s => s.status === 'absent').length;
+    const flagged = students.filter(s => s.flagged).length;
+    return { present, absent, flagged, total: students.length };
+  }, [students]);
 
-  const handleCancelClass = () => {
-    alert(`Class cancelled. Reason: ${cancelReason}`);
-    setShowCancelModal(false);
+  const handleCancelClass = async () => {
+    const result = await cancelClassHook(cancelReason);
+    if (result.success) {
+      alert(`Class cancelled. Reason: ${cancelReason}`);
+      setShowCancelModal(false);
+    }
   };
 
-  const handleMarkAttendance = (studentId, newStatus) => {
-    alert(`Marking ${studentId} as ${newStatus}`);
+  const handleMarkAttendance = async (studentId, newStatus) => {
+    if (!newStatus) return; // Don't update if no status selected
+    
+    // Update local state immediately for reactive UI
+    setStudents(prev => 
+      prev.map(student => 
+        student.id === studentId ? { ...student, status: newStatus } : student
+      )
+    );
+    
+    // Call hook to persist to backend
+    await markAttendanceHook(studentId, newStatus);
   };
 
   if (showManualAttendance) {
@@ -69,15 +95,15 @@ function ClassDetails({ classData, onBack }) {
         <div className="manual-stats">
           <div className="manual-stat">
             <div className="manual-stat-label">Total Students</div>
-            <div className="manual-stat-value">{classInfo.totalStudents}</div>
+            <div className="manual-stat-value">{stats.total}</div>
           </div>
           <div className="manual-stat">
             <div className="manual-stat-label">Present</div>
-            <div className="manual-stat-value green">{classInfo.present}</div>
+            <div className="manual-stat-value green">{stats.present}</div>
           </div>
           <div className="manual-stat">
             <div className="manual-stat-label">Absent</div>
-            <div className="manual-stat-value red">{classInfo.absent}</div>
+            <div className="manual-stat-value red">{stats.absent}</div>
           </div>
         </div>
 
@@ -112,17 +138,29 @@ function ClassDetails({ classData, onBack }) {
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge-small ${student.status}`}>
-                      {student.status === 'present' ? '✓ Present' : student.status === 'excused' ? '📝 Excused' : '○ Absent'}
-                    </span>
-                    {student.flagged && <span className="flagged-text">• Flagged</span>}
+                    <Badge 
+                      variant={
+                        student.status === 'present' ? 'success' : 
+                        student.status === 'excused' ? 'info' : 
+                        'error'
+                      }
+                    >
+                      {student.status === 'present' ? '✓ Present' : 
+                       student.status === 'excused' ? '📝 Excused' : 
+                       '○ Absent'}
+                    </Badge>
+                    {student.flagged && (
+                      <Badge variant="warning" size="small" style={{ marginLeft: '8px' }}>
+                        • Flagged
+                      </Badge>
+                    )}
                   </td>
                   <td>
                     <select 
                       className="action-select"
+                      value={student.status}
                       onChange={(e) => handleMarkAttendance(student.id, e.target.value)}
                     >
-                      <option value="">Change Status</option>
                       <option value="present">Mark Present</option>
                       <option value="absent">Mark Absent</option>
                       <option value="excused">Mark Excused</option>
