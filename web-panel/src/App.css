@@ -1,6 +1,6 @@
 .App {
   min-height: 100vh;
-  background: #f7fafc;
+  background: #F8FAFC;
 }
 
 /* Loading Styles */
@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
   color: white;
 }
 
@@ -113,29 +113,30 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #f7fafc;
+  background: #F8FAFC;
   padding: 32px;
 }
 
 .error-container h2 {
-  color: #dc2626;
+  color: #DC2626;
   margin-bottom: 16px;
+  font-weight: 600;
 }
 
 .error-container button {
   padding: 12px 24px;
-  background: #dc2626;
+  background: #3B82F6;
   color: white;
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .error-container button:hover {
-  background: #b91c1c;
+  background: #2563EB;
   transform: translateY(-2px);
 }
 

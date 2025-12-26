@@ -10,14 +10,14 @@
 
 .page-title {
   font-size: 32px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-weight: 600;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #6B7280;
+  color: #64748B;
 }
 
 .settings-content {
@@ -29,11 +29,11 @@
 
 /* Settings Section (Card-like) */
 .settings-section {
-  background: white;
+  background: #FFFFFF;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
   display: flex;
   gap: 20px;
 }
@@ -55,7 +55,7 @@
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #1E293B;
   margin-bottom: 20px;
 }
 
@@ -78,14 +78,14 @@
 
 .setting-label {
   font-size: 15px;
-  font-weight: 600;
-  color: #1d1d1f;
+  font-weight: 500;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
 .setting-description {
   font-size: 13px;
-  color: #6B7280;
+  color: #64748B;
 }
 
 /* Toggle Switch */
@@ -127,7 +127,7 @@
 }
 
 input:checked + .toggle-slider {
-  background-color: #0071e3;
+  background-color: #3B82F6;
 }
 
 input:checked + .toggle-slider:before {
@@ -184,8 +184,8 @@ input:checked + .toggle-slider:before {
 .form-label {
   display: block;
   font-size: 14px;
-  font-weight: 600;
-  color: #1d1d1f;
+  font-weight: 500;
+  color: #1E293B;
   margin-bottom: 8px;
 }
 
@@ -193,10 +193,10 @@ input:checked + .toggle-slider:before {
 .form-select {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #d1d1d6;
+  border: 1px solid #E2E8F0;
   border-radius: 8px;
   font-size: 15px;
-  color: #1d1d1f;
+  color: #1E293B;
   background: white;
   transition: all 0.2s ease;
 }
@@ -204,8 +204,8 @@ input:checked + .toggle-slider:before {
 .form-input:focus,
 .form-select:focus {
   outline: none;
-  border-color: #0071e3;
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.1);
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-select {
@@ -242,8 +242,8 @@ input:checked + .toggle-slider:before {
 }
 
 .theme-option.active {
-  border-color: #0071e3;
-  background: #EEF2FF;
+  border-color: #3B82F6;
+  background: #EFF6FF;
 }
 
 .theme-preview {

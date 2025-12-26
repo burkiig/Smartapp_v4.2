@@ -122,7 +122,7 @@ export const WeeklySchedulePage = () => {
                       className={`schedule-slot ${classItem ? 'has-class' : ''}`}
                       style={classItem ? {
                         gridRow: `span ${classItem.duration}`,
-                        background: '#0071e3'
+                        background: '#3B82F6'
                       } : {}}
                     >
                       {classItem && (
@@ -145,7 +145,7 @@ export const WeeklySchedulePage = () => {
 
       <div className="schedule-legend">
         <div className="legend-item">
-          <div className="legend-color" style={{background: '#0071e3'}}></div>
+          <div className="legend-color" style={{background: '#3B82F6'}}></div>
           <span>Scheduled Class</span>
         </div>
         <div className="legend-item">

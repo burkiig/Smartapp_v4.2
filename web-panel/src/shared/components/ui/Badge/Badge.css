@@ -2,10 +2,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: 9999px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: capitalize;
   white-space: nowrap;
 }
@@ -22,8 +22,8 @@
 }
 
 .badge--success {
-  background: #d1fae5;
-  color: #065f46;
+  background: #D1FAE5;
+  color: #047857;
 }
 
 .badge--warning {
@@ -32,8 +32,8 @@
 }
 
 .badge--error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #FEE2E2;
+  color: #B91C1C;
 }
 
 .badge--info {

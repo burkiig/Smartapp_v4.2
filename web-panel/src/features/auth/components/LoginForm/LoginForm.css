@@ -1,5 +1,8 @@
 .login-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   padding: 48px;
@@ -50,12 +53,12 @@
 .logo-icon-container {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
   animation: pulse 2s ease-in-out infinite;
   position: relative;
   overflow: hidden;
@@ -108,8 +111,8 @@
 
 .logo-text {
   font-size: 24px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 600;
+  background: linear-gradient(135deg, #3B82F6 0%, #1E293B 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -130,14 +133,14 @@
 
 .login-title {
   font-size: 28px;
-  font-weight: 700;
-  color: #1a202c;
+  font-weight: 600;
+  color: #1E293B;
   margin: 0 0 8px 0;
 }
 
 .login-subtitle {
   font-size: 16px;
-  color: #718096;
+  color: #64748B;
   margin: 0;
 }
 
@@ -152,10 +155,10 @@
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #fee;
-  border: 1px solid #fcc;
+  background: #F8FAFC;
+  border: 1px solid #FEE2E2;
   border-radius: 8px;
-  color: #c33;
+  color: #DC2626;
   font-size: 14px;
   animation: shake 0.5s ease;
 }
@@ -201,8 +204,8 @@
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-input::placeholder {
@@ -212,9 +215,10 @@
 .demo-credentials {
   margin-top: 8px;
   padding: 16px;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .demo-title {
@@ -249,7 +253,7 @@
 
 .demo-creds {
   font-family: 'Courier New', monospace;
-  color: #667eea;
+  color: #3B82F6;
   font-weight: 600;
 }
 

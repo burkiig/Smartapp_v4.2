@@ -1,29 +1,29 @@
 .sidebar {
   width: 280px;
-  background: white;
-  border-right: 1px solid #e2e8f0;
+  background: #0F172A;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
   height: 100vh;
 }
 
 .sidebar-header {
   padding: 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .app-title {
   margin: 0 0 4px 0;
   font-size: 20px;
-  font-weight: 700;
-  color: #1a202c;
+  font-weight: 600;
+  color: #FFFFFF;
 }
 
 .app-subtitle {
   margin: 0;
   font-size: 14px;
-  color: #718096;
+  color: #94A3B8;
 }
 
 .sidebar-nav {
@@ -44,21 +44,21 @@
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
-  color: #4a5568;
+  color: #CBD5E1;
   font-size: 14px;
   font-weight: 500;
   position: relative;
 }
 
 .nav-item:hover {
-  background: #f7fafc;
-  color: #1a202c;
+  background: rgba(59, 130, 246, 0.1);
+  color: #FFFFFF;
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  background: #3B82F6;
   color: white;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .nav-icon {
@@ -84,7 +84,7 @@
 
 .sidebar-footer {
   padding: 16px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .user-info {
@@ -92,16 +92,17 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f7fafc;
+  background: rgba(59, 130, 246, 0.1);
   border-radius: 10px;
   margin-bottom: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .user-avatar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,7 +120,7 @@
 .user-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1a202c;
+  color: #FFFFFF;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,7 +129,7 @@
 .user-dept,
 .user-id {
   font-size: 12px;
-  color: #718096;
+  color: #94A3B8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -141,10 +142,10 @@
   gap: 8px;
   width: 100%;
   padding: 12px;
-  background: #fee;
-  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 10px;
-  color: #991b1b;
+  color: #FCA5A5;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -152,7 +153,8 @@
 }
 
 .logout-btn:hover {
-  background: #fecaca;
+  background: rgba(239, 68, 68, 0.2);
+  color: #FFFFFF;
   transform: translateY(-2px);
 }
 

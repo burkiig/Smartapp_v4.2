@@ -13,14 +13,14 @@
 
 .attendance-header h2 {
   font-size: 28px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-weight: 600;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #6B7280;
+  color: #64748B;
   margin-top: 4px;
 }
 
@@ -38,7 +38,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 2px solid #e5e5e7;
+  border-bottom: 2px solid #E2E8F0;
 }
 
 .tab-button {
@@ -46,32 +46,33 @@
   background: transparent;
   border: none;
   border-bottom: 3px solid transparent;
-  color: #6B7280;
+  color: #64748B;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   margin-bottom: -2px;
 }
 
 .tab-button:hover {
-  color: #1d1d1f;
-  background: #f5f5f7;
+  color: #1E293B;
+  background: #F8FAFC;
 }
 
 .tab-button.active {
-  color: #0071e3;
-  border-bottom-color: #0071e3;
+  color: #3B82F6;
+  border-bottom-color: #3B82F6;
   background: transparent;
+  font-weight: 600;
 }
 
 /* Table */
 .table-wrapper {
-  background: white;
+  background: #FFFFFF;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
 }
 
 .flagged-table {
@@ -80,23 +81,23 @@
 }
 
 .flagged-table thead {
-  background: #f5f5f7;
+  background: #F8FAFC;
 }
 
 .flagged-table th {
-  padding: 16px;
+  padding: 20px 16px;
   text-align: left;
   font-size: 12px;
   font-weight: 600;
-  color: #6B7280;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #e5e5e7;
+  border-bottom: 2px solid #E2E8F0;
 }
 
 .flagged-table td {
-  padding: 16px;
-  border-bottom: 1px solid #e5e5e7;
+  padding: 20px 16px;
+  border-bottom: 1px solid #F1F5F9;
   vertical-align: middle;
 }
 
@@ -105,7 +106,7 @@
 }
 
 .flagged-table tbody tr:hover {
-  background: #f9fafb;
+  background: #F8FAFC;
 }
 
 /* Student Cell */
@@ -119,7 +120,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,8 +132,8 @@
 
 .student-name {
   font-size: 14px;
-  font-weight: 600;
-  color: #1a202c;
+  font-weight: 500;
+  color: #1E293B;
   margin-bottom: 2px;
 }
 
@@ -150,18 +151,18 @@
 
 .course-code {
   font-size: 14px;
-  font-weight: 600;
-  color: #4f46e5;
+  font-weight: 500;
+  color: #3B82F6;
 }
 
 .course-title {
   font-size: 12px;
-  color: #6b7280;
+  color: #64748B;
 }
 
 .timestamp {
   font-size: 14px;
-  color: #1a202c;
+  color: #1E293B;
 }
 
 .method-badge {

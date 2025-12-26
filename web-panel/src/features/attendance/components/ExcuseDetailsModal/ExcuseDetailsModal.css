@@ -1,6 +1,6 @@
 /* Excuse Details Modal */
 .excuse-modal {
-  background: white;
+  background: #FFFFFF;
   border-radius: 16px;
   padding: 32px;
   max-width: 700px;
@@ -8,6 +8,7 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid #F1F5F9;
 }
 
 .excuse-modal-header {
@@ -21,14 +22,14 @@
 
 .excuse-modal-header h2 {
   font-size: 24px;
-  font-weight: 700;
-  color: #1F2937;
+  font-weight: 600;
+  color: #1E293B;
   margin: 0 0 8px 0;
 }
 
 .excuse-modal-subtitle {
   font-size: 14px;
-  color: #6B7280;
+  color: #64748B;
   margin: 0;
 }
 
@@ -297,8 +298,8 @@
 
 .reject-reason-input:focus {
   outline: none;
-  border-color: #5B7FFF;
-  box-shadow: 0 0 0 3px rgba(91, 127, 255, 0.1);
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Responsive */

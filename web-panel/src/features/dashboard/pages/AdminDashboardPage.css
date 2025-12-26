@@ -1,7 +1,7 @@
 .admin-dashboard-container {
   display: flex;
   height: 100vh;
-  background: #f7fafc;
+  background: #F8FAFC;
 }
 
 .main-content {
@@ -20,13 +20,13 @@
 .page-header h1 {
   margin: 0;
   font-size: 32px;
-  font-weight: 700;
-  color: #1a202c;
+  font-weight: 600;
+  color: #1E293B;
 }
 
 .page-subtitle {
   margin: 8px 0 0 0;
-  color: #718096;
+  color: #64748B;
   font-size: 16px;
 }
 

@@ -11,14 +11,14 @@
 
 .page-title {
   font-size: 32px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-weight: 600;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #6B7280;
+  color: #64748B;
 }
 
 /* Filters Section */
@@ -81,23 +81,23 @@
 }
 
 .filter-select:hover {
-  border-color: #0071e3;
+  border-color: #3B82F6;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #0071e3;
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.1);
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .export-btn {
   padding: 10px 20px;
-  background: #0071e3;
+  background: #3B82F6;
   color: white;
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -106,9 +106,9 @@
 }
 
 .export-btn:hover {
-  background: #0077ed;
+  background: #2563EB;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 /* Stats Grid */
@@ -128,17 +128,17 @@
 }
 
 .content-section {
-  background: white;
+  background: #FFFFFF;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
 }
 
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #1E293B;
   margin-bottom: 20px;
 }
 
@@ -160,15 +160,15 @@
 
 .progress-fill {
   height: 100%;
-  background: #0071e3;
+  background: #3B82F6;
   border-radius: 4px;
   transition: width 0.3s ease;
 }
 
 .attendance-value {
   font-size: 14px;
-  font-weight: 600;
-  color: #1d1d1f;
+  font-weight: 500;
+  color: #1E293B;
   min-width: 40px;
 }
 
@@ -243,11 +243,11 @@
 
 /* Export Section */
 .export-section {
-  background: white;
+  background: #FFFFFF;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
 }
 
 .export-buttons {
@@ -274,11 +274,11 @@
 }
 
 .export-option-btn:hover {
-  background: #0071e3;
+  background: #3B82F6;
   color: white;
-  border-color: #0071e3;
+  border-color: #3B82F6;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .export-icon {

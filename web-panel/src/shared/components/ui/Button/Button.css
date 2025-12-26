@@ -7,7 +7,7 @@
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -31,18 +31,31 @@
 
 /* Variants */
 .btn--primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #3B82F6;
   color: white;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #2563EB;
 }
 
 .btn--secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: #F1F5F9;
+  color: #1E293B;
+  border: 1px solid #E2E8F0;
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: #E2E8F0;
 }
 
 .btn--danger {
-  background: #ef4444;
+  background: #EF4444;
   color: white;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: #DC2626;
 }
 
 /* Sizes */
