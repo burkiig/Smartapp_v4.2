@@ -1,0 +1,293 @@
+.attendance-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.attendance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+}
+
+.attendance-header h2 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1E293B;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748B;
+  margin-top: 4px;
+}
+
+.pending-badge {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Tabs */
+.tabs-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #E2E8F0;
+}
+
+.tab-button {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #64748B;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover {
+  color: #1E293B;
+  background: #F8FAFC;
+}
+
+.tab-button.active {
+  color: #3B82F6;
+  border-bottom-color: #3B82F6;
+  background: transparent;
+  font-weight: 600;
+}
+
+/* Table */
+.table-wrapper {
+  background: #FFFFFF;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
+}
+
+.flagged-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.flagged-table thead {
+  background: #F8FAFC;
+}
+
+.flagged-table th {
+  padding: 20px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #E2E8F0;
+}
+
+.flagged-table td {
+  padding: 20px 16px;
+  border-bottom: 1px solid #F1F5F9;
+  vertical-align: middle;
+}
+
+.flagged-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.flagged-table tbody tr:hover {
+  background: #F8FAFC;
+}
+
+/* Student Cell */
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.student-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1E293B;
+  margin-bottom: 2px;
+}
+
+.student-id {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Course Cell */
+.course-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.course-code {
+  font-size: 14px;
+  font-weight: 500;
+  color: #3B82F6;
+}
+
+.course-title {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.timestamp {
+  font-size: 14px;
+  color: #1E293B;
+}
+
+.method-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.status-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.approve-btn {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.approve-btn:hover {
+  background: #a7f3d0;
+  transform: scale(1.1);
+}
+
+.reject-btn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reject-btn:hover {
+  background: #fecaca;
+  transform: scale(1.1);
+}
+
+.details-btn {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.details-btn:hover {
+  background: #bfdbfe;
+  transform: scale(1.1);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+  color: #9ca3af;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .attendance-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .tabs-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-button {
+    white-space: nowrap;
+  }
+}
+

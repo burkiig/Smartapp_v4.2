@@ -31,14 +31,14 @@
 
 .page-title {
   font-size: 32px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-weight: 600;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #0071e3;
+  color: #3B82F6;
   font-weight: 500;
 }
 
@@ -51,14 +51,14 @@
 }
 
 .stat-card-small {
-  background: white;
+  background: #FFFFFF;
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
 }
 
 .stat-icon {
@@ -94,14 +94,14 @@
 
 .stat-value {
   font-size: 28px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-weight: 600;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 13px;
-  color: #6B7280;
+  color: #64748B;
 }
 
 /* Dashboard Grid */
@@ -112,17 +112,17 @@
 }
 
 .dashboard-section {
-  background: white;
+  background: #FFFFFF;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #F1F5F9;
 }
 
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #1E293B;
   margin-bottom: 20px;
 }
 
@@ -153,10 +153,10 @@
 }
 
 .schedule-item.clickable:hover {
-  background: white;
-  border-color: #0071e3;
+  background: #FFFFFF;
+  border-color: #3B82F6;
   transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.15);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .schedule-time {
@@ -179,8 +179,8 @@
 
 .schedule-course {
   font-size: 14px;
-  font-weight: 600;
-  color: #1d1d1f;
+  font-weight: 500;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
@@ -189,7 +189,7 @@
   align-items: center;
   gap: 12px;
   font-size: 12px;
-  color: #6B7280;
+  color: #64748B;
 }
 
 .schedule-room {
@@ -202,7 +202,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #0071e3;
+  color: #3B82F6;
   font-weight: 500;
 }
 
@@ -221,7 +221,7 @@
 }
 
 .status-dot.upcoming {
-  background: #0071e3;
+  background: #3B82F6;
 }
 
 .status-dot.completed {
@@ -237,7 +237,7 @@
 
 /* Active Sessions */
 .active-sessions {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
   color: white;
 }
 
@@ -327,7 +327,7 @@
 }
 
 .review-item {
-  background: white;
+  background: #FFFFFF;
   padding: 12px;
   border-radius: 8px;
   border: 1px solid #FDE68A;
@@ -335,8 +335,8 @@
 
 .review-student {
   font-size: 14px;
-  font-weight: 600;
-  color: #1d1d1f;
+  font-weight: 500;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 
@@ -345,7 +345,7 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #6B7280;
+  color: #64748B;
   margin-bottom: 6px;
 }
 
@@ -369,20 +369,20 @@
 .view-all-btn {
   width: 100%;
   padding: 10px;
-  background: white;
+  background: #FFFFFF;
   border: 1px solid #F59E0B;
   border-radius: 8px;
-  color: #0071e3;
+  color: #3B82F6;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .view-all-btn:hover {
-  background: #0071e3;
+  background: #3B82F6;
   color: white;
-  border-color: #0071e3;
+  border-color: #3B82F6;
 }
 
 /* Quick Actions */
@@ -402,15 +402,15 @@
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: #1E293B;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .quick-action-btn:hover {
-  background: #0071e3;
+  background: #3B82F6;
   color: white;
-  border-color: #0071e3;
+  border-color: #3B82F6;
   transform: translateX(4px);
 }
 

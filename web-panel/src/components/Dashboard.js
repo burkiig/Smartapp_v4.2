@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import axios from 'axios';
-import ClassDetails from './ClassDetails';
+import { ClassDetails } from '../features/attendance/components/ClassDetails';
 
 function Dashboard() {
   const [stats, setStats] = useState({

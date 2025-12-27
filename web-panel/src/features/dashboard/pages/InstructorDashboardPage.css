@@ -1,0 +1,19 @@
+.instructor-dashboard-container {
+  display: flex;
+  height: 100vh;
+  background: #F8FAFC;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+  }
+}
+

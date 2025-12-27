@@ -1,0 +1,2 @@
+export { ExcuseDetailsModal } from './ExcuseDetailsModal';
+

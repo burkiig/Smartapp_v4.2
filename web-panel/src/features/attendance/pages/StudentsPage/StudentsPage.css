@@ -1,0 +1,140 @@
+.students-page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.students-page-container h2 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1E293B;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: #64748B;
+  margin-top: 4px;
+}
+
+.header-with-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: #86868b;
+  font-size: 16px;
+}
+
+.error-message {
+  text-align: center;
+  padding: 60px;
+  color: #DC2626;
+  font-size: 16px;
+  background: #F8FAFC;
+  border: 1px solid #FEE2E2;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  color: #86868b;
+  font-size: 16px;
+}
+
+.search-box {
+  margin-bottom: 24px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.student-table-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e5e7;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #0071e3;
+  color: white;
+}
+
+.btn-danger {
+  background: #ff3b30;
+  color: white;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:hover {
+  background: #0077ed;
+}
+
+.btn-danger:hover {
+  background: #ff453a;
+}
+
+@media (max-width: 768px) {
+  .header-with-button {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+

@@ -1,0 +1,343 @@
+.student-dashboard-container {
+  display: flex;
+  height: 100vh;
+  background: #F8FAFC;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.page-subtitle {
+  margin: 8px 0 0 0;
+  color: #64748B;
+  font-size: 16px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.badge {
+  padding: 4px 12px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+/* Courses List */
+.courses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.course-item {
+  padding: 16px;
+  background: #f7fafc;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.course-item:hover {
+  background: #edf2f7;
+  transform: translateX(4px);
+}
+
+.course-info {
+  margin-bottom: 12px;
+}
+
+.course-code {
+  font-size: 16px;
+  font-weight: 700;
+  color: #4f46e5;
+  margin-bottom: 4px;
+}
+
+.course-name {
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.course-attendance {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.attendance-bar {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.attendance-fill {
+  height: 100%;
+  transition: width 0.5s ease;
+}
+
+.attendance-percentage {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a202c;
+  min-width: 45px;
+  text-align: right;
+}
+
+/* Attendance List */
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attendance-record {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 10px;
+}
+
+.record-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: #10b981;
+  color: white;
+  flex-shrink: 0;
+}
+
+.attendance-record:has(.status-badge.absent) .record-icon {
+  background: #ef4444;
+}
+
+.record-info {
+  flex: 1;
+}
+
+.record-course {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 2px;
+}
+
+.record-meta {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.present {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.absent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Courses Grid */
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.course-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.course-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+.course-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.course-card-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.attendance-badge {
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.attendance-badge.good {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.attendance-badge.warning {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.course-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.course-title {
+  margin: 0;
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.5s ease;
+}
+
+/* Attendance Table */
+.attendance-table-container {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
+}
+
+.attendance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.attendance-table th {
+  text-align: left;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #718096;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.attendance-table td {
+  padding: 16px 12px;
+  font-size: 14px;
+  color: #1a202c;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Schedule */
+.schedule-info {
+  background: white;
+  border-radius: 16px;
+  padding: 48px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.schedule-info p {
+  margin: 0;
+  font-size: 16px;
+  color: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .courses-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
