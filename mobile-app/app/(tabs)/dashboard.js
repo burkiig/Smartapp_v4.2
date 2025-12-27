@@ -60,7 +60,7 @@ export default function DashboardScreen() {
 
         {/* Quick Stats */}
         <View style={styles.statsGrid}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.statCard, { borderLeftColor: '#5B7FFF' }]}
             onPress={() => router.push('/(tabs)/schedule')}
           >
@@ -69,7 +69,7 @@ export default function DashboardScreen() {
             <Text style={styles.statLabel}>Today's Classes</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.statCard, { borderLeftColor: '#10B981' }]}
             onPress={() => router.push({
               pathname: '/class-details',
@@ -81,29 +81,22 @@ export default function DashboardScreen() {
             <Text style={styles.statLabel}>Active Session</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.statCard, { borderLeftColor: '#F59E0B' }]}
-            onPress={() => router.push('/(tabs)/attendance')}
+          <TouchableOpacity
+            style={[styles.statCard, { borderLeftColor: '#EF4444' }]}
+            onPress={() => router.push('/cancel-class')}
           >
-            <Ionicons name="flag-outline" size={24} color="#F59E0B" />
-            <Text style={styles.statValue}>{todayStats.flaggedCount}</Text>
-            <Text style={styles.statLabel}>Flagged</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.statCard, { borderLeftColor: '#A855F7' }]}
-            onPress={() => router.push('/(tabs)/more')}
-          >
-            <Ionicons name="people-outline" size={24} color="#A855F7" />
-            <Text style={styles.statValue}>{todayStats.studentsOnline}</Text>
-            <Text style={styles.statLabel}>Active Students</Text>
+            <Ionicons name="close-circle-outline" size={24} color="#EF4444" />
+            <Text style={styles.statValue}>
+              <Ionicons name="calendar-clear" size={20} color="#EF4444" />
+            </Text>
+            <Text style={styles.statLabel}>Cancel Class</Text>
           </TouchableOpacity>
         </View>
 
         {/* Next Class */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Next Class</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.classCard}
             onPress={() => router.push({
               pathname: '/class-details',
@@ -148,11 +141,11 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
                 <View style={styles.progressBar}>
-                  <View 
+                  <View
                     style={[
-                      styles.progressFill, 
+                      styles.progressFill,
                       { width: `${(nextClass.studentsPresent / nextClass.studentsEnrolled) * 100}%` }
-                    ]} 
+                    ]}
                   />
                 </View>
               </View>
@@ -164,7 +157,7 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push({
                 pathname: '/class-details',
@@ -177,7 +170,7 @@ export default function DashboardScreen() {
               <Text style={styles.actionText}>Start Session</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push('/(tabs)/attendance')}
             >
@@ -187,7 +180,7 @@ export default function DashboardScreen() {
               <Text style={styles.actionText}>View Flagged</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push('/(tabs)/more')}
             >
@@ -197,7 +190,7 @@ export default function DashboardScreen() {
               <Text style={styles.actionText}>Student List</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push('/(tabs)/reports')}
             >
@@ -272,7 +265,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    minWidth: '47%',
+    minWidth: '30%',
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,

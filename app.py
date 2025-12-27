@@ -552,6 +552,110 @@ def delete_student(student_id):
     
     return jsonify({'success': False, 'message': 'Öğrenci bulunamadı'}), 404
 
+# ==================== CLASS MANAGEMENT ====================
+
+@app.route('/api/classes/upcoming', methods=['GET'])
+def get_upcoming_classes():
+    """Gelecek tarihli dersleri getir"""
+    try:
+        instructor_id = request.args.get('instructor_id')
+        
+        # Mock data - gerçekte veritabanından gelecek
+        from datetime import timedelta
+        today = datetime.now()
+        
+        upcoming_classes = [
+            {
+                'id': 1,
+                'course': 'CS101',
+                'title': 'Introduction to Programming',
+                'date': (today + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'time': '09:00 - 10:30',
+                'room': 'Room 401',
+                'status': 'scheduled',
+                'students_enrolled': 45
+            },
+            {
+                'id': 2,
+                'course': 'CS201',
+                'title': 'Data Structures',
+                'date': (today + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'time': '14:00 - 15:30',
+                'room': 'Lab 204',
+                'status': 'scheduled',
+                'students_enrolled': 38
+            },
+            {
+                'id': 3,
+                'course': 'CS301',
+                'title': 'Algorithms',
+                'date': (today + timedelta(days=2)).strftime('%Y-%m-%d'),
+                'time': '16:00 - 17:30',
+                'room': 'Room 405',
+                'status': 'scheduled',
+                'students_enrolled': 32
+            },
+            {
+                'id': 4,
+                'course': 'CS102',
+                'title': 'Advanced Programming',
+                'date': (today + timedelta(days=3)).strftime('%Y-%m-%d'),
+                'time': '10:00 - 11:30',
+                'room': 'Lab 301',
+                'status': 'scheduled',
+                'students_enrolled': 40
+            },
+        ]
+        
+        logger.info(f"Fetched {len(upcoming_classes)} upcoming classes for instructor: {instructor_id}")
+        return jsonify({
+            'success': True,
+            'classes': upcoming_classes
+        })
+        
+    except Exception as e:
+        logger.error(f"Get upcoming classes error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/classes/cancel', methods=['POST'])
+def cancel_class():
+    """Dersi iptal et"""
+    try:
+        data = request.json
+        class_id = data.get('class_id')
+        reason = data.get('reason')
+        instructor_id = data.get('instructor_id')
+        
+        # Validation
+        if not all([class_id, reason, instructor_id]):
+            raise ValidationError('Tüm alanlar gerekli (class_id, reason, instructor_id)')
+        
+        # İptal kaydı oluştur
+        cancellation = {
+            'class_id': class_id,
+            'reason': reason,
+            'instructor_id': instructor_id,
+            'cancelled_at': datetime.now().isoformat(),
+            'status': 'cancelled'
+        }
+        
+        # TODO: Veritabanına kaydet (şimdilik sadece log)
+        logger.info(f"Class {class_id} cancelled by {instructor_id}. Reason: {reason}")
+        
+        # TODO: Öğrencilere bildirim gönder
+        
+        return jsonify({
+            'success': True,
+            'message': 'Ders başarıyla iptal edildi',
+            'cancellation': cancellation
+        })
+        
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"Class cancellation error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 def save_students_db():
     """Öğrenci veritabanını kaydet"""
     with open('static/students.json', 'w', encoding='utf-8') as f:
