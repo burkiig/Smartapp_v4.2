@@ -1,0 +1,117 @@
+.stat-card {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-icon {
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: rgba(168, 85, 247, 0.1);
+    border-radius: 12px;
+}
+
+.stat-title {
+    font-family: var(--font-heading);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-primary-300);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.stat-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.stat-value {
+    font-family: var(--font-heading);
+    font-size: 48px;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+    margin-bottom: 8px;
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.stat-subtitle {
+    font-size: 14px;
+    color: var(--color-primary-400);
+    font-weight: 500;
+}
+
+.stat-trend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trend-icon {
+    font-size: 18px;
+}
+
+.trend-up {
+    color: var(--color-success);
+}
+
+.trend-down {
+    color: var(--color-error);
+}
+
+.trend-neutral {
+    color: var(--color-primary-400);
+}
+
+/* Animation on load */
+.stat-card {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stat-value {
+        font-size: 36px;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+    }
+}

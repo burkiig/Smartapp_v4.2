@@ -53,12 +53,12 @@
 .logo-icon-container {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 10px 30px rgba(168, 85, 247, 0.4);
   animation: pulse 2s ease-in-out infinite;
   position: relative;
   overflow: hidden;
@@ -67,11 +67,11 @@
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 10px 30px rgba(168, 85, 247, 0.4);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 15px 40px rgba(168, 85, 247, 0.5);
   }
 }
 
@@ -112,7 +112,7 @@
 .logo-text {
   font-size: 24px;
   font-weight: 600;
-  background: linear-gradient(135deg, #3B82F6 0%, #1E293B 100%);
+  background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -204,8 +204,8 @@
 
 .form-input:focus {
   outline: none;
-  border-color: #3B82F6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #A855F7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 }
 
 .form-input::placeholder {
@@ -253,7 +253,7 @@
 
 .demo-creds {
   font-family: 'Courier New', monospace;
-  color: #3B82F6;
+  color: #A855F7;
   font-weight: 600;
 }
 
@@ -271,4 +271,3 @@
     font-size: 14px;
   }
 }
-

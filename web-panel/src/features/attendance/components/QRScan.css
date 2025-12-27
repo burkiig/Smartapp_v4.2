@@ -1,0 +1,178 @@
+.qr-scan-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.qr-scan-header {
+    margin-bottom: 32px;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 8px 16px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.back-button:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.header-content {
+    text-align: center;
+}
+
+.header-content h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+}
+
+.header-content p {
+    color: #6b7280;
+    font-size: 16px;
+}
+
+.scanner-section {
+    margin-bottom: 32px;
+}
+
+.qr-reader {
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Override html5-qrcode default styles */
+#qr-reader {
+    border: none !important;
+}
+
+#qr-reader__dashboard_section_csr {
+    display: none !important;
+}
+
+#qr-reader__scan_region {
+    border-radius: 16px !important;
+}
+
+#qr-reader video {
+    border-radius: 16px;
+}
+
+.status-container {
+    text-align: center;
+    margin-top: 24px;
+    min-height: 60px;
+}
+
+.status-text {
+    font-size: 18px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.message {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.message.success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.message.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.message.info {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.instructions {
+    background: #f9fafb;
+    padding: 24px;
+    border-radius: 16px;
+}
+
+.instructions h4 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 16px;
+}
+
+.instruction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    color: #4b5563;
+}
+
+.instruction-item .number {
+    width: 28px;
+    height: 28px;
+    background: #3b82f6;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* Camera indicator */
+.camera-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-top: 16px;
+}
+
+.camera-active-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.camera-active-text {
+    font-size: 14px;
+    color: #3b82f6;
+    font-weight: 600;
+}

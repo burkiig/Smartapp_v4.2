@@ -2,6 +2,10 @@
 Flask uygulama yapılandırması
 """
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class Config:
     """Temel yapılandırma"""
@@ -17,17 +21,31 @@ class Config:
     STUDENTS_DB = os.path.join(STATIC_DIR, 'students.json')
     ATTENDANCE_RECORDS = os.path.join(ATTENDANCE_DIR, 'records.json')
     
+    # Database Mode
+    USE_MONGODB = os.environ.get('USE_MONGODB', 'false').lower() == 'true'
+    
+    # MongoDB ayarları
+    MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/')
+    MONGODB_DATABASE = os.environ.get('MONGODB_DATABASE', 'smart_attendance')
+    
+    # JSON ayarları
+    JSON_BASE_DIR = os.environ.get('JSON_BASE_DIR', 'static')
+    
     # Yüz tanıma ayarları
-    FACE_RECOGNITION_TOLERANCE = 0.6
-    FACE_DETECTION_MODEL = 'hog'  # 'hog' veya 'cnn'
+    FACE_RECOGNITION_TOLERANCE = float(os.environ.get('FACE_RECOGNITION_TOLERANCE', '0.6'))
+    FACE_DETECTION_MODEL = os.environ.get('FACE_DETECTION_MODEL', 'hog')  # 'hog' veya 'cnn'
     
     # Flask ayarları
-    DEBUG = True
-    HOST = '0.0.0.0'
-    PORT = 5000
+    DEBUG = os.environ.get('DEBUG', 'true').lower() == 'true'
+    HOST = os.environ.get('HOST', '0.0.0.0')
+    PORT = int(os.environ.get('PORT', '5000'))
     
     # CORS ayarları
-    CORS_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+    
+    # Logging ayarları
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+    LOG_FILE = os.environ.get('LOG_FILE', '')
 
 class DevelopmentConfig(Config):
     """Geliştirme ortamı yapılandırması"""

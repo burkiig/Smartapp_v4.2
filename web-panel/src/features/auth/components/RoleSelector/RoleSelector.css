@@ -1,46 +1,80 @@
 .role-selector {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 32px;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
 }
 
 .role-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
-  border: 2px solid #e2e8f0;
-  background: white;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a5568;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.role-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--role-color);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .role-button:hover {
-  border-color: var(--role-color);
-  background: rgba(102, 126, 234, 0.05);
-  transform: translateY(-2px);
+    border-color: var(--role-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .role-button.active {
-  border-color: var(--role-color);
-  background: var(--role-color);
-  color: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+    border-color: var(--role-color);
+    background: var(--role-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.role-button.active::before {
+    opacity: 1;
+}
+
+.role-button.active .role-icon,
+.role-button.active .role-name {
+    position: relative;
+    z-index: 1;
+    color: white;
 }
 
 .role-icon {
-  font-size: 28px;
+    font-size: 28px;
+    transition: transform 0.3s ease;
+}
+
+.role-button:hover .role-icon {
+    transform: scale(1.1);
+}
+
+.role-button.active .role-icon {
+    transform: scale(1.15);
 }
 
 .role-name {
-  font-size: 13px;
-  font-weight: 600;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2d3748;
+    transition: color 0.3s ease;
 }
 
+.role-button:hover .role-name {
+    color: var(--role-color);
+}

@@ -1,250 +1,96 @@
 ================================================================================
-                    KURULUM REHBERİ - ADIM ADIM
+                    AKILLI YOKLAMA SİSTEMİ - KURULUM REHBERİ
 ================================================================================
 
-SİSTEMİNİZDE PYTHON BULUNAMADI!
-
-Bu sistem çalışmak için Python'a ihtiyaç duyar. Aşağıdaki adımları takip edin:
-
-================================================================================
-                    1. PYTHON KURULUMU (ZORUNLU)
-================================================================================
-
-ADIM 1: Python İndirin
------------------------
-1. https://www.python.org/downloads/ adresine gidin
-2. "Download Python 3.11" (veya en son sürüm) butonuna tıklayın
-3. İndirilen dosyayı çalıştırın
-
-ADIM 2: Python Yükleyin
-------------------------
-ÖNEMLİ: Kurulum sırasında:
-✓ "Add Python to PATH" kutucuğunu İŞARETLEYİN! (Çok önemli!)
-✓ "Install Now" seçeneğini seçin
-
-ADIM 3: Kurulumu Doğrulayın
-----------------------------
-1. Yeni bir komut satırı penceresi açın (eski pencereyi kapatın!)
-2. Şu komutu yazın:
-   python --version
-
-Çıktı şöyle olmalı: "Python 3.11.x" (veya benzeri)
+📋 GEREKSİNİMLER
+----------------
+✓ Python 3.8+ (https://www.python.org/downloads/)
+✓ Node.js 16+ (https://nodejs.org/)
+✓ Webcam (yüz tanıma için)
 
 ================================================================================
-                    2. NODE.JS KURULUMU (WEB PANEL İÇİN)
+                    HIZLI KURULUM (3 ADIM)
 ================================================================================
 
-ADIM 1: Node.js İndirin
-------------------------
-1. https://nodejs.org/ adresine gidin
-2. "LTS" (Önerilen) sürümü indirin
-3. İndirilen dosyayı çalıştırın
+1️⃣ PYTHON KURULUMU
+-------------------
+• https://www.python.org/downloads/ adresinden Python indirin
+• Kurulum sırasında "Add Python to PATH" seçeneğini İŞARETLEYİN!
+• Kurulumu doğrulayın: python --version
 
-ADIM 2: Node.js Yükleyin
--------------------------
-1. Kurulum sihirbazını takip edin
-2. Varsayılan ayarları kullanın
-3. "Install" butonuna tıklayın
+2️⃣ NODE.JS KURULUMU
+--------------------
+• https://nodejs.org/ adresinden LTS sürümü indirin
+• Varsayılan ayarlarla kurun
+• Kurulumu doğrulayın: node --version
 
-ADIM 3: Kurulumu Doğrulayın
-----------------------------
-1. Yeni bir komut satırı penceresi açın
-2. Şu komutu yazın:
-   node --version
+3️⃣ PROJEYİ ÇALIŞTIRMA
+----------------------
+• BASLAT.bat dosyasına çift tıklayın
+• Menüden seçim yapın:
+  - [1] Sadece Backend (http://localhost:5000)
+  - [2] Sadece Web Panel (http://localhost:3000)
+  - [3] Her ikisini birlikte (ÖNERİLEN)
 
-Çıktı şöyle olmalı: "v18.x.x" (veya benzeri)
-
-================================================================================
-                    3. SİSTEM KURULUMU
-================================================================================
-
-Python ve Node.js yüklendikten sonra:
-
-ADIM 1: Sistem Kontrolü
-------------------------
-Çift tıklayın: test_system.py
-
-Bu script:
-- Python versiyonunu kontrol eder
-- Gerekli modülleri kontrol eder
-- Eksikleri gösterir
-
-ADIM 2: Backend Kurulumu
--------------------------
-Çift tıklayın: run_backend.bat
-
-İlk çalıştırmada:
-- Sanal ortam oluşturulur (venv/)
-- Gerekli Python paketleri yüklenir
-- Backend başlatılır
-
-NOT: İlk kurulum 5-10 dakika sürebilir!
-
-ADIM 3: Web Panel Kurulumu
----------------------------
-Çift tıklayın: run_web_panel.bat
-
-İlk çalıştırmada:
-- Node modülleri yüklenir (node_modules/)
-- Web panel başlatılır
-
-NOT: İlk kurulum 2-3 dakika sürebilir!
+İlk çalıştırmada paketler otomatik yüklenecektir (5-10 dakika sürebilir).
 
 ================================================================================
-                    4. SORUN GİDERME
+                    MANUEL KURULUM
 ================================================================================
-
-SORUN: "Python bulunamadı" hatası
-----------------------------------
-ÇÖZÜM:
-1. Python'u yukarıdaki adımlarla yükleyin
-2. Kurulum sırasında "Add Python to PATH" seçeneğini işaretleyin
-3. Bilgisayarı yeniden başlatın
-4. Yeni bir komut satırı penceresi açın
-5. "python --version" yazarak test edin
-
-SORUN: "pip bulunamadı" hatası
--------------------------------
-ÇÖZÜM:
-1. Komut satırında şunu yazın:
-   python -m ensurepip --upgrade
-2. Ardından:
-   python -m pip install --upgrade pip
-
-SORUN: "Microsoft Visual C++ 14.0 gerekli" hatası
---------------------------------------------------
-ÇÖZÜM:
-1. https://visualstudio.microsoft.com/visual-cpp-build-tools/
-2. "Build Tools for Visual Studio" indirin
-3. Yükleyin (C++ build tools seçeneğini işaretleyin)
-4. Bilgisayarı yeniden başlatın
-5. Tekrar deneyin
-
-SORUN: face_recognition yüklenemiyor
--------------------------------------
-ÇÖZÜM 1 (Önerilen):
-1. Visual Studio Build Tools yükleyin (yukarıya bakın)
-2. CMake yükleyin:
-   pip install cmake
-3. Tekrar deneyin:
-   pip install face_recognition
-
-ÇÖZÜM 2 (Alternatif):
-1. Önceden derlenmiş wheel dosyası indirin:
-   https://github.com/z-mahmud22/Dlib_Windows_Python3.x
-2. İndirdiğiniz .whl dosyasını yükleyin:
-   pip install dlib-19.xx.x-cpxx-cpxx-win_amd64.whl
-3. Ardından:
-   pip install face_recognition
-
-SORUN: "Port zaten kullanımda" hatası
---------------------------------------
-ÇÖZÜM:
-Backend için (Port 5000):
-1. Komut satırında:
-   netstat -ano | findstr :5000
-2. PID numarasını not alın
-3. Şunu yazın:
-   taskkill /PID [PID_NUMARASI] /F
-
-Web Panel için (Port 3000):
-1. Komut satırında:
-   netstat -ano | findstr :3000
-2. PID numarasını not alın
-3. Şunu yazın:
-   taskkill /PID [PID_NUMARASI] /F
-
-================================================================================
-                    5. MANUEL KURULUM (İLERİ SEVİYE)
-================================================================================
-
-Otomatik scriptler çalışmazsa:
 
 Backend:
 --------
-1. Komut satırını açın
-2. Proje klasörüne gidin:
-   cd "C:\Users\BG\Documents\Smart Attendace Systemkullanma"
-
-3. Sanal ortam oluşturun:
-   python -m venv venv
-
-4. Sanal ortamı aktive edin:
-   venv\Scripts\activate
-
-5. Paketleri yükleyin:
-   pip install -r requirements.txt
-
-6. Backend'i başlatın:
-   python app.py
+1. Komut satırında proje klasörüne gidin
+2. python -m venv venv
+3. venv\Scripts\activate
+4. pip install -r requirements.txt
+5. python app.py
 
 Web Panel:
 ----------
-1. Yeni komut satırı açın
-2. Web panel klasörüne gidin:
-   cd "C:\Users\BG\Documents\Smart Attendace Systemkullanma\web-panel"
-
-3. Paketleri yükleyin:
-   npm install
-
-4. Web paneli başlatın:
-   npm start
+1. Komut satırında web-panel klasörüne gidin
+2. npm install
+3. npm start
 
 ================================================================================
-                    6. SİSTEM GEREKSİNİMLERİ
+                    VARSayILAN KULLANICI BİLGİLERİ
 ================================================================================
 
-Minimum:
-- Windows 10 veya üstü
-- 4 GB RAM
-- 2 GB boş disk alanı
-- Webcam
-- İnternet bağlantısı (sadece kurulum için)
+Admin:
+  Kullanıcı: admin
+  Şifre: admin123
 
-Önerilen:
-- Windows 11
-- 8 GB RAM
-- 5 GB boş disk alanı
-- HD Webcam
-- İyi aydınlatma
+Eğitmen:
+  Kullanıcı: instructor1
+  Şifre: instructor123
+
+Öğrenci:
+  Kullanıcı: student1
+  Şifre: student123
 
 ================================================================================
-                    7. KURULUM SONRASI
+                    SORUN GİDERME
 ================================================================================
 
-Kurulum tamamlandıktan sonra:
+❌ "Python bulunamadı"
+   → Python'u yükleyin ve PATH'e ekleyin
+   → Bilgisayarı yeniden başlatın
 
-1. Backend'i başlatın: run_backend.bat
-   Şunu görmelisiniz: "Running on http://0.0.0.0:5000"
+❌ "Port zaten kullanımda"
+   → Backend (5000): netstat -ano | findstr :5000
+   → Web Panel (3000): netstat -ano | findstr :3000
+   → PID'yi bulup: taskkill /PID [PID] /F
 
-2. Web paneli başlatın: run_web_panel.bat
-   Tarayıcı otomatik açılacak: http://localhost:3000
-
-3. İlk öğrenciyi kaydedin:
-   - "Öğrenci Kayıt" sekmesi
-   - Bilgileri girin
-   - Fotoğraf çekin
-
-4. Yoklama alın:
-   - "Yoklama Al" sekmesi
-   - Yüzünüzü gösterin
-   - Tanıma yapılacak
+❌ "face_recognition yüklenemiyor"
+   → Visual Studio Build Tools yükleyin
+   → https://visualstudio.microsoft.com/visual-cpp-build-tools/
 
 ================================================================================
-                    8. YARDIM
+                    DETAYLI BİLGİ
 ================================================================================
 
-Daha fazla yardım için:
-- HIZLI_BASLANGIC.txt - Hızlı başlangıç rehberi
-- KULLANIM.txt - Detaylı kullanım kılavuzu
-- PROJE_YAPISI.txt - Teknik detaylar
-
-Video eğitimler ve destek için:
-support@smartattendance.com
+• HIZLI_BASLANGIC.txt - Hızlı başlangıç
+• KULLANIM.txt - Kullanım kılavuzu
+• PROJE_YAPISI.txt - Teknik detaylar
 
 ================================================================================
-
-İyi kullanımlar! 🎉
-
-================================================================================
-

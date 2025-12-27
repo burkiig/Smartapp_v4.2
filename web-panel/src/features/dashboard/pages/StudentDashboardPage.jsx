@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { StatsCard } from '../../../shared/components/ui/StatsCard';
+import { FaceScan } from '../../attendance/components/FaceScan';
+import { QRScan } from '../../attendance/components/QRScan';
 import './StudentDashboardPage.css';
 
 const STUDENT_MENU_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'face-scan', label: 'Face Scan', icon: '👤' },
+  { id: 'qr-scan', label: 'QR Scan', icon: '📱' },
   { id: 'courses', label: 'My Courses', icon: '📚' },
   { id: 'attendance', label: 'Attendance', icon: '✓' },
   { id: 'schedule', label: 'Schedule', icon: '📅' }
@@ -32,11 +36,11 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     ];
 
     setAttendanceData(mockAttendance);
-    
+
     const attended = mockAttendance.filter(a => a.status === 'present').length;
     const total = mockAttendance.length;
     const percentage = Math.round((attended / total) * 100);
-    
+
     setStats({
       totalClasses: total,
       attended: attended,
@@ -107,9 +111,9 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                 </div>
                 <div className="course-attendance">
                   <div className="attendance-bar">
-                    <div 
-                      className="attendance-fill" 
-                      style={{ 
+                    <div
+                      className="attendance-fill"
+                      style={{
                         width: `${course.attendance}%`,
                         background: course.attendance >= 75 ? '#10b981' : '#ef4444'
                       }}
@@ -166,9 +170,9 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
             <div className="course-card-body">
               <p className="course-title">{course.name}</p>
               <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{ 
+                <div
+                  className="progress-fill"
+                  style={{
                     width: `${course.attendance}%`,
                     background: course.attendance >= 75 ? '#10b981' : '#ef4444'
                   }}
@@ -230,6 +234,10 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     switch (activeTab) {
       case 'dashboard':
         return renderDashboard();
+      case 'face-scan':
+        return <FaceScan onClose={() => setActiveTab('dashboard')} />;
+      case 'qr-scan':
+        return <QRScan onClose={() => setActiveTab('dashboard')} />;
       case 'courses':
         return renderCourses();
       case 'attendance':

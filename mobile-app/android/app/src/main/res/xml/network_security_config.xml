@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 
+        Development için cleartext (HTTP) traffic izni
+        Production'da bu dosyayı kaldırın veya cleartextTrafficPermitted="false" yapın
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Local network IP'niz (ipconfig ile bulabilirsiniz) -->
+        <domain includeSubdomains="true">192.168.1.102</domain>
+        <domain includeSubdomains="true">192.168.1.1</domain>
+        <domain includeSubdomains="true">192.168.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android Emulator -->
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+    
+    <!-- Production API için HTTPS zorunlu -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.smartattendance.com</domain>
+    </domain-config>
+</network-security-config>

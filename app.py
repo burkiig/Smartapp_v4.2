@@ -10,44 +10,70 @@ import base64
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 
+# Import data layer and error handling
+from database import get_database_adapter
+from shared.errors import APIError, ValidationError, NotFoundError, DuplicateError
+from shared.logger import setup_logger, get_logger
+from config import Config
+
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 CORS(app, supports_credentials=True)
+
+# Setup logger
+log_file = Config.LOG_FILE if Config.LOG_FILE else None
+logger = setup_logger('smart_attendance', log_file=log_file, level=Config.LOG_LEVEL)
+
+# Initialize database adapter
+db = get_database_adapter()
+logger.info(f"Database adapter initialized: {db.__class__.__name__}")
 
 # Dizinleri oluştur
 os.makedirs('static/faces', exist_ok=True)
 os.makedirs('static/attendance', exist_ok=True)
 
-# Öğrenci veritabanı
-students_db = {}
-attendance_records = []
-
-# Kullanıcı veritabanı (gerçek uygulamada veritabanı kullanılmalı)
-users_db = {
-    'admin': {
-        'username': 'admin',
-        'password': generate_password_hash('admin123'),
-        'role': 'admin',
-        'name': 'System Administrator',
-        'email': 'admin@attendance.com'
-    },
-    'instructor1': {
-        'username': 'instructor1',
-        'password': generate_password_hash('instructor123'),
-        'role': 'instructor',
-        'name': 'Dr. Robert Chen',
-        'department': 'Computer Science',
-        'email': 'robert.chen@university.edu'
-    },
-    'student1': {
-        'username': 'student1',
-        'password': generate_password_hash('student123'),
-        'role': 'student',
-        'name': 'John Doe',
-        'student_id': '2021001',
-        'email': 'john.doe@student.edu'
-    }
-}
+# Initialize default users if database is empty
+def init_default_users():
+    """Initialize default users if none exist"""
+    try:
+        users = db.get_users()
+        if not users:
+            logger.info("Initializing default users...")
+            
+            default_users = [
+                {
+                    'username': 'admin',
+                    'password': generate_password_hash('admin123'),
+                    'role': 'admin',
+                    'name': 'System Administrator',
+                    'email': 'admin@attendance.com'
+                },
+                {
+                    'username': 'instructor1',
+                    'password': generate_password_hash('instructor123'),
+                    'role': 'instructor',
+                    'name': 'Dr. Robert Chen',
+                    'department': 'Computer Science',
+                    'email': 'robert.chen@university.edu'
+                },
+                {
+                    'username': 'student1',
+                    'password': generate_password_hash('student123'),
+                    'role': 'student',
+                    'name': 'John Doe',
+                    'student_id': '2021001',
+                    'email': 'john.doe@student.edu'
+                }
+            ]
+            
+            for user_data in default_users:
+                try:
+                    db.create_user(user_data)
+                    logger.info(f"Created default user: {user_data['username']}")
+                except Exception as e:
+                    logger.warning(f"Could not create user {user_data['username']}: {e}")
+    except Exception as e:
+        logger.error(f"Error initializing default users: {e}")
 
 def load_known_faces():
     """Kayıtlı yüzleri yükle"""
@@ -72,6 +98,47 @@ def load_known_faces():
 def index():
     return render_template('index.html')
 
+# ==================== HEALTH CHECK ====================
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """System health check endpoint"""
+    try:
+        db_health = db.health_check()
+        
+        return jsonify({
+            'status': 'healthy',
+            'database': db_health,
+            'version': '2.0.0',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+# ==================== ERROR HANDLERS ====================
+
+@app.errorhandler(APIError)
+def handle_api_error(error):
+    """Handle custom API errors"""
+    logger.warning(f"API Error: {error.message}")
+    return jsonify(error.to_dict()), error.status_code
+
+@app.errorhandler(Exception)
+def handle_generic_error(error):
+    """Handle unexpected errors"""
+    logger.error(f"Unexpected error: {error}", exc_info=True)
+    return jsonify({
+        'error': 'Internal server error',
+        'status': 500
+    }), 500
+
+# ==================== AUTHENTICATION ====================
+
 @app.route('/api/login', methods=['POST'])
 def login():
     """Kullanıcı girişi"""
@@ -81,23 +148,28 @@ def login():
         password = data.get('password')
         
         if not username or not password:
-            return jsonify({'success': False, 'message': 'Kullanıcı adı ve şifre gerekli'}), 400
+            raise ValidationError('Kullanıcı adı ve şifre gerekli')
         
-        user = users_db.get(username)
+        user = db.get_user(username)
         
         if user and check_password_hash(user['password'], password):
             # Şifreyi response'dan çıkar
             user_data = {k: v for k, v in user.items() if k != 'password'}
             
+            logger.info(f"User logged in: {username}")
             return jsonify({
                 'success': True,
                 'message': 'Giriş başarılı',
                 'user': user_data
             })
         
+        logger.warning(f"Failed login attempt: {username}")
         return jsonify({'success': False, 'message': 'Kullanıcı adı veya şifre hatalı'}), 401
         
+    except APIError:
+        raise
     except Exception as e:
+        logger.error(f"Login error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/logout', methods=['POST'])
@@ -480,6 +552,110 @@ def delete_student(student_id):
     
     return jsonify({'success': False, 'message': 'Öğrenci bulunamadı'}), 404
 
+# ==================== CLASS MANAGEMENT ====================
+
+@app.route('/api/classes/upcoming', methods=['GET'])
+def get_upcoming_classes():
+    """Gelecek tarihli dersleri getir"""
+    try:
+        instructor_id = request.args.get('instructor_id')
+        
+        # Mock data - gerçekte veritabanından gelecek
+        from datetime import timedelta
+        today = datetime.now()
+        
+        upcoming_classes = [
+            {
+                'id': 1,
+                'course': 'CS101',
+                'title': 'Introduction to Programming',
+                'date': (today + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'time': '09:00 - 10:30',
+                'room': 'Room 401',
+                'status': 'scheduled',
+                'students_enrolled': 45
+            },
+            {
+                'id': 2,
+                'course': 'CS201',
+                'title': 'Data Structures',
+                'date': (today + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'time': '14:00 - 15:30',
+                'room': 'Lab 204',
+                'status': 'scheduled',
+                'students_enrolled': 38
+            },
+            {
+                'id': 3,
+                'course': 'CS301',
+                'title': 'Algorithms',
+                'date': (today + timedelta(days=2)).strftime('%Y-%m-%d'),
+                'time': '16:00 - 17:30',
+                'room': 'Room 405',
+                'status': 'scheduled',
+                'students_enrolled': 32
+            },
+            {
+                'id': 4,
+                'course': 'CS102',
+                'title': 'Advanced Programming',
+                'date': (today + timedelta(days=3)).strftime('%Y-%m-%d'),
+                'time': '10:00 - 11:30',
+                'room': 'Lab 301',
+                'status': 'scheduled',
+                'students_enrolled': 40
+            },
+        ]
+        
+        logger.info(f"Fetched {len(upcoming_classes)} upcoming classes for instructor: {instructor_id}")
+        return jsonify({
+            'success': True,
+            'classes': upcoming_classes
+        })
+        
+    except Exception as e:
+        logger.error(f"Get upcoming classes error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/classes/cancel', methods=['POST'])
+def cancel_class():
+    """Dersi iptal et"""
+    try:
+        data = request.json
+        class_id = data.get('class_id')
+        reason = data.get('reason')
+        instructor_id = data.get('instructor_id')
+        
+        # Validation
+        if not all([class_id, reason, instructor_id]):
+            raise ValidationError('Tüm alanlar gerekli (class_id, reason, instructor_id)')
+        
+        # İptal kaydı oluştur
+        cancellation = {
+            'class_id': class_id,
+            'reason': reason,
+            'instructor_id': instructor_id,
+            'cancelled_at': datetime.now().isoformat(),
+            'status': 'cancelled'
+        }
+        
+        # TODO: Veritabanına kaydet (şimdilik sadece log)
+        logger.info(f"Class {class_id} cancelled by {instructor_id}. Reason: {reason}")
+        
+        # TODO: Öğrencilere bildirim gönder
+        
+        return jsonify({
+            'success': True,
+            'message': 'Ders başarıyla iptal edildi',
+            'cancellation': cancellation
+        })
+        
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(f"Class cancellation error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 def save_students_db():
     """Öğrenci veritabanını kaydet"""
     with open('static/students.json', 'w', encoding='utf-8') as f:
@@ -520,22 +696,15 @@ def save_rooms(rooms):
         json.dump(rooms, f, ensure_ascii=False, indent=2)
 
 def load_data():
-    """Verileri yükle"""
-    global students_db, attendance_records
-    
-    # Öğrencileri yükle
-    if os.path.exists('static/students.json'):
-        with open('static/students.json', 'r', encoding='utf-8') as f:
-            students_db = json.load(f)
-    
-    # Yoklama kayıtlarını yükle
-    if os.path.exists('static/attendance/records.json'):
-        with open('static/attendance/records.json', 'r', encoding='utf-8') as f:
-            attendance_records = json.load(f)
+    """DEPRECATED: Verileri yükle - Now using database adapter"""
+    logger.warning("load_data() is deprecated. Using database adapter instead.")
+    pass
 
-# Uygulama başlatıldığında verileri yükle
-load_data()
+# Initialize default users on startup
+init_default_users()
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    logger.info(f"Starting Smart Attendance System v2.0.0")
+    logger.info(f"Database mode: {db.__class__.__name__}")
+    app.run(debug=Config.DEBUG, host=Config.HOST, port=Config.PORT)
 

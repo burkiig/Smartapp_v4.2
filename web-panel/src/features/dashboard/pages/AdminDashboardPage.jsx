@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { StatsCard } from '../../../shared/components/ui/StatsCard';
+import { FaceScan } from '../../attendance/components/FaceScan';
+import { QRScan } from '../../attendance/components/QRScan';
 import './AdminDashboardPage.css';
 
 const ADMIN_MENU_ITEMS = [
   { id: 'overview', label: 'Overview', icon: '📊' },
+  { id: 'face-scan', label: 'Face Scan', icon: '👤' },
+  { id: 'qr-scan', label: 'QR Scan', icon: '📱' },
   { id: 'users', label: 'Users', icon: '👥' },
   { id: 'courses', label: 'Courses', icon: '📚' },
   { id: 'rooms', label: 'Rooms', icon: '🏢' },
@@ -278,6 +282,10 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
     switch (activeTab) {
       case 'overview':
         return renderOverview();
+      case 'face-scan':
+        return <FaceScan onClose={() => setActiveTab('overview')} />;
+      case 'qr-scan':
+        return <QRScan onClose={() => setActiveTab('overview')} />;
       case 'users':
         return renderUsers();
       case 'courses':

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../../../../shared/components/ui/Button';
 import { RoleSelector } from '../RoleSelector';
 import './LoginForm.css';
+import './PasswordToggle.css';
 
 export const LoginForm = ({ onLogin, loading, error }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState('instructor');
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     setTimeout(() => setLogoLoaded(true), 100);
@@ -69,14 +71,33 @@ export const LoginForm = ({ onLogin, loading, error }) => {
             <span className="label-icon">🔒</span>
             Password
           </label>
-          <input
-            type="password"
-            className="form-input"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            required
-          />
+          <div className="password-input-wrapper">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className="form-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? '👁️' : '👁️‍🗨️'}
+            </button>
+          </div>
+        </div>
+
+        <div className="forgot-password-wrapper">
+          <a href="#" className="forgot-password-link" onClick={(e) => {
+            e.preventDefault();
+            alert('Şifre sıfırlama özelliği yakında eklenecek!');
+          }}>
+            Şifremi Unuttum?
+          </a>
         </div>
 
         <Button
