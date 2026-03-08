@@ -20,8 +20,8 @@ except ImportError:
 
 # APScheduler — otomatik oturum yönetimi için
 try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
+    from apscheduler.triggers.cron import CronTrigger  # type: ignore
     SCHEDULER_AVAILABLE = True
 except ImportError:
     SCHEDULER_AVAILABLE = False
@@ -29,8 +29,8 @@ except ImportError:
 
 # Optional imports for face recognition (can run without these for testing)
 try:
-    import cv2
-    import face_recognition
+    import cv2  # type: ignore
+    import face_recognition  # type: ignore
     import numpy as np
     FACE_RECOGNITION_AVAILABLE = True
 except ImportError:
@@ -1729,20 +1729,6 @@ def review_attendance(record_id):
         logger.error(f"Review attendance error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
-def save_students_db():
-    """Öğrenci veritabanını kaydet"""
-    with open('static/students.json', 'w', encoding='utf-8') as f:
-        json.dump(students_db, f, ensure_ascii=False, indent=2)
-
-def save_attendance_records():
-    """Yoklama kayıtlarını kaydet"""
-    with open('static/attendance/records.json', 'w', encoding='utf-8') as f:
-        json.dump(attendance_records, f, ensure_ascii=False, indent=2)
-
-def save_users_db():
-    """Kullanıcı veritabanını kaydet"""
-    with open('static/users.json', 'w', encoding='utf-8') as f:
-        json.dump(users_db, f, ensure_ascii=False, indent=2)
 
 def load_courses():
     """Dersleri yükle"""
