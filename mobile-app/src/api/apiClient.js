@@ -18,9 +18,10 @@ const getApiBaseUrl = () => {
  */
 const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
   },
 });
 
@@ -85,6 +86,12 @@ apiClient.interceptors.response.use(
 
     // If error is not 401 or request has already been retried, reject
     if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // Auth endpoints should never trigger refresh — reject immediately with real error
+    const AUTH_ENDPOINTS = ['/login', '/register', '/auth/refresh'];
+    if (AUTH_ENDPOINTS.some(ep => originalRequest.url?.includes(ep))) {
       return Promise.reject(error);
     }
 

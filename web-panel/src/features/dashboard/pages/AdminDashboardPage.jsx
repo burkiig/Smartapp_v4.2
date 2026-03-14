@@ -12,11 +12,20 @@ const ADMIN_MENU_ITEMS = [
   { id: 'users', label: 'Users', icon: '👥' },
   { id: 'courses', label: 'Courses', icon: '📚' },
   { id: 'rooms', label: 'Rooms', icon: '🏢' },
-  { id: 'system', label: 'System', icon: '⚙️' }
+  { id: 'system', label: 'System', icon: '⚙️' },
+  { id: 'logout', label: 'Logout', icon: '🚪' }
 ];
 
 export const AdminDashboardPage = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
+
+  const handleTabChange = (id) => {
+    if (id === 'logout') {
+      onLogout();
+      return;
+    }
+    setActiveTab(id);
+  };
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalInstructors: 0,
@@ -306,7 +315,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
         subtitle="Admin Panel"
         menuItems={ADMIN_MENU_ITEMS}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         user={user}
         onLogout={onLogout}
       />

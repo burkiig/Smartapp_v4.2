@@ -6,6 +6,7 @@
   flex-direction: column;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
   height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-header {
@@ -83,6 +84,9 @@
 }
 
 .sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  background: #0F172A;
   padding: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -135,6 +139,19 @@
   text-overflow: ellipsis;
 }
 
+/* Logout nav item */
+.nav-item.logout-item {
+  color: #FCA5A5;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16px;
+}
+
+.nav-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #FFFFFF;
+}
+
 .logout-btn {
   display: flex;
   align-items: center;
@@ -162,6 +179,16 @@
   font-size: 18px;
 }
 
+/* Mobile Hamburger Button */
+.mobile-menu-btn {
+  display: none;
+}
+
+/* Sidebar Overlay */
+.sidebar-overlay {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .sidebar {
@@ -170,6 +197,39 @@
 }
 
 @media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1001;
+    width: 44px;
+    height: 44px;
+    background: #0F172A;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s ease;
+  }
+
+  .mobile-menu-btn:hover {
+    background: #1E293B;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+  }
+
   .sidebar {
     position: fixed;
     left: -280px;

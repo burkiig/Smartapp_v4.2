@@ -1,6 +1,7 @@
 .admin-dashboard-container {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: #F8FAFC;
 }
 
@@ -243,7 +244,7 @@
 /* Courses Grid */
 .courses-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 24px;
 }
 
@@ -297,7 +298,7 @@
 /* Rooms Grid */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
 }
 
@@ -389,6 +390,8 @@
 @media (max-width: 768px) {
   .main-content {
     padding: 16px;
+    margin-left: 0;
+    width: 100%;
   }
 
   .page-header {
@@ -399,6 +402,37 @@
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-content {
+    padding: 12px;
+    margin-left: 0 !important;
+    width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .courses-grid,
+  .rooms-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .system-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .page-header h1 {
+    font-size: 1.4rem;
   }
 }
 

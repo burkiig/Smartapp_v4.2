@@ -20,11 +20,20 @@ const INSTRUCTOR_MENU_ITEMS = [
   { id: 'reports', label: 'Reports', icon: '📄' },
   { id: 'register', label: 'Register Student', icon: '➕' },
   { id: 'students', label: 'Students', icon: '👥' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' }
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
+  { id: 'logout', label: 'Logout', icon: '🚪' }
 ];
 
 export const InstructorDashboardPage = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  const handleTabChange = (id) => {
+    if (id === 'logout') {
+      onLogout();
+      return;
+    }
+    setActiveTab(id);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -58,7 +67,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
         subtitle="Instructor Panel"
         menuItems={INSTRUCTOR_MENU_ITEMS}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         user={user}
         onLogout={onLogout}
       />

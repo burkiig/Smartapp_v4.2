@@ -11,11 +11,20 @@ const STUDENT_MENU_ITEMS = [
   { id: 'qr-scan', label: 'QR Scan', icon: '📱' },
   { id: 'courses', label: 'My Courses', icon: '📚' },
   { id: 'attendance', label: 'Attendance', icon: '✓' },
-  { id: 'schedule', label: 'Schedule', icon: '📅' }
+  { id: 'schedule', label: 'Schedule', icon: '📅' },
+  { id: 'logout', label: 'Logout', icon: '🚪' }
 ];
 
 export const StudentDashboardPage = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  const handleTabChange = (id) => {
+    if (id === 'logout') {
+      onLogout();
+      return;
+    }
+    setActiveTab(id);
+  };
   const [attendanceData, setAttendanceData] = useState([]);
   const [stats, setStats] = useState({
     totalClasses: 0,
@@ -256,7 +265,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
         subtitle="Student Portal"
         menuItems={STUDENT_MENU_ITEMS}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         user={user}
         onLogout={onLogout}
       />

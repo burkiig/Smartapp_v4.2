@@ -109,24 +109,6 @@ export const LoginForm = ({ onLogin, loading, error }) => {
         >
           {loading ? 'Signing in...' : 'Sign In'}
         </Button>
-
-        <div className="demo-credentials">
-          <p className="demo-title">Demo Credentials:</p>
-          <div className="demo-list">
-            <div className="demo-item">
-              <span className="demo-role">👨‍🏫 Instructor:</span>
-              <span className="demo-creds">instructor1 / pass123</span>
-            </div>
-            <div className="demo-item">
-              <span className="demo-role">🎓 Student:</span>
-              <span className="demo-creds">student1 / pass123</span>
-            </div>
-            <div className="demo-item">
-              <span className="demo-role">⚙️ Admin:</span>
-              <span className="demo-creds">admin / admin123</span>
-            </div>
-          </div>
-        </div>
       </form>
     </div>
   );

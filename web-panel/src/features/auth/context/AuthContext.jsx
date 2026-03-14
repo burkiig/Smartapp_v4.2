@@ -58,6 +58,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setAccessToken(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
   };
 
   /**

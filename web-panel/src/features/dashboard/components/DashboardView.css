@@ -451,4 +451,68 @@
   .page-title {
     font-size: 24px;
   }
+
+  /* Schedule kartları metin taşması düzeltmesi */
+  .schedule-item {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .schedule-time {
+    min-width: 80px;
+    max-width: 80px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .time-icon {
+    font-size: 13px;
+  }
+
+  .schedule-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .schedule-course {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+
+  .schedule-meta {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    font-size: 11px;
+    overflow: hidden;
+  }
+
+  .schedule-room {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+  }
+
+  .auto-badge {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+
+  .schedule-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 }

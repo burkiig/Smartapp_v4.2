@@ -89,7 +89,7 @@ except ImportError:
         LOG_LEVEL = 'INFO'
         LOG_FILE = None
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get('SECRET_KEY') or os.environ.get('JWT_SECRET_KEY') or 'dev-secret-key-change-in-production'
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY') or app.secret_key
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
@@ -118,44 +118,60 @@ os.makedirs('static/attendance', exist_ok=True)
 
 # Initialize default users if database is empty
 def init_default_users():
-    """Initialize default users if none exist"""
+    """Ensure all default/demo users exist in DB with correct passwords."""
     try:
-        users = db.get_users()
-        if not users:
-            logger.info("Initializing default users...")
-            
-            default_users = [
-                {
-                    'username': 'admin',
-                    'password': generate_password_hash('admin123'),
-                    'role': 'admin',
-                    'name': 'System Administrator',
-                    'email': 'admin@attendance.com'
-                },
-                {
-                    'username': 'instructor1',
-                    'password': generate_password_hash('instructor123'),
-                    'role': 'instructor',
-                    'name': 'Dr. Robert Chen',
-                    'department': 'Computer Science',
-                    'email': 'robert.chen@university.edu'
-                },
-                {
-                    'username': 'student1',
-                    'password': generate_password_hash('student123'),
-                    'role': 'student',
-                    'name': 'John Doe',
-                    'student_id': '2021001',
-                    'email': 'john.doe@student.edu'
-                }
-            ]
-            
-            for user_data in default_users:
-                try:
+        default_users = [
+            {
+                'username': 'admin',
+                'password': generate_password_hash('admin123'),
+                'role': 'admin',
+                'name': 'System Administrator',
+                'email': 'admin@attendance.com'
+            },
+            {
+                'username': 'instructor1',
+                'password': generate_password_hash('pass123'),
+                'role': 'instructor',
+                'name': 'Dr. Robert Chen',
+                'department': 'Computer Science',
+                'email': 'robert.chen@university.edu'
+            },
+            {
+                'username': 'student1',
+                'password': generate_password_hash('pass123'),
+                'role': 'student',
+                'name': 'John Doe',
+                'student_id': '2021001',
+                'email': 'john.doe@student.edu'
+            },
+            {
+                'username': 'instructor_demo',
+                'password': generate_password_hash('demo123'),
+                'role': 'instructor',
+                'name': 'Dr. Demo Instructor',
+                'department': 'Computer Science',
+                'email': 'instructor@demo.com'
+            },
+            {
+                'username': 'student_demo',
+                'password': generate_password_hash('demo123'),
+                'role': 'student',
+                'name': 'Demo Student',
+                'student_id': 'DEMO001',
+                'email': 'student@demo.com'
+            }
+        ]
+
+        for user_data in default_users:
+            try:
+                existing = db.get_user(user_data['username'])
+                if not existing:
                     db.create_user(user_data)
                     logger.info(f"Created default user: {user_data['username']}")
-                except Exception as e:
-                    logger.warning(f"Could not create user {user_data['username']}: {e}")
+                else:
+                    logger.debug(f"User already exists: {user_data['username']}")
+            except Exception as e:
+                logger.warning(f"Could not upsert user {user_data['username']}: {e}")
     except Exception as e:
         logger.error(f"Error initializing default users: {e}")
 
@@ -390,9 +406,20 @@ def serve_react(path):
             'message': 'Web panel bulunamadi. Lutfen web-panel klasorunde "npm run build" komutunu calistirin.',
             'build_dir': REACT_BUILD_DIR
         }), 404
+
+    # /static/ isteklerini build klasöründen açıkça sun (Flask'ın built-in static handler'ı devre dışı)
+    if path.startswith('static/'):
+        file_path = os.path.join(REACT_BUILD_DIR, path)
+        if os.path.exists(file_path):
+            return send_from_directory(REACT_BUILD_DIR, path)
+        return jsonify({'error': 'Dosya bulunamadı', 'path': path}), 404
+
+    # Diğer mevcut dosyalar (favicon.ico, manifest.json vb.)
     file_path = os.path.join(REACT_BUILD_DIR, path)
     if path and os.path.exists(file_path):
         return send_from_directory(REACT_BUILD_DIR, path)
+
+    # SPA fallback — tüm bilinmeyen route'lar için index.html
     return send_from_directory(REACT_BUILD_DIR, 'index.html')
 
 # ==================== HEALTH CHECK ====================
@@ -518,47 +545,44 @@ def handle_generic_error(error):
 # MOCK USERS - Geçici hardcoded kullanıcılar
 # TODO: DB hazır olunca get_user_from_db() fonksiyonunu gerçek DB sorgusu ile değiştir
 MOCK_USERS = {
-    # Web Panel Users (existing users from web-panel)
-    'instructor1': {
-        'username': 'instructor1',
-        'password': generate_password_hash('pass123'),
-        'role': 'instructor',
-        'name': 'Dr. Instructor One',
-        'department': 'Computer Science',
-        'email': 'instructor1@university.edu'
-    },
-    'student1': {
-        'username': 'student1',
-        'password': generate_password_hash('pass123'),
-        'role': 'student',
-        'name': 'Student One',
-        'student_id': 'STU001',
-        'email': 'student1@university.edu'
-    },
-    # Admin User
     'admin': {
         'username': 'admin',
         'password': generate_password_hash('admin123'),
         'role': 'admin',
         'name': 'System Administrator',
-        'email': 'admin@demo.com'
+        'email': 'admin@attendance.com'
     },
-    # Mobile Demo Users
+    'instructor1': {
+        'username': 'instructor1',
+        'password': generate_password_hash('pass123'),
+        'role': 'instructor',
+        'name': 'Dr. Robert Chen',
+        'department': 'Computer Science',
+        'email': 'robert.chen@university.edu'
+    },
+    'student1': {
+        'username': 'student1',
+        'password': generate_password_hash('pass123'),
+        'role': 'student',
+        'name': 'John Doe',
+        'student_id': '2021001',
+        'email': 'john.doe@student.edu'
+    },
     'instructor_demo': {
         'username': 'instructor_demo',
         'password': generate_password_hash('demo123'),
         'role': 'instructor',
         'name': 'Dr. Demo Instructor',
-        'email': 'instructor@demo.com',
-        'department': 'Computer Science'
+        'department': 'Computer Science',
+        'email': 'instructor@demo.com'
     },
     'student_demo': {
         'username': 'student_demo',
         'password': generate_password_hash('demo123'),
         'role': 'student',
         'name': 'Demo Student',
-        'email': 'student@demo.com',
-        'student_id': 'DEMO001'
+        'student_id': 'DEMO001',
+        'email': 'student@demo.com'
     }
 }
 

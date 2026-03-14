@@ -16,8 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from './context/UserContext';
-import api from './shared/utils/apiAdapter';
-import { saveTokens } from '../src/utils/tokenStorage';
 
 // Smart Attendance Logo Component with Premium Animations
 const SmartAttendanceLogo = () => {
@@ -103,7 +101,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login } = useUser();
   const [userType, setUserType] = useState('student');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -111,25 +109,25 @@ export default function LoginScreen() {
   // Clear fields when user type changes
   const handleUserTypeChange = (type) => {
     setUserType(type);
-    setEmail('');      // Clear email
-    setPassword('');   // Clear password
+    setUsername('');
+    setPassword('');
   };
 
   const handleSignIn = async () => {
     // Validate empty fields
-    if (!email.trim() && !password.trim()) {
+    if (!username.trim() && !password.trim()) {
       Alert.alert(
         'Missing Information',
-        'Please enter your email and password to continue.',
+        'Please enter your username and password to continue.',
         [{ text: 'OK' }]
       );
       return;
     }
     
-    if (!email.trim()) {
+    if (!username.trim()) {
       Alert.alert(
-        'Email Required',
-        'Please enter your email address.',
+        'Username Required',
+        'Please enter your username.',
         [{ text: 'OK' }]
       );
       return;
@@ -146,31 +144,18 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // Call Flask backend login API
-      const response = await api.post('/login', {
-        username: email,
-        password: password,
-      });
+      // Use UserContext login — it handles backend call, token storage, and state update
+      const result = await login(username, password, null);
 
-      if (response.success) {
-        const { user, access_token, refresh_token } = response;
-        
-        // Save JWT tokens to secure storage
-        if (access_token) {
-          await saveTokens(access_token, refresh_token || access_token);
-        }
-        
-        // Update user context
-        login(user.role, user.email, user.name, user.username);
-        
-        // Navigate to home based on role
-        if (user.role === 'instructor') {
+      if (result.success) {
+        // Navigate based on role (state is already updated by context)
+        if (result.user.role === 'instructor') {
           router.push('/(tabs)/dashboard');
         } else {
           router.push('/(tabs)/home');
         }
       } else {
-        Alert.alert('Login Failed', response.message || 'Invalid credentials');
+        Alert.alert('Login Failed', result.error || 'Invalid credentials');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -258,22 +243,23 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Email Input */}
-            <Text style={styles.label}>School Email</Text>
+            {/* Username Input */}
+            <Text style={styles.label}>Username</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+              <Ionicons name="person-outline" size={20} color="#9CA3AF" />
               <TextInput
                 style={styles.input}
                 placeholder={
                   userType === 'instructor'
-                    ? 'instructor@school.edu'
-                    : 'student@school.edu'
+                    ? 'instructor_demo'
+                    : 'student_demo'
                 }
                 placeholderTextColor="#9CA3AF"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
+                value={username}
+                onChangeText={setUsername}
+                keyboardType="default"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
