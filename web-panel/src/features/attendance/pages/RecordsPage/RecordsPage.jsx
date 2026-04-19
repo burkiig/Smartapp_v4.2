@@ -1,264 +1,327 @@
-import React, { useState } from 'react';
-import { StatsCard } from '../../../../shared/components/ui/StatsCard';
-import { Table } from '../../../../shared/components/ui/Table';
-import { Badge } from '../../../../shared/components/ui/Badge';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  MdSchool, MdPercent, MdListAlt, MdFlag, MdRefresh, MdExpandMore, MdExpandLess,
+  MdDownload,
+} from 'react-icons/md';
+import apiClient from '../../../../shared/services/apiClient';
+import { SkeletonStatCard, SkeletonTable } from '../../../../shared/components/Skeleton';
 import './RecordsPage.css';
 
 export const RecordsPage = () => {
-  const [dateRange, setDateRange] = useState('This Month');
-  const [course, setCourse] = useState('All Courses');
-  const [attendanceMethod, setAttendanceMethod] = useState('All Methods');
+  const [performance, setPerformance] = useState([]);
+  const [records, setRecords] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [courseFilter, setCourseFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
-  const stats = {
-    totalClasses: 66,
-    avgAttendance: 92,
-    autoAttendance: 95,
-    manualReviews: 30
-  };
-
-  const coursePerformance = [
-    {
-      course: 'CS101',
-      classes: 24,
-      avgAttendance: 94,
-      trend: 'up',
-      methods: { face: 95, qr: 95 }
-    },
-    {
-      course: 'CS201',
-      classes: 22,
-      avgAttendance: 89,
-      trend: 'down',
-      methods: { face: 93, qr: 93 }
-    },
-    {
-      course: 'CS301',
-      classes: 20,
-      avgAttendance: 92,
-      trend: 'up',
-      methods: { face: 94, qr: 94 }
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [perf, recs, crs] = await Promise.allSettled([
+        apiClient.get('/dashboard/course-performance'),
+        apiClient.get('/attendance/records', { params: { page: 1, page_size: 100 } }),
+        apiClient.get('/courses/'),
+      ]);
+      if (perf.status === 'fulfilled') setPerformance(perf.value || []);
+      if (recs.status === 'fulfilled') {
+        // Backend returns paginated object: { records: [...], total, page, ... }
+        const payload = recs.value;
+        setRecords(Array.isArray(payload) ? payload : (payload?.records || []));
+      }
+      if (crs.status === 'fulfilled') setCourses(crs.value || []);
+    } catch (err) {
+      console.error('RecordsPage error:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  }, []);
 
-  const failureReasons = [
-    { reason: 'Face verification failed', count: 12, percentage: 40, color: '#F59E0B' },
-    { reason: 'GPS unstable', count: 9, percentage: 30, color: '#F59E0B' },
-    { reason: 'Device integrity warning', count: 6, percentage: 20, color: '#F59E0B' },
-    { reason: 'Network issue', count: 3, percentage: 10, color: '#F59E0B' }
-  ];
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const exportPDF = () => {
-    alert('Exporting as PDF...');
+  const [expandedSessions, setExpandedSessions] = useState(new Set());
+
+  const filteredRecords = courseFilter
+    ? records.filter(r => String(r.course_id) === courseFilter)
+    : records;
+
+  const courseMap = Object.fromEntries(courses.map(c => [String(c.id), c]));
+
+  // Group records by session when a course is selected
+  const sessionGroups = useMemo(() => {
+    if (!courseFilter) return null;
+    const groups = {};
+    filteredRecords.forEach(r => {
+      const sid = r.session_id ?? 'unknown';
+      if (!groups[sid]) groups[sid] = [];
+      groups[sid].push(r);
+    });
+    return Object.entries(groups).sort((a, b) => {
+      const aDate = a[1][0]?.marked_at || '';
+      const bDate = b[1][0]?.marked_at || '';
+      return bDate.localeCompare(aDate);
+    });
+  }, [filteredRecords, courseFilter]);
+
+  const toggleSession = (sid) => {
+    setExpandedSessions(prev => {
+      const next = new Set(prev);
+      if (next.has(sid)) next.delete(sid); else next.add(sid);
+      return next;
+    });
   };
 
-  const exportExcel = () => {
-    alert('Exporting as Excel...');
-  };
-
-  const scheduleReport = () => {
-    alert('Schedule Report...');
-  };
-
-  // Prepare course performance table
-  const courseTableColumns = [
-    { key: 'course', label: 'Course' },
-    { key: 'classes', label: 'Classes' },
-    { 
-      key: 'avgAttendance', 
-      label: 'Avg Attendance',
-      render: (value, row) => (
-        <div className="attendance-cell">
-          <div className="progress-bar">
-            <div 
-              className="progress-fill" 
-              style={{width: `${row.avgAttendance}%`}}
-            ></div>
-          </div>
-          <span className="attendance-value">{row.avgAttendance}%</span>
-        </div>
-      )
-    },
-    { 
-      key: 'trend', 
-      label: 'Trend',
-      render: (value) => (
-        <span className={`trend-icon ${value}`}>
-          {value === 'up' ? '↑' : '↓'}
-        </span>
-      )
-    },
-    {
-      key: 'methods',
-      label: 'Methods',
-      render: (value) => (
-        <div className="methods-badges">
-          <Badge variant="info" size="small" style={{ marginRight: '8px' }}>
-            face {value.face}%
-          </Badge>
-          <Badge variant="info" size="small">
-            QR {value.qr}%
-          </Badge>
-        </div>
-      )
+  const handleExport = async (format) => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ format });
+      if (courseFilter) params.set('course_id', courseFilter);
+      const response = await fetch(
+        `/api/v1/attendance/export?${params.toString()}`,
+        { method: 'GET', credentials: 'include' }
+      );
+      if (!response.ok) throw new Error('Export başarısız');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `yoklama_raporu.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Export hatası');
+    } finally {
+      setExporting(false);
     }
-  ];
+  };
+
+  const avgAttendance = performance.length
+    ? Math.round(performance.reduce((sum, c) => sum + (c.attendance || 0), 0) / performance.length)
+    : 0;
+  const flaggedCount = records.filter(r => r.is_flagged).length;
 
   return (
     <div className="records-page-container">
-      {/* Header */}
       <div className="records-header">
         <div>
-          <h1 className="page-title">Reports & Analytics</h1>
-          <p className="page-subtitle">View attendance insights and export data</p>
+          <h1 className="page-title">Raporlar & Analitik</h1>
+          <p className="page-subtitle">Yoklama verileri ve kurs performansı</p>
         </div>
-      </div>
-
-      {/* Filters Section */}
-      <div className="filters-section">
-        <div className="filters-left">
-          <span className="filter-icon">🔍</span>
-          <span className="filter-label">Filters</span>
-        </div>
-        <div className="filters-right">
-          <div className="filter-group">
-            <label>Date Range</label>
-            <select 
-              value={dateRange} 
-              onChange={(e) => setDateRange(e.target.value)}
-              className="filter-select"
-            >
-              <option>This Month</option>
-              <option>Last Month</option>
-              <option>This Year</option>
-              <option>Custom</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>Course</label>
-            <select 
-              value={course} 
-              onChange={(e) => setCourse(e.target.value)}
-              className="filter-select"
-            >
-              <option>All Courses</option>
-              <option>Computer Science</option>
-              <option>Mathematics</option>
-              <option>Physics</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>Attendance Method</label>
-            <select 
-              value={attendanceMethod} 
-              onChange={(e) => setAttendanceMethod(e.target.value)}
-              className="filter-select"
-            >
-              <option>All Methods</option>
-              <option>Face Recognition</option>
-              <option>QR Code</option>
-              <option>Manual</option>
-            </select>
-          </div>
-
-          <button className="export-btn" onClick={exportPDF}>
-            📥 Export Report
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="refresh-btn" onClick={loadData} title="Yenile">
+            <MdRefresh size={18} style={{ marginRight: 6 }} />Yenile
+          </button>
+          <button className="refresh-btn" onClick={() => handleExport('excel')} disabled={exporting} title="Excel olarak indir">
+            <MdDownload size={18} style={{ marginRight: 6 }} />Excel
+          </button>
+          <button className="refresh-btn" onClick={() => handleExport('pdf')} disabled={exporting} title="PDF olarak indir">
+            <MdDownload size={18} style={{ marginRight: 6 }} />PDF
           </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <StatsCard
-          icon="📚"
-          title="Total Classes"
-          value={stats.totalClasses}
-          trend="up"
-          trendValue="+8% from last month"
-          color="blue"
-        />
-        <StatsCard
-          icon="📊"
-          title="Avg Attendance"
-          value={`${stats.avgAttendance}%`}
-          trend="up"
-          trendValue="+2% from last month"
-          color="green"
-        />
-        <StatsCard
-          icon="🤖"
-          title="Auto Attendance"
-          value={`${stats.autoAttendance}%`}
-          subtitle="Face ID + QR"
-          color="purple"
-        />
-        <StatsCard
-          icon="👤"
-          title="Manual Reviews"
-          value={stats.manualReviews}
-          subtitle="This month"
-          color="orange"
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="content-grid">
-        {/* Course Performance */}
-        <div className="content-section">
-          <h2 className="section-title">Course Performance</h2>
-          <Table 
-            columns={courseTableColumns} 
-            data={coursePerformance}
-            emptyMessage="No course data available"
-          />
+      {loading ? (
+        <div className="records-loading">
+          <div className="stats-grid">
+            {[1,2,3,4].map(i => <SkeletonStatCard key={i} />)}
+          </div>
+          <div className="content-grid" style={{ marginTop: 24 }}>
+            <div className="content-section"><SkeletonTable rows={6} cols={4} /></div>
+            <div className="content-section"><SkeletonTable rows={6} cols={5} /></div>
+          </div>
         </div>
-
-        {/* Common Failure Reasons */}
-        <div className="content-section">
-          <h2 className="section-title">Common Failure Reasons</h2>
-          <div className="failure-reasons">
-            {failureReasons.map((item, index) => (
-              <div key={index} className="failure-item">
-                <div className="failure-header">
-                  <span className="failure-reason">{item.reason}</span>
-                  <span className="failure-count">{item.count}</span>
-                </div>
-                <div className="failure-bar-container">
-                  <div 
-                    className="failure-bar" 
-                    style={{
-                      width: `${item.percentage}%`,
-                      background: item.color
-                    }}
-                  ></div>
-                </div>
-                <div className="failure-percentage">{item.percentage}%</div>
+      ) : (
+        <>
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon"><MdSchool size={22} /></div>
+              <div className="stat-info">
+                <div className="stat-value">{performance.length}</div>
+                <div className="stat-label">Toplam Ders</div>
               </div>
-            ))}
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon"><MdPercent size={22} /></div>
+              <div className="stat-info">
+                <div className="stat-value">{avgAttendance}%</div>
+                <div className="stat-label">Ort. Devam</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon"><MdListAlt size={22} /></div>
+              <div className="stat-info">
+                <div className="stat-value">{records.length}</div>
+                <div className="stat-label">Toplam Kayıt</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon"><MdFlag size={22} /></div>
+              <div className="stat-info">
+                <div className="stat-value">{flaggedCount}</div>
+                <div className="stat-label">Şüpheli</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Export Options */}
-      <div className="export-section">
-        <h2 className="section-title">Export Options</h2>
-        <div className="export-buttons">
-          <button className="export-option-btn" onClick={exportPDF}>
-            <span className="export-icon">📄</span>
-            <span>Export as PDF</span>
-          </button>
-          <button className="export-option-btn" onClick={exportExcel}>
-            <span className="export-icon">📊</span>
-            <span>Export as Excel</span>
-          </button>
-          <button className="export-option-btn" onClick={scheduleReport}>
-            <span className="export-icon">📅</span>
-            <span>Schedule Report</span>
-          </button>
-        </div>
-      </div>
+          <div className="content-grid">
+            <div className="content-section">
+              <h2 className="section-title">Kurs Performansı</h2>
+              {performance.length === 0 ? (
+                <div className="empty-state">
+                  <p>Henüz veri yok</p>
+                </div>
+              ) : (
+                <table className="records-table">
+                  <thead>
+                    <tr>
+                      <th>Kod</th>
+                      <th>Ders Adı</th>
+                      <th>Öğrenci</th>
+                      <th>Devam Oranı</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {performance.map(c => (
+                      <tr key={c.course_id}>
+                        <td><strong>{c.course}</strong></td>
+                        <td>{c.name}</td>
+                        <td>{c.students}</td>
+                        <td>
+                          <div className="attendance-cell">
+                            <div className="progress-bar">
+                              <div className="progress-fill" style={{ width: `${c.attendance}%` }}></div>
+                            </div>
+                            <span className="attendance-value">{c.attendance}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="content-section">
+              <h2 className="section-title">Yoklama Kayıtları</h2>
+              <div className="filter-row">
+                <select
+                  className="filter-select"
+                  value={courseFilter}
+                  onChange={e => { setCourseFilter(e.target.value); setExpandedSessions(new Set()); }}
+                >
+                  <option value="">Tüm Dersler</option>
+                  {courses.map(c => (
+                    <option key={c.id} value={String(c.id)}>{c.code} — {c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {filteredRecords.length === 0 ? (
+                <div className="empty-state"><p>Kayıt bulunamadı</p></div>
+              ) : sessionGroups ? (
+                /* Session-grouped view when a course is selected */
+                <div className="session-groups">
+                  {sessionGroups.map(([sid, recs]) => {
+                    const presentCount = recs.filter(r => r.status === 'present').length;
+                    const flaggedCount = recs.filter(r => r.is_flagged).length;
+                    const firstDate = recs[0]?.marked_at ? new Date(recs[0].marked_at).toLocaleDateString('tr-TR') : '—';
+                    const isExpanded = expandedSessions.has(sid);
+                    return (
+                      <div key={sid} className="session-group">
+                        <div className="session-group-header" onClick={() => toggleSession(sid)}>
+                          <div className="session-group-info">
+                            <span className="session-label">Oturum #{sid}</span>
+                            <span className="session-date">{firstDate}</span>
+                            <span className="session-stats">
+                              <span className="stat-present">{presentCount} mevcut</span>
+                              <span className="stat-total">/ {recs.length} toplam</span>
+                              {flaggedCount > 0 && <span className="stat-flagged">{flaggedCount} şüpheli</span>}
+                            </span>
+                          </div>
+                          <span className="session-toggle">
+                            {isExpanded ? <MdExpandLess size={20} /> : <MdExpandMore size={20} />}
+                          </span>
+                        </div>
+                        {isExpanded && (
+                          <table className="records-table session-records-table">
+                            <thead>
+                              <tr>
+                                <th>Öğrenci</th>
+                                <th>Öğrenci No</th>
+                                <th>Tarih / Saat</th>
+                                <th>Durum</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {recs.map(r => (
+                                <tr key={r.id}>
+                                  <td>{r.student_name || ('Öğrenci #' + r.student_id)}</td>
+                                  <td>{r.student_number || '—'}</td>
+                                  <td>{r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}</td>
+                                  <td>
+                                    <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
+                                      {r.status === 'present' ? 'Mevcut'
+                                        : r.status === 'absent' ? 'Devamsız'
+                                        : r.status === 'excused' ? 'Mazeretli'
+                                        : r.status === 'pending_review' ? 'İncelemede'
+                                        : r.status || 'Mevcut'}
+                                      {r.is_flagged && ' [Şüpheli]'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Flat view when no course selected */
+                <table className="records-table">
+                  <thead>
+                    <tr>
+                      <th>Öğrenci</th>
+                      <th>Öğrenci No</th>
+                      <th>Ders</th>
+                      <th>Tarih</th>
+                      <th>Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRecords.slice(0, 50).map(r => {
+                      const course = courseMap[String(r.course_id)];
+                      return (
+                        <tr key={r.id}>
+                          <td>{r.student_name || ('Öğrenci #' + r.student_id)}</td>
+                          <td>{r.student_number || '—'}</td>
+                          <td>
+                            {course ? (
+                              <span title={course.name}>{course.code}</span>
+                            ) : r.course_id}
+                          </td>
+                          <td>{r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}</td>
+                          <td>
+                            <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
+                              {r.status === 'present' ? 'Mevcut'
+                                : r.status === 'absent' ? 'Devamsız'
+                                : r.status === 'excused' ? 'Mazeretli'
+                                : r.status === 'pending_review' ? 'İncelemede'
+                                : r.status || 'Mevcut'}
+                              {r.is_flagged && ' [Şüpheli]'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
-

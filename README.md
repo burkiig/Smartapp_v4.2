@@ -1,283 +1,438 @@
-================================================================================
-                    AKILLI YOKLAMA SİSTEMİ
-                    Yüz Tanıma ile Otomatik Yoklama
-================================================================================
+# Smart Attendance System
 
-HOŞ GELDİNİZ!
+Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-Bu sistem, yüz tanıma teknolojisi kullanarak otomatik yoklama almanızı sağlar.
+---
 
-================================================================================
-                    🚀 HIZLI BAŞLANGIÇ
-================================================================================
+## Proje Genel Bakış
 
-ÖNEMLİ: İlk kullanımdan önce Python ve Node.js yüklü olmalıdır!
+Bu sistem; öğretmenlerin yoklama oturumu başlatıp QR kod ürettiği, öğrencilerin ise QR tarama → yüz doğrulama → konum doğrulama adımlarını sırasıyla tamamlayarak yoklamasını aldığı bütünleşik bir çözümdür.
 
-1. KURULUM KONTROLÜ
-   -----------------
-   Çift tıklayın: BASLAT.bat
-   
-   Menüden "4 - Sistem Kontrolu" seçin
-   
-   Python bulunamadı hatası alırsanız:
-   → KURULUM_REHBERI.txt dosyasını açın ve adımları takip edin
+Proje üç ana bileşenden oluşur:
 
+| Bileşen | Teknoloji | Port | Açıklama |
+|---|---|---|---|
+| **Backend** | FastAPI + SQLAlchemy | `8000` | REST API, iş mantığı, veritabanı |
+| **Web Panel** | React.js (CRA) | `3000` | Admin ve öğretmen arayüzü |
+| **Mobile App** | React Native (Expo) | `8081` | Öğrenci ve öğretmen mobil uygulaması |
 
-2. SİSTEMİ BAŞLATMA
-   -----------------
-   Çift tıklayın: BASLAT.bat
-   
-   Menüden "3 - Her Ikisini Baslat" seçin
-   
-   İki pencere açılacak:
-   ✓ Backend (Sunucu) - http://localhost:5000
-   ✓ Web Panel (Arayüz) - http://localhost:3000
-   
-   Tarayıcınızda otomatik açılacak!
+---
 
+## Proje Yapısı
 
-3. KULLANIMA BAŞLAMA
-   ------------------
-   a) Öğrenci Kaydet:
-      - "Öğrenci Kayıt" sekmesi
-      - Bilgileri girin
-      - Kamerayı açın
-      - Fotoğraf çekin
-   
-   b) Yoklama Al:
-      - "Yoklama Al" sekmesi
-      - Kamerayı açın
-      - Yüzünüzü gösterin
-      - Tanıma yapılacak!
+```
+SmartApp/
+├── backend/                    # FastAPI backend
+│   ├── main.py                 # Uygulama giriş noktası
+│   ├── requirements.txt        # Python bağımlılıkları
+│   ├── .env                    # Ortam değişkenleri (git'e ekleme)
+│   ├── .env.example            # Örnek .env şablonu
+│   └── app/
+│       ├── api/                # HTTP route'ları (9 modül)
+│       │   ├── auth.py
+│       │   ├── users.py
+│       │   ├── courses.py
+│       │   ├── rooms.py
+│       │   ├── sessions.py
+│       │   ├── attendance.py
+│       │   ├── face.py
+│       │   ├── excuses.py
+│       │   └── dashboard.py
+│       ├── config/
+│       │   └── settings.py     # Merkezi konfigürasyon
+│       ├── core/
+│       │   └── startup.py      # DB başlatma, admin seed
+│       ├── database/
+│       │   └── connection.py   # SQLAlchemy engine, session, Base
+│       ├── integrations/
+│       │   └── face_engine.py  # InsightFace yüz tanıma motoru
+│       ├── models/             # SQLAlchemy ORM modelleri
+│       │   ├── user.py
+│       │   ├── course.py
+│       │   ├── room.py
+│       │   ├── session.py
+│       │   ├── attendance.py
+│       │   ├── face_reference.py
+│       │   └── excuse.py
+│       ├── repositories/       # Veritabanı CRUD katmanı
+│       │   ├── user_repo.py
+│       │   ├── course_repo.py
+│       │   ├── room_repo.py
+│       │   ├── session_repo.py
+│       │   ├── attendance_repo.py
+│       │   ├── face_repo.py
+│       │   └── excuse_repo.py
+│       ├── schemas/            # Pydantic doğrulama şemaları
+│       │   ├── user.py
+│       │   ├── course.py
+│       │   ├── room.py
+│       │   ├── session.py
+│       │   ├── attendance.py
+│       │   └── excuse.py
+│       ├── security/
+│       │   ├── jwt.py          # Token oluşturma (access + refresh)
+│       │   ├── password.py     # bcrypt hash/verify
+│       │   └── dependencies.py # FastAPI bağımlılıkları (get_current_user vb.)
+│       ├── services/           # İş mantığı katmanı
+│       │   ├── auth_service.py
+│       │   ├── session_service.py
+│       │   ├── attendance_service.py  # 3 aşamalı yoklama pipeline
+│       │   ├── face_service.py
+│       │   └── scheduler.py    # APScheduler: otomatik oturum kapatma
+│       └── utils/
+│           ├── qr.py           # QR token üretme ve base64 görsel
+│           ├── location.py     # Haversine mesafe, geofence doğrulama
+│           └── push.py         # Expo push notification gönderimi
+│
+├── web-panel/                  # React admin/öğretmen paneli
+│   ├── package.json
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── manifest.json
+│   │   └── robots.txt
+│   └── src/
+│       ├── setupProxy.js       # CRA proxy: /api → localhost:8000
+│       ├── App.js
+│       ├── features/
+│       │   ├── auth/           # Giriş, JWT context
+│       │   ├── attendance/     # Yoklama kayıtları, mazeretler
+│       │   ├── dashboard/      # Admin/öğretmen/öğrenci dashboard
+│       │   ├── schedule/       # Haftalık ders programı
+│       │   ├── settings/       # Ayarlar sayfası
+│       │   └── students/       # Öğrenci kayıt formu
+│       ├── pages/              # LoginPage
+│       └── shared/
+│           ├── services/
+│           │   └── apiClient.js  # Axios, JWT refresh interceptor
+│           ├── config/env.js
+│           ├── hooks/useCamera.js
+│           ├── styles/tokens.js
+│           └── components/     # Layout, UI bileşenleri
+│
+└── mobile-app/                 # React Native Expo mobil uygulama
+    ├── package.json
+    ├── app.config.js
+    ├── babel.config.js
+    ├── tailwind.config.js
+    └── app/
+        ├── _layout.js          # Expo Router kök layout
+        ├── index.js            # Giriş / yönlendirme
+        ├── qr-scan.js          # ADIM 1: QR tarama
+        ├── face-scan.js        # ADIM 2: Yüz doğrulama
+        ├── gps-verify.js       # ADIM 3: Konum doğrulama
+        ├── register-face.js    # İlk yüz kaydı
+        ├── (tabs)/             # Ana sekme navigasyonu
+        │   ├── home.js         # Ana ekran
+        │   ├── attendance.js
+        │   ├── history.js
+        │   ├── schedule.js
+        │   ├── profile.js
+        │   └── ...
+        ├── screens/            # Öğretmen ekranları
+        │   ├── InstructorHome.js
+        │   ├── InstructorHistory.js
+        │   └── InstructorProfile.js
+        └── shared/
+            ├── services/
+            │   ├── api.js           # Tüm API endpoint çağrıları
+            │   ├── authService.js   # Giriş, token saklama
+            │   ├── attendanceService.js
+            │   └── ...
+            ├── utils/apiAdapter.js  # SecureStore token yönetimi
+            └── config/env.js
+```
 
-================================================================================
-                    📁 DOSYALAR VE KLASÖRLER
-================================================================================
+---
 
-ANA DOSYALAR:
--------------
-BASLAT.bat              → Ana başlatıcı (Buradan başlayın!)
-KURULUM_REHBERI.txt     → Detaylı kurulum rehberi
-HIZLI_BASLANGIC.txt     → Hızlı başlangıç kılavuzu
-KULLANIM.txt            → Detaylı kullanım kılavuzu
-PROJE_YAPISI.txt        → Teknik detaylar
+## Nasıl Çalışır?
 
-BAŞLATICILAR:
--------------
-run_backend.bat         → Sadece backend'i başlat
-run_web_panel.bat       → Sadece web paneli başlat
-test_system.py          → Sistem kontrolü
+### Yoklama Akışı (3 Adım)
 
-BACKEND:
---------
-app.py                  → Ana Flask uygulaması
-config.py               → Yapılandırma
-requirements.txt        → Python bağımlılıkları
-templates/              → HTML şablonları
-static/                 → Statik dosyalar ve veriler
+```
+Öğretmen                        Öğrenci
+   │                               │
+   ├─ Oturum başlat               │
+   ├─ QR kod üretilir             │
+   │                               │
+   │                    ┌──────────┤
+   │                    │ ADIM 1   │ QR Tarama
+   │                    │          │ → qr_token + session_id gönderir
+   │                    │          │ → Backend: token geçerliliği kontrol
+   │                    ├──────────┤
+   │                    │ ADIM 2   │ Yüz Doğrulama
+   │                    │          │ → 2 kare base64 görsel gönderir
+   │                    │          │ → Backend: InsightFace embedding karşılaştırma
+   │                    │          │ → Pasif canlılık kontrolü (2 kare farkı)
+   │                    ├──────────┤
+   │                    │ ADIM 3   │ Konum Doğrulama
+   │                    │          │ → lat/lon/accuracy gönderir
+   │                    │          │ → Backend: Haversine hesaplama
+   │                    │          │ → Sınıf yarıçapı içinde mi kontrol
+   │                    └──────────┤
+   │                               │ ✅ Yoklama onaylandı
+   │                               │    FinalAttendanceRecord oluşturulur
+```
 
-WEB PANEL:
-----------
-web-panel/              → React web uygulaması
-  src/                  → Kaynak kodlar
-  public/               → Genel dosyalar
-  package.json          → Node.js bağımlılıkları
+### Veri Akışı
 
-MOBİL UYGULAMA:
----------------
-mobile-app/             → Flutter mobil uygulama
-  lib/                  → Dart kaynak kodları
-  pubspec.yaml          → Flutter bağımlılıkları
+```
+Mobile / Web Panel
+      │
+      │  HTTP + Bearer Token (JWT)
+      ▼
+FastAPI /api/v1/*
+      │
+      ├─ Security: JWT decode → get_current_user
+      ├─ Router → Service → Repository
+      ├─ SQLAlchemy ORM
+      ▼
+SQLite (dev) / PostgreSQL (prod)
+```
 
-================================================================================
-                    ⚙️ SİSTEM GEREKSİNİMLERİ
-================================================================================
+---
 
-ZORUNLU:
---------
-✓ Python 3.8+ (https://www.python.org/downloads/)
-✓ Node.js 16+ (https://nodejs.org/)
-✓ Webcam
-✓ Windows 10 veya üstü
+## Kurulum
 
-ÖNERİLEN:
----------
-✓ 8 GB RAM
-✓ HD Webcam
-✓ İyi aydınlatma
-✓ Visual Studio Build Tools (face_recognition için)
+### 1. Backend
 
-================================================================================
-                    🔧 KURULUM ADIMLARI
-================================================================================
+```bash
+cd backend
 
-1. PYTHON KURULUMU
-   ----------------
-   a) https://www.python.org/downloads/ adresine gidin
-   b) En son sürümü indirin
-   c) Kurulum sırasında "Add Python to PATH" seçeneğini işaretleyin!
-   d) Kurulumu tamamlayın
-   e) Yeni komut satırı açın ve test edin: python --version
+# Sanal ortam oluştur
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Linux/Mac
 
+# Bağımlılıkları kur
+pip install -r requirements.txt
 
-2. NODE.JS KURULUMU
-   -----------------
-   a) https://nodejs.org/ adresine gidin
-   b) LTS sürümünü indirin
-   c) Kurulumu tamamlayın
-   d) Yeni komut satırı açın ve test edin: node --version
+# .env dosyası oluştur
+cp .env.example .env
+# .env içinde SECRET_KEY'i değiştir!
 
+# Başlat
+python -m uvicorn main:app --reload
+```
 
-3. SİSTEM KURULUMU
-   ----------------
-   a) BASLAT.bat dosyasını çift tıklayın
-   b) "4 - Sistem Kontrolu" seçin
-   c) Eksikleri kontrol edin
-   d) "1 - Backend Baslat" seçin (ilk kurulum 5-10 dakika)
-   e) "2 - Web Panel Baslat" seçin (ilk kurulum 2-3 dakika)
+Backend `http://localhost:8000` adresinde çalışır.
+API dokümantasyonu: `http://localhost:8000/docs`
 
-================================================================================
-                    ❓ SORUN GİDERME
-================================================================================
+### 2. Web Panel
 
-SORUN: Python bulunamadı
-ÇÖZÜM: KURULUM_REHBERI.txt → Bölüm 1
+```bash
+cd web-panel
+npm install
+npm start
+```
 
-SORUN: Node.js bulunamadı
-ÇÖZÜM: KURULUM_REHBERI.txt → Bölüm 2
+Panel `http://localhost:3000` adresinde açılır.
 
-SORUN: face_recognition yüklenemiyor
-ÇÖZÜM: KURULUM_REHBERI.txt → Bölüm 4
+### 3. Mobile App
 
-SORUN: Kamera açılmıyor
-ÇÖZÜM: 
-- Tarayıcıya kamera izni verin
-- Başka program kamerayı kullanıyor olabilir
-- HIZLI_BASLANGIC.txt → Bölüm 6
+```bash
+cd mobile-app
+npm install --legacy-peer-deps
+npx expo start
+```
 
-SORUN: Yüz tanınamıyor
-ÇÖZÜM:
-- İyi aydınlatma kullanın
-- Yüzünüz kameraya net görünmeli
-- Kayıt sırasında net fotoğraf çekin
+Expo Go uygulaması veya emülatör ile `http://localhost:8081` üzerinden bağlan.
 
-SORUN: Port zaten kullanımda
-ÇÖZÜM: KURULUM_REHBERI.txt → Bölüm 4
+---
 
-================================================================================
-                    📚 DOKÜMANTASYON
-================================================================================
+## Ortam Değişkenleri (`backend/.env`)
 
-YENİ BAŞLAYANLAR İÇİN:
----------------------
-1. BENI_OKU.txt (Bu dosya) - Genel bakış
-2. KURULUM_REHBERI.txt - Adım adım kurulum
-3. HIZLI_BASLANGIC.txt - Hızlı başlangıç
+| Değişken | Varsayılan | Açıklama |
+|---|---|---|
+| `DATABASE_URL` | `sqlite:///./smart_attendance.db` | SQLite veya PostgreSQL bağlantı URL'i |
+| `SECRET_KEY` | `change-this-...` | JWT imzalama anahtarı — **production'da değiştir!** |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Access token geçerlilik süresi |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh token geçerlilik süresi |
+| `CORS_ORIGINS` | `localhost:3000,5173,8081` | İzin verilen frontend origin'leri |
+| `ADMIN_EMAIL` | `admin@attendance.com` | İlk admin e-postası |
+| `ADMIN_USERNAME` | `admin` | İlk admin kullanıcı adı |
+| `ADMIN_PASSWORD` | `admin123` | İlk admin şifresi — **değiştir!** |
+| `FACE_SIMILARITY_THRESHOLD` | `0.4` | Yüz eşleşme eşiği (0–1, düşük = daha katı) |
+| `DEFAULT_GEOFENCE_RADIUS_M` | `50` | Sınıf yarıçapı (metre) |
+| `HOST` | `0.0.0.0` | Sunucu host adresi |
+| `PORT` | `8000` | Sunucu portu |
 
-KULLANICILAR İÇİN:
-------------------
-1. KULLANIM.txt - Detaylı kullanım kılavuzu
-2. HIZLI_BASLANGIC.txt - İpuçları ve püf noktaları
+---
 
-GELİŞTİRİCİLER İÇİN:
---------------------
-1. PROJE_YAPISI.txt - Teknik detaylar
-2. config.py - Yapılandırma seçenekleri
-3. app.py - Backend kaynak kodu
+## API Endpoint'leri
 
-================================================================================
-                    ✨ ÖZELLİKLER
-================================================================================
+Tüm endpoint'ler `/api/v1` prefix'i ile başlar.
 
-✓ Yüz Tanıma ile Öğrenci Kaydı
-✓ Otomatik Yoklama Sistemi
-✓ Öğrenci Yönetimi
-✓ Yoklama Raporları
-✓ Tarih Bazlı Filtreleme
-✓ Web Arayüzü
-✓ Mobil Uygulama (Flutter)
-✓ Modern ve Kullanıcı Dostu Tasarım
-✓ Yerel Veri Saklama
-✓ Çoklu Platform Desteği
+### Auth (`/api/v1/auth`)
 
-================================================================================
-                    🎯 KULLANIM SENARYOLARI
-================================================================================
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| POST | `/login` | E-posta veya kullanıcı adı ile giriş | Herkese açık |
+| POST | `/refresh` | Yeni access token al | Refresh token |
+| GET | `/me` | Mevcut kullanıcı bilgisi | Giriş yapılmış |
+| POST | `/push-token` | Expo push token kaydet | Giriş yapılmış |
+| POST | `/logout` | Çıkış (client token siler) | Giriş yapılmış |
 
-EĞİTİM KURUMLARI:
------------------
-- Sınıf yoklaması
-- Laboratuvar girişleri
-- Kütüphane kullanımı
-- Etkinlik katılımı
+### Users (`/api/v1/users`)
 
-İŞ YERLERİ:
------------
-- Personel devam takibi
-- Toplantı katılımı
-- Vardiya kontrolü
-- Güvenlik girişleri
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| GET | `/` | Tüm kullanıcılar | Admin |
+| POST | `/` | Yeni kullanıcı oluştur | Admin |
+| GET | `/{id}` | Kullanıcı detayı | Admin / kendisi |
+| PATCH | `/{id}` | Kullanıcı güncelle | Admin |
+| DELETE | `/{id}` | Kullanıcı sil | Admin |
 
-ETKİNLİKLER:
-------------
-- Konferans katılımı
-- Seminer takibi
-- Workshop kontrolü
-- Sertifika dağıtımı
+### Courses (`/api/v1/courses`)
 
-================================================================================
-                    🔒 GÜVENLİK VE GİZLİLİK
-================================================================================
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| GET | `/` | Tüm dersler | Giriş yapılmış |
+| POST | `/` | Ders oluştur | Admin |
+| POST | `/{id}/enroll` | Öğrenci ekle | Admin/Öğretmen |
+| DELETE | `/{id}/enroll/{student_id}` | Öğrenci çıkar | Admin |
 
-- Tüm veriler yerel olarak saklanır
-- İnternet bağlantısı gerekmez (kurulum sonrası)
-- Yüz verileri şifrelenmemiştir (geliştirme aşaması)
-- Üretim ortamı için ek güvenlik önlemleri alınmalıdır
+### Sessions (`/api/v1/sessions`)
 
-ÖNEMLİ: Bu sistem geliştirme amaçlıdır. Üretim ortamında kullanmadan önce:
-- Veritabanı entegrasyonu ekleyin
-- Kullanıcı kimlik doğrulaması ekleyin
-- HTTPS kullanın
-- Veri şifreleme ekleyin
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| GET | `/` | Oturumları listele | Giriş yapılmış |
+| GET | `/active` | Aktif oturumlar | Giriş yapılmış |
+| POST | `/start` | Oturum başlat | Öğretmen/Admin |
+| POST | `/{id}/end` | Oturum bitir | Öğretmen/Admin |
+| GET | `/{id}/qr` | QR görsel al | Öğretmen/Admin |
+| POST | `/cancel` | Ders iptal et | Öğretmen/Admin |
 
-================================================================================
-                    📞 DESTEK VE YARDIM
-================================================================================
+### Attendance (`/api/v1/attendance`)
 
-DOKÜMANTASYON:
---------------
-Tüm detaylar için ilgili .txt dosyalarını okuyun.
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| POST | `/scan-qr` | **ADIM 1** QR tara | Öğrenci |
+| POST | `/verify-face` | **ADIM 2** Yüz doğrula | Öğrenci |
+| POST | `/verify-location` | **ADIM 3** Konum doğrula | Öğrenci |
+| GET | `/my-history` | Öğrencinin kendi geçmişi | Öğrenci |
+| GET | `/records` | Tüm kayıtlar | Öğretmen/Admin |
+| GET | `/session/{id}` | Oturum yoklama listesi | Öğretmen/Admin |
+| GET | `/flagged` | İşaretli kayıtlar | Öğretmen/Admin |
+| POST | `/manual` | Manuel yoklama | Öğretmen/Admin |
 
-SİSTEM KONTROLÜ:
-----------------
-BASLAT.bat → "4 - Sistem Kontrolu"
+### Face (`/api/v1/face`)
 
-HATA RAPORLAMA:
----------------
-Hata bulursanız veya yardıma ihtiyacınız varsa:
-support@smartattendance.com
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| POST | `/register` | Yüz vektörü kaydet | Öğrenci |
+| GET | `/status` | Yüz kaydı var mı? | Giriş yapılmış |
+| DELETE | `/` | Yüz verisini sil | Admin |
 
-================================================================================
-                    🚀 BAŞLAMAK İÇİN
-================================================================================
+### Excuses (`/api/v1/excuses`)
 
-1. Python ve Node.js yüklü mü? 
-   → Hayır: KURULUM_REHBERI.txt dosyasını açın
-   → Evet: Adım 2'ye geçin
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| POST | `/` | Mazeret gönder | Öğrenci |
+| GET | `/` | Mazeretleri listele | Öğretmen/Admin |
+| PATCH | `/{id}/review` | Mazeret onayla/reddet | Öğretmen/Admin |
 
-2. BASLAT.bat dosyasını çift tıklayın
+### Dashboard (`/api/v1/dashboard`)
 
-3. "3 - Her Ikisini Baslat" seçin
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| GET | `/stats` | Genel istatistikler | Admin |
+| GET | `/instructor` | Öğretmen dashboard verisi | Öğretmen |
+| GET | `/student` | Öğrenci dashboard verisi | Öğrenci |
 
-4. Tarayıcıda http://localhost:3000 açılacak
+---
 
-5. İlk öğrenciyi kaydedin ve yoklama almaya başlayın!
+## Roller ve Yetkiler
 
-================================================================================
+| Rol | Türkçe | Yapabilecekleri |
+|---|---|---|
+| `admin` | Yönetici | Tüm işlemler: kullanıcı yönetimi, ders yönetimi, tüm raporlar |
+| `instructor` | Öğretmen | Oturum başlat/bitir, QR üret, yoklama gör, mazeret incele |
+| `student` | Öğrenci | Yoklamaya katıl (3 adım), kendi geçmişini gör, mazeret gönder |
 
-Başarılar! 🎉
+---
 
-Sorularınız için: HIZLI_BASLANGIC.txt veya KULLANIM.txt dosyalarını okuyun.
+## Veritabanı Modeli
 
-================================================================================
+```
+users                           → Tüm kullanıcılar (rol bazlı)
+courses                         → Dersler
+enrollments                     → Öğrenci-ders kaydı
+rooms                           → Sınıflar (lat/lon/yarıçap)
+attendance_sessions             → Yoklama oturumları (QR token içerir)
+attendance_attempts             → Her öğrencinin pipeline ilerleme durumu
+final_attendance_records        → Tamamlanan yoklama kayıtları
+class_cancellations             → İptal edilen dersler
+face_references                 → Yüz embedding vektörleri (base64)
+excuses                         → Mazeretler
+```
 
+---
+
+## Yüz Tanıma
+
+Sistem **InsightFace `buffalo_l`** modelini kullanır.
+
+- **Embedding çıkarma:** Her yüz için 512 boyutlu vektör üretilir
+- **Benzerlik:** Cosine similarity ile karşılaştırma yapılır
+- **Eşik:** `FACE_SIMILARITY_THRESHOLD = 0.4` (varsayılan)
+- **Canlılık:** Pasif — iki ayrı kare arasındaki embedding farkına bakılır
+- **Fallback:** insightface kurulu değilse sistem çalışmaya devam eder, yüz adımı otomatik geçer
+
+```bash
+# Yüz tanıma için ek kurulum
+pip install insightface onnxruntime opencv-python numpy
+```
+
+---
+
+## Scheduler (Otomatik Oturum Kapatma)
+
+APScheduler ile her 5 dakikada bir aktif oturumlar kontrol edilir. Bitiş saati geçmiş oturumlar otomatik olarak `completed` durumuna alınır.
+
+---
+
+## Push Bildirimleri
+
+Expo Push API kullanılır. Öğretmen ders iptal ettiğinde, derse kayıtlı öğrencilere otomatik bildirim gönderilir. Öğrencilerin push token'larını kaydetmesi için mobil uygulamadan `/api/v1/auth/push-token` endpoint'i çağrılmalıdır.
+
+---
+
+## Production'a Geçiş
+
+1. `SECRET_KEY` değerini uzun ve rastgele bir string ile değiştir
+2. `DATABASE_URL` değerini PostgreSQL bağlantı dizisiyle güncelle
+3. `ADMIN_PASSWORD` değerini güçlü bir şifreyle değiştir
+4. `DEBUG=false` yap
+5. Web panel için `npm run build` ile production build al
+6. Backend'i `gunicorn` ile başlat:
+
+```bash
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
+
+---
+
+## Geliştirme Notları
+
+### Önemli Değişiklikler (Entegrasyon)
+
+Bu proje, eski Flask tabanlı monolitik `app.py` sisteminin yerine geçen tam yeniden yazımdır.
+
+| Eski Sistem | Yeni Sistem |
+|---|---|
+| Flask (monolitik `app.py`, 73KB) | FastAPI (modüler yapı, router/service/repo katmanları) |
+| JSON dosya tabanlı veri saklama | SQLAlchemy ORM (SQLite/PostgreSQL) |
+| Mock/sahte data | Gerçek veritabanı kayıtları |
+| username bazlı JWT | E-posta veya kullanıcı adı ile JWT |
+| passlib (uyumsuz) | Doğrudan bcrypt kullanımı |
+| Tek aşamalı yoklama | 3 aşamalı pipeline (QR + Yüz + GPS) |
+| Push bildirim yok | Expo Push API entegrasyonu |
+| Scheduler yok | APScheduler (otomatik oturum kapatma) |
+
+### Web Panel Proxy Yapılandırması
+
+`web-panel/src/setupProxy.js` dosyası, CRA dev sunucusunun yalnızca `/api` ile başlayan istekleri `http://localhost:8000`'e yönlendirmesini sağlar. Statik dosyalar, `/@vite`, `/@react-refresh` gibi CRA iç istekleri proxy'den geçmez.
+
+### Mobile Uygulama Token Yönetimi
+
+`expo-secure-store` kullanılarak access token ve refresh token güvenli şekilde cihazda saklanır. Token süresi dolduğunda `apiAdapter.js` içindeki interceptor otomatik olarak `/api/v1/auth/refresh` çağırır.

@@ -1,186 +1,167 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useUser } from '../context/UserContext';
-import { Camera } from 'expo-camera';
-import InstructorHome from '../screens/InstructorHome';
+import { useUser } from '../_context/UserContext';
+import InstructorHome from '../_screens/InstructorHome';
 import Header from '../components/home/Header';
-import FaceWarning from '../components/home/FaceWarning';
 import LiveClassCard from '../components/home/LiveClassCard';
 import QuickActions from '../components/home/QuickActions';
 import MonthStats from '../components/home/MonthStats';
 import RecentActivity from '../components/home/RecentActivity';
-import { sessions } from '../shared/services/api';
+import { sessions, dashboard, courses } from '../shared/services/api';
 
-export default function HomeScreen() {
+// ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
+function StudentHomeScreen() {
   const router = useRouter();
-  const { userType, userName } = useUser();
-  const [hasFaceRegistered] = useState(false);
+  const { userName } = useUser();
 
-  if (userType === 'instructor') {
-    return <InstructorHome />;
-  }
+  // expo-camera v17 hook-based permission API
 
-  const liveClass = {
-    course: 'CS101',
-    title: 'Introduction to Programming',
-    time: '09:00 - 10:30',
-    room: 'Room 401',
-    instructor: 'Dr. Robert Chen',
-    attendanceMarked: false,
-  };
 
-  const stats = {
-    percentage: 92,
-    totalDays: 20,
-    present: 18,
-    absent: 2,
-  };
+  const [liveSession, setLiveSession] = useState(null);
+  const [courseMap, setCourseMap] = useState({});
+  const [stats, setStats] = useState({ percentage: 0, totalDays: 0, present: 0, absent: 0 });
+  const [recentActivity, setRecentActivity] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const recentActivity = {
-    course: 'CS101',
-    status: 'Present',
-    time: 'Today, 09:05 AM',
-    method: 'Face ID',
-  };
-
-  const requestCameraPermission = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      return status === 'granted';
-    } catch (error) {
-      console.error('Error requesting camera permission:', error);
-      return false;
-    }
-  };
+      const [sessRes, coursesRes, statRes] = await Promise.allSettled([
+        sessions.getActive(),
+        courses.list(),
+        dashboard.stats(),
+      ]);
 
-  const checkCameraPermission = async () => {
-    const { status } = await Camera.getCameraPermissionsAsync();
-    return status === 'granted';
-  };
+      // Aktif oturum
+      const activeSessions = sessRes.status === 'fulfilled' && Array.isArray(sessRes.value)
+        ? sessRes.value : [];
+      setLiveSession(activeSessions.length > 0 ? activeSessions[0] : null);
 
-  const handleCameraAction = async (action, actionName) => {
-    // Check if permission is already granted
-    const hasPermission = await checkCameraPermission();
-    
-    if (hasPermission) {
-      action();
-      return;
-    }
-
-    // Directly request permission
-    const granted = await requestCameraPermission();
-    
-    if (granted) {
-      action();
-    } else {
-      // Permission denied - show alert with settings option
-      Alert.alert(
-        'Camera Permission Required',
-        `${actionName} requires camera access to mark attendance. Please enable camera permission in your device settings.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
-        ]
-      );
-    }
-  };
-
-  /**
-   * Yoklama başlatma — önce aktif session sorgular, sonra GPS doğrulamaya yönlendirir.
-   * Yoklama zinciri: GPS → Yüz → QR
-   */
-  const handleStartAttendance = async () => {
-    // Yüz kaydı yoksa önce kayıt yaptır
-    if (!hasFaceRegistered) {
-      handleCameraAction(
-        () => router.push('/register-face'),
-        'Yüz Kaydı'
-      );
-      return;
-    }
-
-    try {
-      const result = await sessions.getActive();
-      const activeSessions = result?.sessions || [];
-
-      if (activeSessions.length === 0) {
-        Alert.alert(
-          'Aktif Ders Yok',
-          'Şu an aktif bir yoklama oturumu bulunmuyor. Ders başlayana kadar bekleyin.',
-          [{ text: 'Tamam' }]
-        );
-        return;
+      // Ders haritası
+      let cMap = {};
+      if (coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value)) {
+        coursesRes.value.forEach(c => { cMap[c.id] = c; });
+        setCourseMap(cMap);
       }
 
-      // Birden fazla aktif session varsa ilkini kullan
-      const session = activeSessions[0];
-      handleCameraAction(
-        () => router.push({ pathname: '/gps-verify', params: { session_id: session.id } }),
-        'Yoklama'
-      );
+      // İstatistikler
+      if (statRes.status === 'fulfilled' && statRes.value) {
+        const s = statRes.value;
+        setStats({
+          percentage: s.attendance_rate ?? 0,
+          totalDays: s.total_sessions ?? 0,
+          present: s.total_sessions_attended ?? 0,
+          absent: (s.total_sessions ?? 0) - (s.total_sessions_attended ?? 0),
+        });
+      }
     } catch (err) {
-      Alert.alert(
-        'Bağlantı Hatası',
-        'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.',
-        [{ text: 'Tamam' }]
-      );
+      console.error('[HomeScreen] fetchData error:', err?.message || err);
+    } finally {
+      setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Aktif oturumu 30 saniyede bir kontrol et — sadece sessions/active, diğer endpoint'ler değil
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const result = await sessions.getActive();
+        const active = Array.isArray(result) ? result : [];
+        setLiveSession(prev => {
+          const newId = active[0]?.id ?? null;
+          const oldId = prev?.id ?? null;
+          return newId === oldId ? prev : (active[0] || null);
+        });
+      } catch { }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const onRefresh = () => { setRefreshing(true); fetchData(); };
+
+  const handleStartAttendance = () => {
+    if (!liveSession) {
+      Alert.alert('Aktif Ders Yok', 'Şu an aktif bir yoklama oturumu bulunmuyor.');
+      return;
+    }
+    router.push({ pathname: '/qr-scan', params: { session_id: liveSession.id } });
   };
 
-  const handleFaceScan = () => handleStartAttendance();
-
-  const handleQRScan = () => {
-    handleCameraAction(
-      () => router.push('/qr-scan'),
-      'QR Code Scan'
-    );
-  };
+  // Aktif ders kartı için nesne oluştur
+  const activeCourse = liveSession ? (courseMap[liveSession.course_id] || null) : null;
+  const liveClass = liveSession ? {
+    course: activeCourse?.code || activeCourse?.name || `Ders #${liveSession.course_id}`,
+    title: activeCourse?.name || `Oturum #${liveSession.id}`,
+    time: liveSession.start_time
+      ? `${liveSession.start_time}${liveSession.end_time ? ' – ' + liveSession.end_time : ''}`
+      : (activeCourse?.schedule || '—'),
+    room: activeCourse?.room_name || '—',
+    instructor: activeCourse?.instructor_name || '—',
+  } : null;
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Header userName={userName} />
-        
-        {!hasFaceRegistered && (
-          <FaceWarning onRegister={() => handleCameraAction(
-            () => router.push('/register-face'),
-            'Face Registration'
-          )} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <Header userName={userName} onRefresh={onRefresh} />
+
+        {liveClass && (
+          <LiveClassCard
+            liveClass={liveClass}
+            onStartAttendance={handleStartAttendance}
+          />
         )}
-        
-        <LiveClassCard liveClass={liveClass} />
-        
+
         <QuickActions
-          hasFaceRegistered={hasFaceRegistered}
-          onFaceScan={handleFaceScan}
-          onQRScan={handleQRScan}
-          onExcuse={() => router.push({
-            pathname: '/excuse-submit',
-            params: {
-              course_id: liveClass.course,
-              course_name: liveClass.title,
-              session_date: new Date().toISOString().slice(0, 10),
-            },
-          })}
+          hasLiveSession={!!liveSession}
+          onStartAttendance={handleStartAttendance}
+          onExcuse={() => {
+            if (liveSession?.course_id) {
+              router.push({
+                pathname: '/excuse-submit',
+                params: {
+                  course_id: liveSession.course_id,
+                  session_id: liveSession.id || '',
+                  course_name: liveClass?.course || '',
+                  session_date: new Date().toISOString().slice(0, 10),
+                },
+              });
+            } else {
+              // Aktif ders yoksa geçmişten mazeret gönderilmeli
+              router.push('/(tabs)/history');
+            }
+          }}
           onHistory={() => router.push('/(tabs)/history')}
         />
-        
+
         <MonthStats stats={stats} />
-        
-        <RecentActivity 
-          activity={recentActivity}
-          onViewAll={() => router.push('/(tabs)/history')}
-        />
+
+        {recentActivity && (
+          <RecentActivity
+            activity={recentActivity}
+            onViewAll={() => router.push('/(tabs)/history')}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Ana Yönlendirici ─────────────────────────────────────────────────────────
+export default function HomeScreen() {
+  const { userType } = useUser();
+
+  if (userType === 'instructor' || userType === 'admin') {
+    return <InstructorHome />;
+  }
+  return <StudentHomeScreen />;
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
+  container: { flex: 1, backgroundColor: '#F1F5F9' },
 });

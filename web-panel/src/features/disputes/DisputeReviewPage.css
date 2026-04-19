@@ -1,0 +1,269 @@
+/* ============================================================
+   Dispute Review Page
+   ============================================================ */
+
+.dispute-review-page {
+  padding: 0;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.dr-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.9rem;
+}
+
+.dr-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  background: var(--card, #ffffff);
+  color: var(--text-secondary, #64748b);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.dr-refresh-btn:hover {
+  background: #f8fafc;
+  color: var(--text, #0f172a);
+}
+
+/* ── Messages ──────────────────────────────────────────────── */
+.dr-message {
+  background: var(--success-bg, #d1fae5);
+  color: var(--success-text, #065f46);
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.dr-loading,
+.dr-empty {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.9rem;
+}
+
+/* ── Section Title ─────────────────────────────────────────── */
+.dr-section-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px 0;
+}
+
+/* ── Dispute Card (pending) ────────────────────────────────── */
+.dispute-card {
+  background: var(--card, #ffffff);
+  border-radius: var(--radius-md, 12px);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08));
+  border: 1px solid var(--border, #e2e8f0);
+  margin-bottom: 12px;
+  transition: box-shadow 0.18s ease;
+}
+
+.dispute-card:hover {
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.1));
+}
+
+/* ── Dispute Meta ──────────────────────────────────────────── */
+.dispute-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.dispute-course {
+  background: var(--info-bg, #dbeafe);
+  color: var(--info-text, #1e40af);
+  border-radius: 6px;
+  padding: 2px 9px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.dispute-session {
+  font-weight: 600;
+  color: var(--text, #0f172a);
+}
+
+.dispute-student {
+  font-weight: 600;
+  color: var(--primary, #2563eb);
+}
+
+.dispute-date {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+}
+
+/* ── Dispute Reason ────────────────────────────────────────── */
+.dispute-reason {
+  margin: 0 0 14px 0;
+  font-size: 0.92rem;
+  color: var(--text, #0f172a);
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--border, #e2e8f0);
+  line-height: 1.5;
+}
+
+/* ── Actions Row ───────────────────────────────────────────── */
+.dispute-actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.dispute-notes {
+  flex: 1;
+  min-width: 200px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  resize: vertical;
+  outline: none;
+  color: var(--text, #0f172a);
+  background: #f8fafc;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  font-family: inherit;
+}
+
+.dispute-notes::placeholder {
+  color: var(--text-muted, #94a3b8);
+}
+
+.dispute-notes:focus {
+  border-color: var(--primary, #2563eb);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.dispute-btns {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dr-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.12s ease;
+}
+
+.dr-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.dr-btn.approve {
+  background: var(--success-bg, #d1fae5);
+  color: var(--success-text, #065f46);
+}
+
+.dr-btn.reject {
+  background: var(--error-bg, #fee2e2);
+  color: var(--error-text, #991b1b);
+}
+
+/* ── Resolved Table ────────────────────────────────────────── */
+.dr-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card, #ffffff);
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08));
+  border: 1px solid var(--border, #e2e8f0);
+  margin-top: 8px;
+  font-size: 0.86rem;
+}
+
+.dr-table thead {
+  background: #f8fafc;
+}
+
+.dr-table th {
+  padding: 11px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-align: left;
+  border-bottom: 1.5px solid var(--border, #e2e8f0);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dr-table td {
+  padding: 10px 14px;
+  color: var(--text, #0f172a);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dr-table tr:last-child td {
+  border-bottom: none;
+}
+
+.dr-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+/* ── Badges ────────────────────────────────────────────────── */
+.dr-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-pending  { background: var(--warning-bg, #fef3c7);  color: var(--warning-text, #92400e); }
+.badge-approved { background: var(--success-bg, #d1fae5);  color: var(--success-text, #065f46); }
+.badge-rejected { background: var(--error-bg, #fee2e2);    color: var(--error-text, #991b1b); }

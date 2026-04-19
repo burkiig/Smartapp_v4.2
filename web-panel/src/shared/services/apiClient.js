@@ -1,21 +1,18 @@
 /**
- * Web Panel — Ortak API İstemcisi
+ * Web Panel — Shared API Client
  *
- * localStorage'daki access_token'ı tüm isteklere otomatik ekler.
- * Tüm feature servis dosyaları bu istemciyi kullanır.
+ * Tokens are stored in httpOnly cookies set by the server.
+ * We never read or write tokens from JavaScript — credentials: 'include'
+ * causes the browser to attach the cookie automatically on every request.
+ *
+ * API prefix: /api/v1
  */
 
-// Boş string = relative URL → hem localhost:5000'de hem ngrok URL'sinde çalışır
-const BASE_URL = process.env.REACT_APP_API_URL || '';
-const TIMEOUT_MS = 8000;
-
-function getAuthHeader() {
-  const token = localStorage.getItem('access_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const TIMEOUT_MS = 10000;
 
 async function request(method, path, { body, params } = {}) {
-  let url = `${BASE_URL}/api${path}`;
+  let url = `${BASE_URL}/api/v1${path}`;
 
   if (params && Object.keys(params).length) {
     const qs = new URLSearchParams(
@@ -30,25 +27,59 @@ async function request(method, path, { body, params } = {}) {
   try {
     const response = await fetch(url, {
       method,
+      credentials: 'include',   // browser sends httpOnly auth cookie automatically
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
+      headers: { 'Content-Type': 'application/json' },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
 
     clearTimeout(timer);
-    const data = await response.json();
+
+    // Handle 401 — try silent token refresh via cookie rotation
+    if (response.status === 401) {
+      const refreshed = await _tryRefreshToken();
+      if (refreshed) {
+        const retryResponse = await fetch(url, {
+          method,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        });
+        if (!retryResponse.ok) {
+          const errData = await retryResponse.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || `HTTP ${retryResponse.status}`);
+        }
+        return await retryResponse.json();
+      }
+      // Refresh failed — clear user profile and reload to login screen
+      localStorage.removeItem('user');
+      window.location.reload();
+      throw new Error('Oturum süresi doldu, lütfen tekrar giriş yapın');
+    }
+
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.message || `HTTP ${response.status}`);
+      throw new Error(data.detail || data.message || `HTTP ${response.status}`);
     }
 
     return data;
   } catch (err) {
     clearTimeout(timer);
     throw err;
+  }
+}
+
+async function _tryRefreshToken() {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 

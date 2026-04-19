@@ -1,3 +1,7 @@
+/* ============================================================
+   Students Page
+   ============================================================ */
+
 .students-page-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -5,39 +9,42 @@
 }
 
 .students-page-container h2 {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1E293B;
-  margin-bottom: 8px;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  font-size: 16px;
-  color: #64748B;
-  margin-top: 4px;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #64748b);
+  margin-top: 0;
 }
 
 .header-with-button {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  gap: 16px;
 }
 
+/* ── State messages ────────────────────────────────────────── */
 .loading {
   text-align: center;
   padding: 60px;
-  color: #86868b;
-  font-size: 16px;
+  color: var(--text-secondary, #64748b);
+  font-size: 15px;
 }
 
 .error-message {
   text-align: center;
-  padding: 60px;
-  color: #DC2626;
-  font-size: 16px;
-  background: #F8FAFC;
-  border: 1px solid #FEE2E2;
+  padding: 40px;
+  color: var(--error, #ef4444);
+  font-size: 14px;
+  background: var(--error-bg, #fee2e2);
+  border: 1px solid #fecaca;
   border-radius: 12px;
   font-weight: 500;
 }
@@ -45,96 +52,197 @@
 .empty-state {
   text-align: center;
   padding: 80px 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: var(--card, #ffffff);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border, #e2e8f0);
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-  opacity: 0.5;
+  font-size: 56px;
+  margin-bottom: 16px;
+  opacity: 0.45;
+  display: block;
 }
 
 .empty-state p {
-  color: #86868b;
-  font-size: 16px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 15px;
 }
 
+/* ── Search ────────────────────────────────────────────────── */
 .search-box {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #D1D5DB;
-  border-radius: 8px;
+  padding: 11px 16px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
   font-size: 14px;
-  background: white;
+  color: var(--text, #0f172a);
+  background: var(--card, #ffffff);
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted, #94a3b8);
 }
 
 .search-input:focus {
-  outline: none;
-  border-color: #3B82F6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.student-table-image {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #e5e5e7;
-}
-
+/* ── Buttons ───────────────────────────────────────────────── */
 .btn {
   padding: 10px 20px;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 13.5px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
 }
 
 .btn-primary {
-  background: #0071e3;
-  color: white;
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
 }
 
 .btn-danger {
-  background: #ff3b30;
-  color: white;
+  background: var(--error-bg, #fee2e2);
+  color: var(--error-text, #991b1b);
+  border: 1px solid #fecaca;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+  transform: translateY(-1px);
 }
 
 .btn-sm {
   padding: 6px 12px;
+  font-size: 12.5px;
+}
+
+/* ── Table ─────────────────────────────────────────────────── */
+.table-wrapper {
+  overflow-x: auto;
+  background: var(--card, #ffffff);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08));
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.students-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.students-table th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1.5px solid var(--border, #e2e8f0);
+  white-space: nowrap;
+}
+
+.students-table td {
+  padding: 13px 16px;
+  color: var(--text, #0f172a);
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.students-table tr:last-child td {
+  border-bottom: none;
+}
+
+.students-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+/* ── Student cell ──────────────────────────────────────────── */
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
   font-size: 13px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
 
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.student-table-image {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border, #e2e8f0);
 }
 
-.btn-primary:hover {
-  background: #0077ed;
+/* ── Status badges ─────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.btn-danger:hover {
-  background: #ff453a;
+.status-badge.active {
+  background: var(--success-bg, #d1fae5);
+  color: var(--success-text, #065f46);
 }
 
+.status-badge.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .header-with-button {
     flex-direction: column;
-    gap: 16px;
     align-items: stretch;
+    gap: 12px;
   }
 
   .btn {
     width: 100%;
+    text-align: center;
+  }
+
+  .students-page-container {
+    padding: 16px;
   }
 }
-

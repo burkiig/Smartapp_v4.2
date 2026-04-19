@@ -1,95 +1,91 @@
-// Boş string = relative URL → hem localhost:5000'de hem ngrok URL'sinde çalışır
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 /**
- * Login service — calls real Flask API and stores JWT tokens
- * @param {string} username
- * @param {string} password
- * @param {string} role
- * @returns {Promise<{success: boolean, user?: object, access_token?: string, error?: string}>}
+ * Login — supports email OR username.
+ * Tokens are stored in httpOnly cookies by the server; we never touch localStorage for tokens.
  */
-export const loginUser = async (username, password, role) => {
+export const loginUser = async (login, password) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/login`, {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
+      credentials: 'include',   // send/receive httpOnly cookies
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ login, password }),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
 
     const data = await response.json();
 
-    if (!response.ok || !data.success) {
-      return { success: false, error: data.message || 'Giriş başarısız' };
+    if (!response.ok) {
+      return { success: false, error: data.detail || data.message || 'Giriş başarısız' };
     }
 
-    if (data.user.role !== role) {
-      return {
-        success: false,
-        error: `Bu hesap ${role} olarak kayıtlı değil`
-      };
-    }
+    // Store only the user profile — NOT the tokens
+    localStorage.setItem('user', JSON.stringify(data.user));
 
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-
-    return {
-      success: true,
-      user: data.user,
-      access_token: data.access_token,
-      refresh_token: data.refresh_token
-    };
+    return { success: true, user: data.user };
   } catch (error) {
-    console.error('Login error:', error);
-    return { success: false, error: 'Bağlantı hatası. Sunucu çalışıyor mu?' };
+    const msg = error.name === 'AbortError'
+      ? 'Sunucu yanıt vermedi. Backend çalışıyor mu?'
+      : 'Bağlantı hatası. Sunucu çalışıyor mu?';
+    return { success: false, error: msg };
   }
 };
 
 /**
- * Register student — calls real Flask API with JWT token
- * @param {object} userData  { studentId, name, image }
- * @returns {Promise<{success: boolean, message: string}>}
- */
-export const registerUser = async (userData) => {
-  try {
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_BASE_URL}/api/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({
-        student_id: userData.studentId,
-        name: userData.name,
-        image: userData.image
-      })
-    });
-
-    const data = await response.json();
-    return { success: data.success, message: data.message };
-  } catch (error) {
-    console.error('Register error:', error);
-    return { success: false, message: 'Bağlantı hatası. Sunucu çalışıyor mu?' };
-  }
-};
-
-/**
- * Logout service — calls Flask logout endpoint with JWT token
+ * Logout — server clears the httpOnly auth cookies.
  */
 export const logoutUser = async () => {
   try {
-    const token = localStorage.getItem('access_token');
-    await fetch(`${API_BASE_URL}/api/logout`, {
+    await fetch(`${BASE_URL}/api/v1/auth/logout`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      }
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Logout error:', error);
   } finally {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+  }
+};
+
+/**
+ * Get current user profile. Uses the access_token cookie automatically.
+ * 5 second timeout — if backend is unreachable we fail fast instead of hanging.
+ */
+export const getMe = async () => {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${BASE_URL}/api/v1/auth/me`, {
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Refresh access token. The refresh_token cookie is sent automatically.
+ * Server sets a new access_token cookie and returns a new refresh_token cookie.
+ */
+export const refreshToken = async () => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    return response.ok;
+  } catch {
+    return false;
   }
 };

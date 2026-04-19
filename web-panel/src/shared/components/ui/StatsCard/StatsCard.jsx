@@ -12,9 +12,9 @@ export const StatsCard = ({
   size = 'medium'
 }) => {
   const getTrendIcon = () => {
-    if (trend === 'up') return '📈';
-    if (trend === 'down') return '📉';
-    return '➡️';
+    if (trend === 'up') return '+';
+    if (trend === 'down') return '-';
+    return '—';
   };
 
   const getTrendClass = () => {

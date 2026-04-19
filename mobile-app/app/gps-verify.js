@@ -4,19 +4,20 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
   Linking,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   requestLocationPermission,
   hasLocationPermission,
-  verifyLocation
+  getCurrentLocation,
 } from './shared/services/locationService';
+import { attendance } from './shared/services/api';
 
 /**
  * GPS Doğrulama Ekranı — 3'lü güvenlik zincirinin 1. adımı.
@@ -66,17 +67,30 @@ export default function GPSVerifyScreen() {
 
       // Step 2 — Get location & call backend
       setStep('checking');
-      const verification = await verifyLocation(session_id);
-      setResult(verification);
-
-      if (verification.inside) {
-        setStep('success');
-      } else {
-        setStep('outside');
-      }
+      const { latitude, longitude, accuracy } = await getCurrentLocation();
+      const verification = await attendance.verifyLocation(parseInt(session_id), latitude, longitude, accuracy);
+      // Backend 400 fırlatırsa catch'e gider (konum dışı veya hata).
+      // Exception yoksa = başarılı = sınıf içinde veya GPS kontrolü atlandı.
+      setResult({
+        success: true,
+        latitude,
+        longitude,
+        gps_accuracy: accuracy,
+        room_name: verification?.attendance_record?.room_name || '—',
+        is_flagged: verification?.is_flagged || false,
+        flag_reason: verification?.flag_reason || null,
+      });
+      setStep('success');
     } catch (err) {
-      setStep('error');
-      setErrorMessage(err.message || 'Konum alınamadı. Tekrar deneyin.');
+      // Backend "Konum doğrulaması başarısız" mesajı içeriyorsa "outside" göster
+      const msg = err.message || '';
+      if (msg.includes('Konum doğrulaması') || msg.includes('outside') || msg.includes('mesafe')) {
+        setStep('outside');
+        setErrorMessage(msg);
+      } else {
+        setStep('error');
+        setErrorMessage(msg || 'Konum alınamadı. Tekrar deneyin.');
+      }
     }
   }, [session_id]);
 
@@ -85,18 +99,16 @@ export default function GPSVerifyScreen() {
     startVerification();
   }, []);
 
-  const handleContinue = () => {
-    const locationBypassed = result?.dev_mode === true;
-    const locationDistance = result?.distance_m ?? null;
-    router.push({
-      pathname: '/face-scan',
-      params: {
-        session_id,
-        location_bypassed: locationBypassed ? 'true' : 'false',
-        location_distance: locationDistance !== null ? String(locationDistance) : '',
-      },
-    });
-  };
+  const handleContinue = useCallback(() => {
+    router.replace('/(tabs)/home');
+  }, [router]);
+
+  // Auto-redirect to home 2.5s after success
+  useEffect(() => {
+    if (step !== 'success') return;
+    const timer = setTimeout(() => handleContinue(), 2500);
+    return () => clearTimeout(timer);
+  }, [step, handleContinue]);
 
   const handleRetry = () => {
     setResult(null);
@@ -143,38 +155,36 @@ export default function GPSVerifyScreen() {
 
       {result && (
         <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Ionicons name="business-outline" size={18} color="#059669" />
-            <Text style={styles.infoLabel}>Sınıf:</Text>
-            <Text style={styles.infoValue}>{result.room_name}</Text>
-          </View>
-          {result.distance_m !== null && (
+          {result.room_name && result.room_name !== '—' && (
             <View style={styles.infoRow}>
-              <Ionicons name="navigate-outline" size={18} color="#059669" />
-              <Text style={styles.infoLabel}>Mesafe:</Text>
-              <Text style={styles.infoValue}>{result.distance_m} metre</Text>
+              <Ionicons name="business-outline" size={18} color="#059669" />
+              <Text style={styles.infoLabel}>Sınıf:</Text>
+              <Text style={styles.infoValue}>{result.room_name}</Text>
             </View>
           )}
-          {result.geofence_radius !== null && (
-            <View style={styles.infoRow}>
-              <Ionicons name="radio-button-on-outline" size={18} color="#059669" />
-              <Text style={styles.infoLabel}>İzin verilen:</Text>
-              <Text style={styles.infoValue}>{result.geofence_radius} metre</Text>
-            </View>
-          )}
-          {result.gps_accuracy && (
+          {result.gps_accuracy ? (
             <View style={styles.infoRow}>
               <Ionicons name="pulse-outline" size={18} color="#059669" />
               <Text style={styles.infoLabel}>GPS hassasiyeti:</Text>
               <Text style={styles.infoValue}>±{Math.round(result.gps_accuracy)} m</Text>
+            </View>
+          ) : null}
+          {result.is_flagged && (
+            <View style={styles.infoRow}>
+              <Ionicons name="flag-outline" size={18} color="#F59E0B" />
+              <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>Not:</Text>
+              <Text style={[styles.infoValue, { color: '#F59E0B' }]}>
+                {result.flag_reason === 'location_skipped' ? 'GPS kontrolü atlandı (konum tanımlı değil)' :
+                 result.flag_reason === 'face_simulated' ? 'Yüz tanıma simüle edildi' : result.flag_reason}
+              </Text>
             </View>
           )}
         </View>
       )}
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleContinue} activeOpacity={0.85}>
-        <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
-        <Text style={styles.primaryButtonText}>Yüz Taramaya Geç</Text>
+        <Ionicons name="checkmark-done-circle" size={22} color="#fff" />
+        <Text style={styles.primaryButtonText}>Yoklama Tamamlandı — Ana Sayfaya Dön</Text>
       </TouchableOpacity>
     </View>
   );
@@ -189,29 +199,14 @@ export default function GPSVerifyScreen() {
         Yoklama alabilmek için sınıfın içinde olmanız gerekiyor
       </Text>
 
-      {result && (
+      {errorMessage ? (
         <View style={[styles.infoCard, styles.infoCardRed]}>
           <View style={styles.infoRow}>
-            <Ionicons name="business-outline" size={18} color="#DC2626" />
-            <Text style={[styles.infoLabel, styles.infoLabelRed]}>Sınıf:</Text>
-            <Text style={[styles.infoValue, styles.infoValueRed]}>{result.room_name}</Text>
+            <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
+            <Text style={[styles.infoValue, styles.infoValueRed]}>{errorMessage}</Text>
           </View>
-          {result.distance_m !== null && (
-            <View style={styles.infoRow}>
-              <Ionicons name="navigate-outline" size={18} color="#DC2626" />
-              <Text style={[styles.infoLabel, styles.infoLabelRed]}>Mesafeniz:</Text>
-              <Text style={[styles.infoValue, styles.infoValueRed]}>{result.distance_m} metre</Text>
-            </View>
-          )}
-          {result.geofence_radius !== null && (
-            <View style={styles.infoRow}>
-              <Ionicons name="radio-button-on-outline" size={18} color="#DC2626" />
-              <Text style={[styles.infoLabel, styles.infoLabelRed]}>Gerekli mesafe:</Text>
-              <Text style={[styles.infoValue, styles.infoValueRed]}>≤ {result.geofence_radius} metre</Text>
-            </View>
-          )}
         </View>
-      )}
+      ) : null}
 
       <View style={styles.warningBox}>
         <Ionicons name="warning-outline" size={18} color="#92400E" />
@@ -294,13 +289,13 @@ export default function GPSVerifyScreen() {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>GPS Doğrulama</Text>
-            <Text style={styles.headerSubtitle}>Adım 1 / 3 — Konum Kontrolü</Text>
+            <Text style={styles.headerSubtitle}>Adım 3 / 3 — Konum Kontrolü</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
+            <View style={styles.stepDot} />
+            <View style={styles.stepDot} />
             <View style={[styles.stepDot, styles.stepDotActive]} />
-            <View style={styles.stepDot} />
-            <View style={styles.stepDot} />
           </View>
         </View>
 
@@ -312,8 +307,8 @@ export default function GPSVerifyScreen() {
         {/* Security chain footer */}
         <View style={styles.footer}>
           <View style={styles.chainStep}>
-            <Ionicons name="location" size={16} color="#fff" />
-            <Text style={[styles.chainLabel, styles.chainLabelActive]}>GPS</Text>
+            <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.chainLabel}>QR Kod</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
@@ -322,8 +317,8 @@ export default function GPSVerifyScreen() {
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
-            <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.chainLabel}>QR Kod</Text>
+            <Ionicons name="location" size={16} color="#fff" />
+            <Text style={[styles.chainLabel, styles.chainLabelActive]}>GPS</Text>
           </View>
         </View>
       </LinearGradient>

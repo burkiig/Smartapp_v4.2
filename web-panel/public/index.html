@@ -7,8 +7,16 @@
     <meta name="description" content="Akıllı Yoklama Sistemi - Yüz Tanıma" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <title>Akıllı Yoklama Paneli</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Akıllı Yoklama Sistemi</title>
+    <script>
+      // Eski service worker'ları temizle
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let reg of registrations) { reg.unregister(); }
+        });
+      }
+    </script>
   </head>
   <body>
     <noscript>Bu uygulamayı çalıştırmak için JavaScript gereklidir.</noscript>

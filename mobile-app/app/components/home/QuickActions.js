@@ -1,96 +1,86 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Shadows } from '../../shared/config/theme';
 
-const { width } = Dimensions.get('window');
-
-const ACTIONS = [
-  { id: 'face', icon: 'scan', color: '#F3E8FF', iconColor: '#A855F7', title: 'Face ID', subtitle: 'Scan your face' },
-  { id: 'qr', icon: 'qr-code', color: '#DBEAFE', iconColor: '#3B82F6', title: 'QR Code', subtitle: 'Scan QR code' },
-  { id: 'excuse', icon: 'document-text', color: '#FEF3C7', iconColor: '#F59E0B', title: 'Excuse', subtitle: 'Submit excuse' },
-  { id: 'history', icon: 'time', color: '#D1FAE5', iconColor: '#10B981', title: 'History', subtitle: 'View records' },
-];
-
-export default function QuickActions({ hasFaceRegistered, onFaceScan, onQRScan, onExcuse, onHistory }) {
-  const handlePress = (id) => {
-    const actions = {
-      face: onFaceScan,
-      qr: onQRScan,
-      excuse: onExcuse,
-      history: onHistory,
-    };
-    actions[id]?.();
-  };
-
+export default function QuickActions({ hasLiveSession, onStartAttendance, onExcuse, onHistory }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>Quick Actions</Text>
-      <View style={styles.grid}>
-        {ACTIONS.map((action) => (
-          <TouchableOpacity
-            key={action.id}
-            style={styles.card}
-            onPress={() => handlePress(action.id)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: action.color }]}>
-              <Ionicons name={action.icon} size={28} color={action.iconColor} />
-            </View>
-            <Text style={styles.cardTitle}>{action.title}</Text>
-            <Text style={styles.cardSubtitle}>{action.subtitle}</Text>
-          </TouchableOpacity>
-        ))}
+      <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
+
+      {/* Primary CTA */}
+      <TouchableOpacity style={styles.primaryWrap} onPress={onStartAttendance} activeOpacity={0.85}>
+        <LinearGradient
+          colors={hasLiveSession ? ['#2563EB', '#1D4ED8'] : ['#475569', '#334155']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={styles.primaryBtn}
+        >
+          <View style={styles.primaryIconBox}>
+            <Ionicons name={hasLiveSession ? 'qr-code' : 'time-outline'} size={28} color="#fff" />
+          </View>
+          <View style={styles.primaryText}>
+            <Text style={styles.primaryTitle}>Yoklama Al</Text>
+            <Text style={styles.primarySub}>
+              {hasLiveSession ? 'QR → Yüz → Konum' : 'Aktif ders bekleniyor'}
+            </Text>
+          </View>
+          <View style={styles.arrowBox}>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Secondary actions */}
+      <View style={styles.secondaryRow}>
+        <ActionCard
+          icon="document-text-outline"
+          label="Mazeret"
+          sublabel="Devamsızlık bildir"
+          color={Colors.warning}
+          bg={Colors.warningLight}
+          onPress={onExcuse}
+        />
+        <ActionCard
+          icon="time-outline"
+          label="Geçmiş"
+          sublabel="Yoklama kayıtları"
+          color={Colors.success}
+          bg={Colors.successLight}
+          onPress={onHistory}
+        />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  card: {
-    width: (width - 52) / 2,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-});
+function ActionCard({ icon, label, sublabel, color, bg, onPress }) {
+  return (
+    <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.75}>
+      <View style={[styles.actionIcon, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={22} color={color} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+      <Text style={styles.actionSub}>{sublabel}</Text>
+    </TouchableOpacity>
+  );
+}
 
+const styles = StyleSheet.create({
+  section:      { paddingHorizontal: 20, marginBottom: 20 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, marginBottom: 14, letterSpacing: -0.2 },
+
+  primaryWrap: { borderRadius: 18, marginBottom: 12, ...Shadows.primary },
+  primaryBtn:  { flexDirection: 'row', alignItems: 'center', borderRadius: 18, padding: 18, gap: 14 },
+  primaryIconBox:{ width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  primaryText: { flex: 1 },
+  primaryTitle:{ fontSize: 17, fontWeight: '700', color: '#fff', marginBottom: 3 },
+  primarySub:  { fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  arrowBox:    { width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+
+  secondaryRow: { flexDirection: 'row', gap: 12 },
+  actionCard:   { flex: 1, backgroundColor: Colors.card, borderRadius: 16, padding: 16, ...Shadows.sm },
+  actionIcon:   { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  actionLabel:  { fontSize: 14, fontWeight: '700', color: Colors.text, marginBottom: 3 },
+  actionSub:    { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
+});

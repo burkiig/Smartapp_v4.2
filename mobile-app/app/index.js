@@ -1,320 +1,187 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-  Animated,
-  ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  Animated, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useUser } from './context/UserContext';
-
-// Smart Attendance Logo Component with Premium Animations
-const SmartAttendanceLogo = () => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-
-  useEffect(() => {
-    // Fade-in and scale animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Shimmer animation loop
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-        Animated.delay(1000),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const shimmerTranslate = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-250, 250],
-  });
-
-  return (
-    <Animated.View 
-      style={[
-        styles.logoContainer,
-        { 
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }]
-        }
-      ]}
-    >
-      <View style={styles.logoWrapper}>
-        {/* Logo Icon */}
-        <View style={styles.logoIconContainer}>
-          <Ionicons name="school" size={64} color="#5B7FFF" />
-        </View>
-        
-        {/* Shimmer overlay */}
-        <Animated.View
-          style={[
-            styles.shimmerOverlay,
-            {
-              transform: [{ translateX: shimmerTranslate }],
-            },
-          ]}
-        />
-      </View>
-      
-      {/* Logo Text */}
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={styles.logoTitle}>Smart Attendance</Text>
-      </Animated.View>
-    </Animated.View>
-  );
-};
+import { LinearGradient } from 'expo-linear-gradient';
+import { useUser } from './_context/UserContext';
+import { face } from './shared/services/api';
+import { Colors, Shadows, Radius, Spacing } from './shared/config/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useUser();
-  const [userType, setUserType] = useState('student');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  // Clear fields when user type changes
-  const handleUserTypeChange = (type) => {
-    setUserType(type);
-    setUsername('');
-    setPassword('');
+  const [username, setUsername]         = useState('');
+  const [password, setPassword]         = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 8,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0,  duration: 60, useNativeDriver: true }),
+    ]).start();
   };
 
   const handleSignIn = async () => {
-    // Validate empty fields
-    if (!username.trim() && !password.trim()) {
-      Alert.alert(
-        'Missing Information',
-        'Please enter your username and password to continue.',
-        [{ text: 'OK' }]
-      );
+    if (!username.trim() || !password.trim()) {
+      shake();
+      Alert.alert('Eksik Bilgi', 'Kullanıcı adı ve şifrenizi girin.');
       return;
     }
-    
-    if (!username.trim()) {
-      Alert.alert(
-        'Username Required',
-        'Please enter your username.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-    
-    if (!password.trim()) {
-      Alert.alert(
-        'Password Required',
-        'Please enter your password.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
     setLoading(true);
     try {
-      // Use UserContext login — it handles backend call, token storage, and state update
-      const result = await login(username, password, null);
-
+      const result = await login(username.trim(), password);
       if (result.success) {
-        // Navigate based on role (state is already updated by context)
-        if (result.user.role === 'instructor') {
-          router.push('/(tabs)/dashboard');
+        const isStudent = result.user.role === 'student';
+        if (isStudent) {
+          // Check face enrollment — first-time students prompted to register
+          // Use a 5s timeout so a slow network never blocks the login flow
+          try {
+            const faceStatus = await Promise.race([
+              face.myStatus(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('skip')), 5000)),
+            ]);
+            if (!faceStatus?.is_enrolled) {
+              router.replace({ pathname: '/register-face', params: { onboarding: 'true' } });
+              return;
+            }
+          } catch {
+            // If check fails or times out, continue to home normally
+          }
+          router.replace('/(tabs)/home');
         } else {
-          router.push('/(tabs)/home');
+          router.replace('/(tabs)/dashboard');
         }
       } else {
-        Alert.alert('Login Failed', result.error || 'Invalid credentials');
+        shake();
+        Alert.alert('Giriş Başarısız', result.error || 'Kullanıcı adı veya şifre hatalı.');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Login Error',
-        error.message || 'Could not connect to server. Please check your connection.'
-      );
+    } catch (err) {
+      shake();
+      Alert.alert('Bağlantı Hatası', err.message || 'Sunucuya bağlanılamadı.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    console.log('Forgot password clicked');
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+        style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Logo and Header */}
-          <View style={styles.header}>
-            <SmartAttendanceLogo />
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>
-              {userType === 'instructor' 
-                ? 'Sign in to manage your classes' 
-                : 'Sign in to mark your attendance'}
-            </Text>
+          {/* Hero */}
+          <View style={styles.hero}>
+            <LinearGradient
+              colors={['#1E3A8A', '#2563EB']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logoGradient}
+            >
+              <Ionicons name="school" size={40} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.appName}>Smart Attendance</Text>
+            <Text style={styles.tagline}>Yoklama yönetim sistemi</Text>
           </View>
 
-          {/* Login Form */}
-          <View style={styles.formContainer}>
-            {/* User Type Selection */}
-            <Text style={styles.label}>I am a</Text>
-            <View style={styles.userTypeContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.userTypeButton,
-                  userType === 'student' && styles.userTypeButtonActive,
-                ]}
-                onPress={() => handleUserTypeChange('student')} // DEĞİŞTİ
-              >
-                <Ionicons
-                  name="person"
-                  size={20}
-                  color={userType === 'student' ? '#5B7FFF' : '#6B7280'}
-                />
-                <Text
-                  style={[
-                    styles.userTypeText,
-                    userType === 'student' && styles.userTypeTextActive,
-                  ]}
-                >
-                  Student
-                </Text>
-              </TouchableOpacity>
+          {/* Card */}
+          <Animated.View style={[styles.card, { transform: [{ translateX: shakeAnim }] }]}>
+            <Text style={styles.cardTitle}>Giriş Yap</Text>
+            <Text style={styles.cardSub}>Devam etmek için giriş yapın</Text>
 
-              <TouchableOpacity
-                style={[
-                  styles.userTypeButton,
-                  userType === 'instructor' && styles.userTypeButtonActive,
-                ]}
-                onPress={() => handleUserTypeChange('instructor')} // DEĞİŞTİ
-              >
-                <Ionicons
-                  name="briefcase"
-                  size={20}
-                  color={userType === 'instructor' ? '#5B7FFF' : '#6B7280'}
+            {/* Username */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Kullanıcı Adı</Text>
+              <View style={[styles.inputRow, focusedField === 'user' && styles.inputRowFocused]}>
+                <Ionicons name="person-outline" size={18} color={focusedField === 'user' ? Colors.primary : Colors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Kullanıcı adınız"
+                  placeholderTextColor={Colors.textMuted}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => setFocusedField('user')}
+                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="next"
                 />
-                <Text
-                  style={[
-                    styles.userTypeText,
-                    userType === 'instructor' && styles.userTypeTextActive,
-                  ]}
-                >
-                  Instructor
-                </Text>
-              </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Username Input */}
-            <Text style={styles.label}>Username</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#9CA3AF" />
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  userType === 'instructor'
-                    ? 'instructor_demo'
-                    : 'student_demo'
-                }
-                placeholderTextColor="#9CA3AF"
-                value={username}
-                onChangeText={setUsername}
-                keyboardType="default"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            {/* Password Input */}
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
-                  size={20}
-                  color="#9CA3AF"
+            {/* Password */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Şifre</Text>
+                <TouchableOpacity onPress={() => Alert.alert('Şifre Sıfırlama', 'Sistem yöneticinizle iletişime geçin.')}>
+                  <Text style={styles.forgotText}>Şifremi unuttum</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.inputRow, focusedField === 'pass' && styles.inputRowFocused]}>
+                <Ionicons name="lock-closed-outline" size={18} color={focusedField === 'pass' ? Colors.primary : Colors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Şifreniz"
+                  placeholderTextColor={Colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  onFocus={() => setFocusedField('pass')}
+                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSignIn}
                 />
-              </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Forgot Password Link */}
+            {/* Submit */}
             <TouchableOpacity
-              style={styles.forgotPasswordContainer}
-              onPress={handleForgotPassword}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
-
-            {/* Sign In Button */}
-            <TouchableOpacity
-              style={[styles.signInButton, loading && styles.signInButtonDisabled]}
+              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
               onPress={handleSignIn}
-              activeOpacity={0.8}
               disabled={loading}
+              activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.signInButtonText}>Sign In</Text>
-              )}
+              <LinearGradient
+                colors={loading ? ['#94A3B8', '#94A3B8'] : ['#2563EB', '#1D4ED8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.submitGradient}
+              >
+                {loading
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.submitText}>Giriş Yap</Text>
+                }
+              </LinearGradient>
             </TouchableOpacity>
 
-            {/* Sign Up Link */}
-            <View style={styles.signUpContainer}>
-              <Text style={styles.signUpText}>Don't have an account? </Text>
-              <TouchableOpacity>
-                <Text style={styles.signUpLink}>Sign Up</Text>
+            <View style={styles.signupRow}>
+              <Text style={styles.signupText}>Hesabınız yok mu? </Text>
+              <TouchableOpacity onPress={() => Alert.alert('Kayıt', 'Yeni hesap için sistem yöneticinizle iletişime geçin.')}>
+                <Text style={styles.signupLink}>Kayıt Ol</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -322,176 +189,37 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  header: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  logoWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: '#5B7FFF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 10,
-    marginBottom: 16,
-  },
-  logoIconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shimmerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: 80,
-    backgroundColor: 'rgba(91, 127, 255, 0.2)',
-    transform: [{ skewX: '-20deg' }],
-  },
-  logoTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#5B7FFF',
-    letterSpacing: 0.5,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  formContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  userTypeContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  userTypeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  userTypeButtonActive: {
-    borderColor: '#5B7FFF',
-    backgroundColor: '#EEF2FF',
-  },
-  userTypeText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  userTypeTextActive: {
-    color: '#5B7FFF',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1F2937',
-    marginLeft: 12,
-  },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#5B7FFF',
-    fontWeight: '600',
-  },
-  signInButton: {
-    backgroundColor: '#5B7FFF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#5B7FFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 20,
-  },
-  signInButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-    shadowOpacity: 0.1,
-  },
-  signInButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  signUpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 20,
-  },
-  signUpText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  signUpLink: {
-    fontSize: 14,
-    color: '#5B7FFF',
-    fontWeight: '600',
-  },
+  safe:   { flex: 1, backgroundColor: Colors.bg },
+  scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
+
+  // Hero
+  hero:        { alignItems: 'center', paddingTop: Spacing['3xl'], paddingBottom: Spacing['2xl'] },
+  logoGradient:{ width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.base, ...Shadows.primary },
+  appName:     { fontSize: 26, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
+  tagline:     { fontSize: 14, color: Colors.textMuted, marginTop: 4 },
+
+  // Card
+  card:      { backgroundColor: Colors.card, borderRadius: 24, padding: Spacing.xl, ...Shadows.lg },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  cardSub:   { fontSize: 14, color: Colors.textMuted, marginBottom: Spacing.xl },
+
+  // Fields
+  fieldGroup:      { marginBottom: Spacing.base },
+  labelRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  label:           { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 8 },
+  forgotText:      { fontSize: 13, fontWeight: '600', color: Colors.primary },
+  inputRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.bgAlt, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  inputRowFocused: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
+  input:           { flex: 1, fontSize: 15, color: Colors.text },
+
+  // Submit
+  submitBtn:         { borderRadius: 14, overflow: 'hidden', marginTop: Spacing.sm, ...Shadows.primary },
+  submitBtnDisabled: { opacity: 0.7 },
+  submitGradient:    { paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  submitText:        { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+
+  // Footer
+  signupRow:  { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
+  signupText: { fontSize: 14, color: Colors.textMuted },
+  signupLink: { fontSize: 14, fontWeight: '700', color: Colors.primary },
 });

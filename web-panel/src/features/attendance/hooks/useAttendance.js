@@ -3,7 +3,7 @@ import {
   fetchFlaggedRecords,
   approveFlaggedRecord,
   rejectFlaggedRecord,
-  undoFlaggedRecord
+  undoFlaggedRecord,
 } from '../services/attendanceService';
 
 export const useAttendance = () => {
@@ -12,7 +12,6 @@ export const useAttendance = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  // Fetch flagged records
   const loadFlaggedRecords = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -21,90 +20,75 @@ export const useAttendance = () => {
       if (result.success) {
         setFlaggedRecords(result.data);
       } else {
-        setError('Failed to load flagged records');
+        setError('Bayraklı kayıtlar yüklenemedi');
       }
     } catch (err) {
       setError(err.message);
-      console.error('Error loading flagged records:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Load on mount
   useEffect(() => {
     loadFlaggedRecords();
   }, [loadFlaggedRecords]);
 
-  // Approve record
   const approve = useCallback(async (recordId) => {
     try {
       const result = await approveFlaggedRecord(recordId);
       if (result.success) {
         setFlaggedRecords(prev =>
-          prev.map(record =>
-            record.id === recordId ? { ...record, status: 'approved' } : record
-          )
+          prev.map(r => r.id === recordId ? { ...r, isFlagged: false, is_flagged: false, status: 'present' } : r)
         );
         return { success: true };
       }
-      return { success: false, error: 'Failed to approve record' };
+      return { success: false, error: 'Kayıt onaylanamadı' };
     } catch (err) {
-      console.error('Error approving record:', err);
       return { success: false, error: err.message };
     }
   }, []);
 
-  // Reject record
   const reject = useCallback(async (recordId) => {
     try {
       const result = await rejectFlaggedRecord(recordId);
       if (result.success) {
         setFlaggedRecords(prev =>
-          prev.map(record =>
-            record.id === recordId ? { ...record, status: 'rejected' } : record
-          )
+          prev.map(r => r.id === recordId ? { ...r, isFlagged: false, is_flagged: false, status: 'absent' } : r)
         );
         return { success: true };
       }
-      return { success: false, error: 'Failed to reject record' };
+      return { success: false, error: 'Kayıt reddedilemedi' };
     } catch (err) {
-      console.error('Error rejecting record:', err);
       return { success: false, error: err.message };
     }
   }, []);
 
-  // Undo record
   const undo = useCallback(async (recordId) => {
     try {
       const result = await undoFlaggedRecord(recordId);
       if (result.success) {
         setFlaggedRecords(prev =>
-          prev.map(record =>
-            record.id === recordId ? { ...record, status: 'pending' } : record
-          )
+          prev.map(r => r.id === recordId ? { ...r, isFlagged: true, is_flagged: true, status: 'present' } : r)
         );
         return { success: true };
       }
-      return { success: false, error: 'Failed to undo record' };
+      return { success: false, error: 'İşlem geri alınamadı' };
     } catch (err) {
-      console.error('Error undoing record:', err);
       return { success: false, error: err.message };
     }
   }, []);
 
-  // Memoize filtered records to prevent unnecessary re-renders
   const filteredRecords = useMemo(() => {
     if (activeTab === 'all') return flaggedRecords;
-    return flaggedRecords.filter(record => record.status === activeTab);
+    if (activeTab === 'flagged') return flaggedRecords.filter(r => r.isFlagged);
+    if (activeTab === 'resolved') return flaggedRecords.filter(r => !r.isFlagged);
+    return flaggedRecords;
   }, [flaggedRecords, activeTab]);
 
-  // Memoize tab counts to prevent unnecessary recalculations
   const tabCounts = useMemo(() => ({
     all: flaggedRecords.length,
-    pending: flaggedRecords.filter(r => r.status === 'pending').length,
-    approved: flaggedRecords.filter(r => r.status === 'approved').length,
-    rejected: flaggedRecords.filter(r => r.status === 'rejected').length
+    flagged: flaggedRecords.filter(r => r.isFlagged).length,
+    resolved: flaggedRecords.filter(r => !r.isFlagged).length,
   }), [flaggedRecords]);
 
   return {
@@ -118,7 +102,6 @@ export const useAttendance = () => {
     approve,
     reject,
     undo,
-    refresh: loadFlaggedRecords
+    refresh: loadFlaggedRecords,
   };
 };
-

@@ -7,11 +7,11 @@ export default function FaceWarning({ onRegister }) {
     <View style={styles.warningCard}>
       <Ionicons name="warning" size={24} color="#F59E0B" style={styles.icon} />
       <View style={styles.content}>
-        <Text style={styles.title}>Face Not Registered</Text>
-        <Text style={styles.text}>Register your face to use Face ID attendance</Text>
+        <Text style={styles.title}>Yüz Kaydı Yapılmadı</Text>
+        <Text style={styles.text}>Yoklama için yüz kaydınızı tamamlayın</Text>
       </View>
       <TouchableOpacity style={styles.button} onPress={onRegister}>
-        <Text style={styles.buttonText}>Register</Text>
+        <Text style={styles.buttonText}>Kaydet</Text>
       </TouchableOpacity>
     </View>
   );

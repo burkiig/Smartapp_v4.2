@@ -133,9 +133,9 @@ export function addNotificationListeners(onNotification, onResponseReceive) {
  */
 export function removeNotificationListeners(listeners) {
   if (listeners?.notificationListener) {
-    Notifications.removeNotificationSubscription(listeners.notificationListener);
+    listeners.notificationListener.remove();
   }
   if (listeners?.responseListener) {
-    Notifications.removeNotificationSubscription(listeners.responseListener);
+    listeners.responseListener.remove();
   }
 }

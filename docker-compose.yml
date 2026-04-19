@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartapp
+      POSTGRES_USER: smartapp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://smartapp:${POSTGRES_PASSWORD:-changeme}@db:5432/smartapp
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@smartapp.local}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - face_models:/root/.insightface
+    command: >
+      sh -c "alembic upgrade head && gunicorn main:app
+             -w 2 -k uvicorn.workers.UvicornWorker
+             -b 0.0.0.0:8000 --timeout 120"
+
+  # ── React Web Panel ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./web-panel
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    environment:
+      REACT_APP_API_URL: http://backend:8000/api/v1
+
+  # ── Adminer (DB UI — remove in production) ────────────────────────────────
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    profiles:
+      - dev   # only starts with: docker compose --profile dev up
+
+volumes:
+  postgres_data:
+  face_models:

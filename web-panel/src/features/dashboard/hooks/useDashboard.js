@@ -1,85 +1,51 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useCallback } from 'react';
+import apiClient from '../../../shared/services/apiClient';
 
 export const useDashboard = () => {
-  const [stats, setStats] = useState({
-    totalClasses: 0,
-    avgAttendance: 0,
-    autoAttendance: 0,
-    manualReviews: 0,
-    totalStudents: 0,
-    presentToday: 0
-  });
-
+  const [stats, setStats] = useState(null);
+  const [performance, setPerformance] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [studentsRes, recordsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/students'),
-        axios.get('http://localhost:5000/api/attendance/records')
+      const [statsData, perfData, activityData] = await Promise.allSettled([
+        apiClient.get('/dashboard/stats'),
+        apiClient.get('/dashboard/course-performance'),
+        apiClient.get('/dashboard/recent-activity'),
       ]);
 
-      const students = studentsRes.data.students || [];
-      const records = recordsRes.data.records || [];
-
-      // Calculate statistics
-      const totalStudents = students.length;
-      const uniqueDates = [...new Set(records.map(r => r.timestamp.split('T')[0]))];
-      const totalClasses = uniqueDates.length;
-      
-      // Calculate average attendance
-      const avgAttendance = totalClasses > 0 
-        ? Math.round((records.length / (totalClasses * totalStudents)) * 100) 
-        : 0;
-
-      // Today's attendance
-      const today = new Date().toISOString().split('T')[0];
-      const presentToday = records.filter(r => r.timestamp.startsWith(today)).length;
-
-      setStats({
-        totalClasses,
-        avgAttendance: isNaN(avgAttendance) ? 0 : avgAttendance,
-        autoAttendance: 95, // Mock data
-        manualReviews: 30, // Mock data
-        totalStudents,
-        presentToday
-      });
+      if (statsData.status === 'fulfilled') {
+        setStats(statsData.value);
+      }
+      if (perfData.status === 'fulfilled') {
+        setPerformance(perfData.value || []);
+      }
+      if (activityData.status === 'fulfilled') {
+        setRecentActivity(activityData.value?.activities || []);
+      }
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data');
-      
-      // Set mock data on error
-      setStats({
-        totalClasses: 45,
-        avgAttendance: 87,
-        autoAttendance: 95,
-        manualReviews: 30,
-        totalStudents: 120,
-        presentToday: 95
-      });
+      console.error('[useDashboard] Error:', err);
+      setError('Dashboard verileri yüklenemedi');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const refreshData = () => {
+  useEffect(() => {
     fetchDashboardData();
-  };
+  }, [fetchDashboardData]);
 
   return {
     stats,
+    performance,
+    recentActivity,
     loading,
     error,
-    refreshData
+    refreshData: fetchDashboardData,
   };
 };
-

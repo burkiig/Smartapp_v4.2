@@ -15,21 +15,21 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { excuses } from './shared/services/api';
-import { useUser } from './context/UserContext';
+import { Colors, Shadows } from './shared/config/theme';
 
 const EXCUSE_TYPES = [
-  { key: 'health',          label: 'Sağlık',          icon: '🏥', desc: 'Hastalık veya doktor raporu' },
+  { key: 'medical',         label: 'Sağlık',          icon: '🏥', desc: 'Hastalık veya doktor raporu' },
   { key: 'family',          label: 'Aile',             icon: '👨‍👩‍👧', desc: 'Aile acil durumu' },
   { key: 'school_activity', label: 'Okul Etkinliği',   icon: '🎓', desc: 'Resmi okul etkinliği' },
   { key: 'transportation',  label: 'Ulaşım',           icon: '🚌', desc: 'Ulaşım sorunu' },
@@ -38,8 +38,7 @@ const EXCUSE_TYPES = [
 
 export default function ExcuseSubmitScreen() {
   const router = useRouter();
-  const { userId } = useUser();
-  const { course_id, session_date, course_name } = useLocalSearchParams();
+  const { course_id, session_id, session_date, course_name } = useLocalSearchParams();
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -56,25 +55,27 @@ export default function ExcuseSubmitScreen() {
       return;
     }
 
+    const parsedCourseId = parseInt(course_id, 10);
+    if (!parsedCourseId || isNaN(parsedCourseId)) {
+      Alert.alert('Hata', 'Ders bilgisi eksik. Lütfen geçmişinizden devamsız olduğunuz dersi seçin.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const result = await excuses.submit({
-        studentId: userId,
-        courseId: course_id,
+      await excuses.submit({
+        courseId: parsedCourseId,
+        sessionId: session_id ? parseInt(session_id, 10) : null,
         sessionDate: date,
         excuseType: selectedType,
         description: description.trim(),
       });
 
-      if (result?.success) {
-        Alert.alert(
-          'Mazeret Gönderildi ✅',
-          'Mazeretiniz öğretmene iletildi. Değerlendirme sonucu size bildirilecektir.',
-          [{ text: 'Tamam', onPress: () => router.back() }]
-        );
-      } else {
-        Alert.alert('Hata', result?.message || 'Mazeret gönderilemedi. Tekrar deneyin.');
-      }
+      Alert.alert(
+        'Mazeret Gönderildi ✅',
+        'Mazeretiniz öğretmene iletildi. Değerlendirme sonucu size bildirilecektir.',
+        [{ text: 'Tamam', onPress: () => router.back() }]
+      );
     } catch (err) {
       Alert.alert('Bağlantı Hatası', err?.message || 'Sunucuya bağlanılamadı.');
     } finally {
@@ -84,7 +85,7 @@ export default function ExcuseSubmitScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.header}>
+      <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -191,7 +192,7 @@ export default function ExcuseSubmitScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: '#F8FAFC' },
+  container:  { flex: 1, backgroundColor: Colors.bg },
   flex:       { flex: 1 },
 
   header: {
@@ -208,69 +209,67 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerContent: { flex: 1 },
-  headerTitle:   { fontSize: 20, fontWeight: '700', color: '#fff' },
+  headerTitle:   { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   headerSubtitle:{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
 
   content: { flex: 1, paddingHorizontal: 20 },
 
   section: { marginTop: 24 },
   sectionLabel: {
-    fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 10,
-    letterSpacing: 0.3,
+    fontSize: 11, fontWeight: '700', color: Colors.textMuted, marginBottom: 10,
+    textTransform: 'uppercase', letterSpacing: 0.8,
   },
 
   dateBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#fff', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: '#E2E8F0',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    backgroundColor: Colors.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.borderLight,
+    ...Shadows.xs,
   },
-  dateText: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
+  dateText: { fontSize: 15, fontWeight: '600', color: Colors.text },
 
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   typeCard: {
-    width: '47%', backgroundColor: '#fff', borderRadius: 14,
-    padding: 14, borderWidth: 2, borderColor: '#E2E8F0',
+    width: '47%', backgroundColor: Colors.card, borderRadius: 14,
+    padding: 14, borderWidth: 2, borderColor: Colors.border,
     alignItems: 'center', gap: 4, position: 'relative',
+    ...Shadows.xs,
   },
-  typeCardSelected: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
+  typeCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
   typeIcon:  { fontSize: 26 },
-  typeLabel: { fontSize: 13, fontWeight: '600', color: '#475569', textAlign: 'center' },
-  typeLabelSelected: { color: '#4F46E5' },
-  typeDesc:  { fontSize: 11, color: '#94A3B8', textAlign: 'center', lineHeight: 15 },
+  typeLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'center' },
+  typeLabelSelected: { color: Colors.primary },
+  typeDesc:  { fontSize: 11, color: Colors.textMuted, textAlign: 'center', lineHeight: 15 },
   typeCheckmark: {
     position: 'absolute', top: 8, right: 8,
-    backgroundColor: '#6366F1', borderRadius: 10,
+    backgroundColor: Colors.primary, borderRadius: 10,
     width: 20, height: 20, alignItems: 'center', justifyContent: 'center',
   },
 
   descInput: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#E2E8F0',
-    fontSize: 15, color: '#1E293B', minHeight: 120,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    backgroundColor: Colors.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.borderLight,
+    fontSize: 15, color: Colors.text, minHeight: 120,
+    ...Shadows.xs,
   },
   charCount: {
-    marginTop: 6, fontSize: 12, color: '#94A3B8', textAlign: 'right',
+    marginTop: 6, fontSize: 12, color: Colors.textMuted, textAlign: 'right',
   },
 
   infoBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#EEF2FF', borderRadius: 12, padding: 14,
-    marginTop: 20, borderWidth: 1, borderColor: '#C7D2FE',
+    backgroundColor: Colors.primaryMuted, borderRadius: 12, padding: 14,
+    marginTop: 20, borderWidth: 1, borderColor: Colors.primaryLight,
   },
-  infoText: { flex: 1, fontSize: 13, color: '#4F46E5', lineHeight: 18 },
+  infoText: { flex: 1, fontSize: 13, color: Colors.primary, lineHeight: 18 },
 
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#6366F1', borderRadius: 16,
+    backgroundColor: Colors.primary, borderRadius: 16,
     paddingVertical: 16, marginTop: 24,
-    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 8, elevation: 5,
+    ...Shadows.primary,
   },
-  submitBtnDisabled: { backgroundColor: '#CBD5E1', shadowOpacity: 0 },
+  submitBtnDisabled: { backgroundColor: Colors.border, shadowOpacity: 0, elevation: 0 },
   submitBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
   bottomPad: { height: 40 },

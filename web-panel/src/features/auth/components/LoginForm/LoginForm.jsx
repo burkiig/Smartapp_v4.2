@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../../../shared/components/ui/Button';
-import { RoleSelector } from '../RoleSelector';
 import './LoginForm.css';
 import './PasswordToggle.css';
 
 export const LoginForm = ({ onLogin, loading, error }) => {
-  const [username, setUsername] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState('instructor');
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -17,7 +15,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onLogin(username, password, selectedRole);
+    onLogin(loginId, password);
   };
 
   return (
@@ -26,7 +24,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
         <div className={`login-logo ${logoLoaded ? 'logo-loaded' : ''}`}>
           <div className="logo-shimmer-wrapper">
             <div className="logo-icon-container">
-              <span className="logo-icon">🎓</span>
+              <span className="logo-icon">SA</span>
             </div>
             <div className="shimmer-effect"></div>
           </div>
@@ -34,42 +32,35 @@ export const LoginForm = ({ onLogin, loading, error }) => {
             <span className="logo-text">Smart Attendance</span>
           </div>
         </div>
-        <h1 className="login-title">Smart Attendance System</h1>
-        <p className="login-subtitle">Web Panel Login</p>
+        <h1 className="login-title">Akıllı Yoklama Sistemi</h1>
+        <p className="login-subtitle">Yönetim Paneli</p>
       </div>
-
-      <RoleSelector
-        selectedRole={selectedRole}
-        onRoleChange={setSelectedRole}
-      />
 
       <form onSubmit={handleSubmit} className="login-form">
         {error && (
           <div className="error-message">
-            <span className="error-icon">⚠️</span>
             <span>{error}</span>
           </div>
         )}
 
         <div className="form-group">
           <label className="form-label">
-            <span className="label-icon">👤</span>
-            Username
+            Kullanıcı Adı veya E-posta
           </label>
           <input
             type="text"
             className="form-input"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your username"
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
+            placeholder="username veya email@örnek.com"
             required
+            autoComplete="username"
           />
         </div>
 
         <div className="form-group">
           <label className="form-label">
-            <span className="label-icon">🔒</span>
-            Password
+            Şifre
           </label>
           <div className="password-input-wrapper">
             <input
@@ -77,37 +68,29 @@ export const LoginForm = ({ onLogin, loading, error }) => {
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Şifrenizi girin"
               required
+              autoComplete="current-password"
             />
             <button
               type="button"
               className="password-toggle"
               onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
             >
-              {showPassword ? '👁️' : '👁️‍🗨️'}
+              {showPassword ? 'Gizle' : 'Göster'}
             </button>
           </div>
-        </div>
-
-        <div className="forgot-password-wrapper">
-          <a href="#" className="forgot-password-link" onClick={(e) => {
-            e.preventDefault();
-            alert('Şifre sıfırlama özelliği yakında eklenecek!');
-          }}>
-            Şifremi Unuttum?
-          </a>
         </div>
 
         <Button
           type="submit"
           variant="primary"
-          size="large"
+          size="lg"
           fullWidth
           loading={loading}
         >
-          {loading ? 'Signing in...' : 'Sign In'}
+          {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
         </Button>
       </form>
     </div>

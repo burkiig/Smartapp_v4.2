@@ -4,29 +4,24 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Dimensions,
   Alert,
   Linking,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
-import { qrVerify } from './shared/services/api';
+import { attendance } from './shared/services/api';
+import { Colors } from './shared/config/theme';
 
 const { width } = Dimensions.get('window');
 
 export default function QRScanScreen() {
   const router = useRouter();
-  const {
-    session_id,
-    location_bypassed,
-    location_distance,
-    face_simulated,
-    face_confidence,
-  } = useLocalSearchParams();
+  const { session_id } = useLocalSearchParams();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState('idle'); // idle | scanning | verifying | success | error
@@ -55,39 +50,44 @@ export default function QRScanScreen() {
   }, [permission]);
 
   const handleBarCodeScanned = async ({ data: qrCode }) => {
-    if (scanned) return; // Aynı QR'ı birden fazla işleme
+    if (scanned) return;
     setScanned(true);
     setScanState('verifying');
 
-    // Önceki adımlardan gelen doğrulama meta verisi
-    const verificationMeta = {
-      location_bypassed: location_bypassed === 'true',
-      face_simulated: face_simulated !== 'false', // varsayılan: simüle (gerçek face rec henüz yok)
-      location_distance: location_distance ? parseFloat(location_distance) : null,
-      face_confidence: face_confidence ? parseFloat(face_confidence) : null,
-    };
-
     try {
-      const result = await qrVerify.verify(session_id, qrCode, verificationMeta);
+      // QR payload: "session_id=X;course_id=Y;token=XXXX"
+      // session_id ve token'ı QR içeriğinden çıkar (nav param'a güvenme)
+      const parts = {};
+      try {
+        qrCode.split(';').forEach(p => {
+          const [k, v] = p.split('=', 2);
+          if (k && v) parts[k.trim()] = v.trim();
+        });
+      } catch { /* ignore parse errors */ }
 
-      if (result.success) {
+      const tokenToSend = parts.token || qrCode;
+      const resolvedSessionId = parts.session_id
+        ? parseInt(parts.session_id, 10)
+        : parseInt(session_id, 10);
+
+      if (!resolvedSessionId || isNaN(resolvedSessionId)) {
+        setScanState('error');
+        setErrorMessage('QR kod geçersiz veya tanınamadı.');
+        return;
+      }
+
+      const result = await attendance.scanQR(resolvedSessionId, tokenToSend);
+
+      const isVerified = result?.qr_status === 'verified';
+
+      if (isVerified) {
         setScanState('success');
-
-        const isFlagged = result.is_flagged;
-        const flagMsg = isFlagged
-          ? '\n\n⚠️ Yoklamanız incelemeye alındı. Hocaya bildirim gönderildi.'
-          : '';
-
         setTimeout(() => {
-          Alert.alert(
-            'Yoklama Tamamlandı! ✅',
-            `GPS → Yüz Tanıma → QR Kod\nÜç adım başarıyla tamamlandı.${flagMsg}`,
-            [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/home') }]
-          );
+          router.replace({ pathname: '/face-scan', params: { session_id: resolvedSessionId } });
         }, 800);
       } else {
         setScanState('error');
-        setErrorMessage(result.message || 'QR kod geçersiz');
+        setErrorMessage('QR kod doğrulanamadı. Lütfen tekrar deneyin.');
       }
     } catch (err) {
       setScanState('error');
@@ -117,7 +117,7 @@ export default function QRScanScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
-        <LinearGradient colors={['#3B82F6', '#06B6D4']} style={styles.gradient}>
+        <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.gradient}>
           <View style={styles.centerBox}>
             <Ionicons name="close-circle-outline" size={72} color="#fff" />
             <Text style={styles.permTitle}>Kamera İzni Gerekli</Text>
@@ -155,7 +155,7 @@ export default function QRScanScreen() {
   const gradientColors =
     scanState === 'success' ? ['#059669', '#10B981'] :
     scanState === 'error'   ? ['#DC2626', '#EF4444'] :
-                              ['#3B82F6', '#06B6D4'];
+                              ['#1E3A8A', '#2563EB'];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -168,13 +168,13 @@ export default function QRScanScreen() {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>QR Kod Okuyucu</Text>
-            <Text style={styles.headerSubtitle}>Adım 3 / 3 — QR Doğrulama</Text>
+            <Text style={styles.headerSubtitle}>Adım 1 / 3 — QR Doğrulama</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
-            <View style={styles.stepDot} />
-            <View style={styles.stepDot} />
             <View style={[styles.stepDot, styles.stepDotActive]} />
+            <View style={styles.stepDot} />
+            <View style={styles.stepDot} />
           </View>
         </View>
 
@@ -226,13 +226,13 @@ export default function QRScanScreen() {
               {scanState === 'idle'       ? 'Hazır'                    :
                scanState === 'scanning'  ? 'QR Kodu Çerçeveye Al'     :
                scanState === 'verifying' ? 'Sunucuda Doğrulanıyor...'  :
-               scanState === 'success'   ? 'Yoklama Tamamlandı! ✅'    :
+               scanState === 'success'   ? 'QR Doğrulandı! ✅'         :
                                            'Doğrulama Başarısız'}
             </Text>
             <Text style={styles.statusSubtitle}>
               {scanState === 'scanning'  ? 'QR kodu otomatik olarak okunacak'      :
                scanState === 'verifying' ? 'Lütfen bekleyin...'                    :
-               scanState === 'success'   ? 'Tüm adımlar başarıyla tamamlandı'      :
+               scanState === 'success'   ? 'Yüz taramasına yönlendiriliyorsunuz...' :
                scanState === 'error'     ? errorMessage                            : ''}
             </Text>
           </View>
@@ -251,8 +251,8 @@ export default function QRScanScreen() {
         {/* Security chain footer */}
         <View style={styles.footer}>
           <View style={styles.chainStep}>
-            <Ionicons name="location" size={16} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.chainLabel}>GPS</Text>
+            <Ionicons name="qr-code" size={16} color="#fff" />
+            <Text style={[styles.chainLabel, styles.chainLabelActive]}>QR Kod</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
@@ -261,8 +261,8 @@ export default function QRScanScreen() {
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
-            <Ionicons name="qr-code" size={16} color="#fff" />
-            <Text style={[styles.chainLabel, styles.chainLabelActive]}>QR Kod</Text>
+            <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.6)" />
+            <Text style={styles.chainLabel}>GPS</Text>
           </View>
         </View>
       </LinearGradient>
@@ -319,8 +319,8 @@ const styles = StyleSheet.create({
   scanLine: {
     position: 'absolute',
     left: 0, right: 0, height: 2,
-    backgroundColor: '#60A5FA',
-    shadowColor: '#3B82F6',
+    backgroundColor: '#93C5FD',
+    shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 32,
   },
-  retryBtnText: { fontSize: 15, fontWeight: '600', color: '#3B82F6' },
+  retryBtnText: { fontSize: 15, fontWeight: '600', color: '#1D4ED8' },
 
   footer: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 28,
   },
-  actionBtnText: { fontSize: 15, fontWeight: '600', color: '#3B82F6' },
+  actionBtnText: { fontSize: 15, fontWeight: '600', color: '#1D4ED8' },
   backLink:      { paddingVertical: 12 },
   backLinkText:  { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
 });

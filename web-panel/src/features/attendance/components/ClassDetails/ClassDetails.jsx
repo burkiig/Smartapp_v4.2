@@ -1,180 +1,80 @@
-import React, { useState, useMemo } from 'react';
-import { useClassDetails } from '../../hooks/useClassDetails';
+import React, { useState, useEffect, useCallback } from 'react';
+import apiClient from '../../../../shared/services/apiClient';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import './ClassDetails.css';
 
 export const ClassDetails = ({ classData, onBack }) => {
+  const [session, setSession] = useState(classData);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showManualAttendance, setShowManualAttendance] = useState(false);
-  const [cancelReason, setCancelReason] = useState('Instructor unavailable');
-  
-  // Initialize students state with mock data
-  const [students, setStudents] = useState([
-    { id: 'STU12001', name: 'Alice Anderson', status: 'present', avatar: 'AA' },
-    { id: 'STU12002', name: 'Bob Brown', status: 'present', avatar: 'BB' },
-    { id: 'STU12003', name: 'Charlie Davis', status: 'absent', avatar: 'CD' },
-    { id: 'STU12004', name: 'Diana Evans', status: 'absent', avatar: 'DE', flagged: true },
-    { id: 'STU12005', name: 'Ethan Foster', status: 'present', avatar: 'EF' },
-    { id: 'STU12006', name: 'Fiona Garcia', status: 'present', avatar: 'FG' },
-    { id: 'STU12007', name: 'George Harris', status: 'present', avatar: 'GH' },
-    { id: 'STU12008', name: 'Hannah Irving', status: 'absent', avatar: 'HI' },
-    { id: 'STU12009', name: 'Ian Johnson', status: 'present', avatar: 'IJ' },
-    { id: 'STU12010', name: 'Julie King', status: 'present', avatar: 'JK' }
-  ]);
+  const [cancelReason, setCancelReason] = useState('');
 
-  const { markAttendance: markAttendanceHook, cancelClass: cancelClassHook } = useClassDetails();
+  const fetchDetails = useCallback(async () => {
+    if (!session?.id) return;
+    setLoading(true);
+    try {
+      const [attnRes, courseRes, studentsRes] = await Promise.allSettled([
+        apiClient.get(`/attendance/session/${session.id}`),
+        apiClient.get(`/courses/${session.course_id}`),
+        apiClient.get(`/courses/${session.course_id}/students`),
+      ]);
+      if (attnRes.status === 'fulfilled') setAttendanceRecords(attnRes.value || []);
+      if (courseRes.status === 'fulfilled') setCourse(courseRes.value);
+      if (studentsRes.status === 'fulfilled') setEnrolledStudents(studentsRes.value || []);
+    } catch (err) {
+      console.error('ClassDetails fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.id, session?.course_id]);
 
-  // Mock data
-  const classInfo = {
-    code: 'CS101',
-    title: 'Introduction to Programming',
-    room: 'Room 401',
-    time: '09:00 - 10:30',
-    status: 'Completed',
-    totalStudents: 45,
-    present: 42,
-    absent: 2,
-    flagged: 1
-  };
+  useEffect(() => { fetchDetails(); }, [fetchDetails]);
 
-  const timeline = [
-    { time: '08:55', event: 'Auto attendance session opened', type: 'info' },
-    { time: '09:15', event: 'Auto attendance session closed', type: 'info' },
-    { time: '09:20', event: '1 student flagged for manual review', type: 'warning' }
-  ];
+  // Auto-refresh attendance list every 10s while session is active
+  useEffect(() => {
+    if (session?.status !== 'active') return;
+    const interval = setInterval(fetchDetails, 10000);
+    return () => clearInterval(interval);
+  }, [session?.status, fetchDetails]);
 
-  const sessionInfo = {
-    autoAttendance: true,
-    duration: '80 minutes',
-    attendanceWindow: '08:55 - 09:15',
-    location: 'Room 301',
-    systemNote: 'The system automatically opened and closed the attendance session. No manual intervention was required.'
-  };
-
-  // Calculate stats from students state
-  const stats = useMemo(() => {
-    const present = students.filter(s => s.status === 'present').length;
-    const absent = students.filter(s => s.status === 'absent').length;
-    const flagged = students.filter(s => s.flagged).length;
-    return { present, absent, flagged, total: students.length };
-  }, [students]);
-
-  const handleCancelClass = async () => {
-    const result = await cancelClassHook(cancelReason);
-    if (result.success) {
-      alert(`Class cancelled. Reason: ${cancelReason}`);
-      setShowCancelModal(false);
+  const handleEndSession = async () => {
+    try {
+      await apiClient.post(`/sessions/${session.id}/end`);
+      setSession(prev => ({ ...prev, status: 'closed' }));
+    } catch (err) {
+      alert(err.message || 'Oturum sonlandırılamadı');
     }
   };
 
-  const handleMarkAttendance = async (studentId, newStatus) => {
-    if (!newStatus) return; // Don't update if no status selected
-    
-    // Update local state immediately for reactive UI
-    setStudents(prev => 
-      prev.map(student => 
-        student.id === studentId ? { ...student, status: newStatus } : student
-      )
-    );
-    
-    // Call hook to persist to backend
-    await markAttendanceHook(studentId, newStatus);
+  const handleCancelClass = async () => {
+    try {
+      await apiClient.post('/sessions/cancel', {
+        course_id: session.course_id,
+        session_id: session.id,
+        reason: cancelReason || 'Ders iptal edildi',
+      });
+      setShowCancelModal(false);
+      onBack();
+    } catch (err) {
+      alert(err.message || 'İptal işlemi başarısız');
+    }
   };
 
-  if (showManualAttendance) {
+  // All attendance records (present + pending_review + excused) count as attended
+  const presentIds = new Set(attendanceRecords.filter(r => r.status !== 'absent').map(r => r.student_id));
+  const presentCount = presentIds.size;
+  const absentCount = Math.max(0, enrolledStudents.length - presentCount);
+  const flaggedCount = attendanceRecords.filter(r => r.is_flagged).length;
+  const courseName = course ? `${course.code} — ${course.name}` : `Ders #${session.course_id}`;
+
+  if (loading) {
     return (
       <div className="class-details">
-        <div className="details-header">
-          <button className="back-btn" onClick={() => setShowManualAttendance(false)}>
-            ← Back to Class Details
-          </button>
-          <h1 className="details-title">Manual Attendance</h1>
-          <p className="details-subtitle">{classInfo.code} - {classInfo.title}</p>
-        </div>
-
-        <div className="manual-stats">
-          <div className="manual-stat">
-            <div className="manual-stat-label">Total Students</div>
-            <div className="manual-stat-value">{stats.total}</div>
-          </div>
-          <div className="manual-stat">
-            <div className="manual-stat-label">Present</div>
-            <div className="manual-stat-value green">{stats.present}</div>
-          </div>
-          <div className="manual-stat">
-            <div className="manual-stat-label">Absent</div>
-            <div className="manual-stat-value red">{stats.absent}</div>
-          </div>
-        </div>
-
-        <div className="search-box">
-          <input 
-            type="text" 
-            placeholder="Search by name or student number..."
-            className="search-input"
-          />
-        </div>
-
-        <div className="students-table-container">
-          <table className="students-table">
-            <thead>
-              <tr>
-                <th><input type="checkbox" /></th>
-                <th>Student Number</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map(student => (
-                <tr key={student.id}>
-                  <td><input type="checkbox" /></td>
-                  <td>{student.id}</td>
-                  <td>
-                    <div className="student-cell">
-                      <div className="student-avatar-small">{student.avatar}</div>
-                      <span>{student.name}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <Badge 
-                      variant={
-                        student.status === 'present' ? 'success' : 
-                        student.status === 'excused' ? 'info' : 
-                        'error'
-                      }
-                    >
-                      {student.status === 'present' ? '✓ Present' : 
-                       student.status === 'excused' ? '📝 Excused' : 
-                       '○ Absent'}
-                    </Badge>
-                    {student.flagged && (
-                      <Badge variant="warning" size="small" style={{ marginLeft: '8px' }}>
-                        • Flagged
-                      </Badge>
-                    )}
-                  </td>
-                  <td>
-                    <select 
-                      className="action-select"
-                      value={student.status}
-                      onChange={(e) => handleMarkAttendance(student.id, e.target.value)}
-                    >
-                      <option value="present">Mark Present</option>
-                      <option value="absent">Mark Absent</option>
-                      <option value="excused">Mark Excused</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="save-section">
-          <button className="save-btn">💾 Save Changes</button>
-        </div>
+        <button className="back-btn" onClick={onBack}>← Geri</button>
+        <div className="details-loading">Yükleniyor...</div>
       </div>
     );
   }
@@ -183,29 +83,28 @@ export const ClassDetails = ({ classData, onBack }) => {
     <div className="class-details">
       <div className="details-header">
         <div className="header-top">
-          <button className="back-btn" onClick={onBack}>
-            ← Back to Dashboard
-          </button>
+          <button className="back-btn" onClick={onBack}>← Geri</button>
           <div className="header-actions">
-            <button className="action-btn secondary" onClick={() => setShowManualAttendance(true)}>
-              📝 Manual Attendance
-            </button>
-            <button className="action-btn secondary">
-              📥 Download Report
-            </button>
-            <button className="action-btn danger" onClick={() => setShowCancelModal(true)}>
-              ✕ Cancel Session
+            {session.status === 'active' && (
+              <button className="action-btn danger" onClick={handleEndSession}>
+                Oturumu Bitir
+              </button>
+            )}
+            <button className="action-btn secondary" onClick={() => setShowCancelModal(true)}>
+              ✕ Dersi İptal Et
             </button>
           </div>
         </div>
         <div className="header-title-section">
-          <h1 className="details-title">{classInfo.code} – {classInfo.title}</h1>
+          <h1 className="details-title">{courseName}</h1>
           <div className="details-meta">
-            <span className="meta-item">📍 {classInfo.room}</span>
+            <span className="meta-item">{session.date || '—'}</span>
             <span className="meta-divider">•</span>
-            <span className="meta-item">🕐 {classInfo.time}</span>
+            <span className="meta-item">{session.start_time || '—'}{session.end_time ? ` – ${session.end_time}` : ''}</span>
             <span className="meta-divider">•</span>
-            <span className="meta-status-completed">✓ {classInfo.status}</span>
+            <span className={`meta-status-${session.status === 'active' ? 'active' : 'completed'}`}>
+              {session.status === 'active' ? '● Aktif' : '✓ Tamamlandı'}
+            </span>
           </div>
         </div>
       </div>
@@ -214,126 +113,139 @@ export const ClassDetails = ({ classData, onBack }) => {
         <div className="stat-box">
           <div className="stat-icon blue">👥</div>
           <div className="stat-info">
-            <div className="stat-value">{classInfo.totalStudents}</div>
-            <div className="stat-label">Total Students</div>
+            <div className="stat-value">{enrolledStudents.length}</div>
+            <div className="stat-label">Kayıtlı Öğrenci</div>
           </div>
         </div>
-
         <div className="stat-box">
           <div className="stat-icon green">✓</div>
           <div className="stat-info">
-            <div className="stat-value">{classInfo.present}</div>
-            <div className="stat-label">Present</div>
-            <div className="stat-percentage">{Math.round((classInfo.present / classInfo.totalStudents) * 100)}% attendance</div>
+            <div className="stat-value">{presentCount}</div>
+            <div className="stat-label">Katılan</div>
+            <div className="stat-percentage">
+              {enrolledStudents.length > 0 ? Math.round((presentCount / enrolledStudents.length) * 100) : 0}%
+            </div>
           </div>
         </div>
-
         <div className="stat-box">
           <div className="stat-icon gray">○</div>
           <div className="stat-info">
-            <div className="stat-value">{classInfo.absent}</div>
-            <div className="stat-label">Absent</div>
+            <div className="stat-value">{absentCount}</div>
+            <div className="stat-label">Katılmayan</div>
           </div>
         </div>
-
         <div className="stat-box">
-          <div className="stat-icon yellow">⚠</div>
+          <div className="stat-icon yellow">!</div>
           <div className="stat-info">
-            <div className="stat-value">{classInfo.flagged}</div>
-            <div className="stat-label">Flagged</div>
-            <div className="stat-link">Need review</div>
+            <div className="stat-value">{flaggedCount}</div>
+            <div className="stat-label">Şüpheli</div>
           </div>
         </div>
       </div>
 
       <div className="content-row">
         <div className="timeline-section">
-          <h2 className="section-title">Attendance Timeline</h2>
-          <div className="timeline">
-            {timeline.map((item, index) => (
-              <div key={index} className={`timeline-item ${item.type}`}>
-                <div className="timeline-icon">
-                  {item.type === 'warning' ? '⚠' : 'ℹ'}
-                </div>
-                <div className="timeline-content">
-                  <div className="timeline-time">{item.time}</div>
-                  <div className="timeline-event">{item.event}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <h2 className="section-title">Yoklama Kayıtları</h2>
+          {attendanceRecords.length === 0 ? (
+            <p className="empty-text">Henüz yoklama kaydı yok</p>
+          ) : (
+            <div className="students-table-container">
+              <table className="students-table">
+                <thead>
+                  <tr>
+                    <th>Öğrenci</th>
+                    <th>Zaman</th>
+                    <th>Durum</th>
+                    <th>Bayrak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceRecords.map(r => (
+                    <tr key={r.id}>
+                      <td>
+                        <div className="student-cell">
+                          <div className="student-avatar-small">
+                            {(r.student_name || String(r.student_id)).charAt(0).toUpperCase()}
+                          </div>
+                          <span>{r.student_name || `Öğrenci #${r.student_id}`}</span>
+                        </div>
+                      </td>
+                      <td>{r.marked_at ? new Date(r.marked_at).toLocaleTimeString('tr-TR') : '—'}</td>
+                      <td>
+                        <Badge variant={
+                          r.status === 'present' ? 'success' :
+                          r.status === 'pending_review' ? 'warning' :
+                          r.status === 'excused' ? 'info' : 'error'
+                        }>
+                          {r.status === 'present' ? '✓ Katıldı' :
+                           r.status === 'pending_review' ? '⏳ İncelemede' :
+                           r.status === 'excused' ? '📄 Mazeretli' : '○ Katılmadı'}
+                        </Badge>
+                      </td>
+                      <td>
+                        {r.is_flagged ? (
+                          <Badge variant="warning">{r.flag_reason || 'Şüpheli'}</Badge>
+                        ) : (
+                          <span className="ok-text">✓</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="info-section">
-          <h2 className="section-title">Session Information</h2>
-          <div className="info-grid">
-            <div className="info-item">
-              <div className="info-label">Auto Attendance</div>
-              <div className="info-value">
-                <span className="enabled-badge">✓ Enabled</span>
-              </div>
+          <h2 className="section-title">Katılmayan Öğrenciler</h2>
+          {enrolledStudents.length === 0 ? (
+            <p className="empty-text">Kayıtlı öğrenci yok</p>
+          ) : (
+            <div className="absent-list">
+              {enrolledStudents
+                .filter(s => !presentIds.has(s.id))
+                .map(s => (
+                  <div key={s.id} className="absent-item">
+                    <div className="student-avatar-small">
+                      {(s.name || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="absent-info">
+                      <div className="absent-name">{s.name}</div>
+                      <div className="absent-detail">{s.student_number || s.email}</div>
+                    </div>
+                  </div>
+                ))}
+              {enrolledStudents.filter(s => !presentIds.has(s.id)).length === 0 && (
+                <p className="empty-text">Tüm öğrenciler katıldı!</p>
+              )}
             </div>
-
-            <div className="info-item">
-              <div className="info-label">Session Duration</div>
-              <div className="info-value">{sessionInfo.duration}</div>
-            </div>
-
-            <div className="info-item">
-              <div className="info-label">Attendance Window</div>
-              <div className="info-value">{sessionInfo.attendanceWindow}</div>
-            </div>
-
-            <div className="info-item">
-              <div className="info-label">Location</div>
-              <div className="info-value">{sessionInfo.location}</div>
-            </div>
-          </div>
-
-          <div className="system-note">
-            <div className="note-title">System Note</div>
-            <div className="note-content">{sessionInfo.systemNote}</div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Cancel Modal */}
       {showCancelModal && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">Cancel Class Session?</h3>
-            <p className="modal-text">
-              This will cancel today's class session. Students will be notified and attendance will not be taken.
-            </p>
-            
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Dersi İptal Et</h3>
+            <p className="modal-text">Bu ders iptal edilecek ve öğrencilere bildirim gönderilecek.</p>
             <div className="form-group">
-              <label className="form-label">Reason for cancellation</label>
-              <select 
-                className="form-select"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-              >
-                <option>Instructor unavailable</option>
-                <option>Holiday</option>
-                <option>Campus closure</option>
-                <option>Other</option>
+              <label className="form-label">İptal Nedeni</label>
+              <select className="form-select" value={cancelReason} onChange={e => setCancelReason(e.target.value)}>
+                <option value="">Seçiniz</option>
+                <option value="Öğretmen müsait değil">Öğretmen müsait değil</option>
+                <option value="Tatil">Tatil</option>
+                <option value="Kampüs kapalı">Kampüs kapalı</option>
+                <option value="Diğer">Diğer</option>
               </select>
             </div>
-
             <div className="modal-actions">
-              <button className="modal-btn secondary" onClick={() => setShowCancelModal(false)}>
-                Keep Class
-              </button>
-              <button className="modal-btn danger" onClick={handleCancelClass}>
-                Cancel Class
-              </button>
+              <button className="modal-btn secondary" onClick={() => setShowCancelModal(false)}>Vazgeç</button>
+              <button className="modal-btn danger" onClick={handleCancelClass}>İptal Et</button>
             </div>
-
-            <p className="modal-note">Note: Manual attendance changes will be logged for transparency.</p>
           </div>
         </div>
       )}
     </div>
   );
 };
-

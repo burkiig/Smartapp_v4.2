@@ -54,42 +54,41 @@ export const Sidebar = ({
           {subtitle && <p className="app-subtitle">{subtitle}</p>}
         </div>
 
-        <nav className="sidebar-nav">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-item${activeTab === item.id ? ' active' : ''}${item.id === 'logout' ? ' logout-item' : ''}`}
-              onClick={() => handleNavChange(item.id)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-              {item.badge && <span className="badge">{item.badge}</span>}
-            </button>
-          ))}
-        </nav>
-
-        {user && (
-          <div className="sidebar-footer">
-            <div className="user-info">
-              <div className="user-avatar">
-                {user.name.split(' ').map(n => n[0]).join('')}
-              </div>
-              <div className="user-details">
-                <div className="user-name">{user.name}</div>
-                {user.department && <div className="user-dept">{user.department}</div>}
-                {user.student_id && <div className="user-id">{user.student_id}</div>}
-              </div>
-            </div>
-            {onLogout && (
-              <button className="logout-btn" onClick={onLogout}>
-                <span className="logout-icon">🚪</span>
-                Logout
+        <div className="sidebar-body">
+          <nav className="sidebar-nav">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                className={`nav-item${activeTab === item.id ? ' active' : ''}${item.id === 'logout' ? ' logout-item' : ''}`}
+                onClick={() => handleNavChange(item.id)}
+              >
+                {item.icon && <span className="nav-icon">{item.icon}</span>}
+                <span className="nav-label">{item.label}</span>
+                {item.badge && <span className="badge">{item.badge}</span>}
               </button>
-            )}
-          </div>
-        )}
+            ))}
+          </nav>
+
+          {user && (
+            <div className="sidebar-user-section">
+              <div className="user-info">
+                <div className="user-avatar">
+                  {user.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div className="user-details">
+                  <div className="user-name">{user.name}</div>
+                  {user.department && <div className="user-dept">{user.department}</div>}
+                </div>
+              </div>
+              {onLogout && (
+                <button className="logout-btn" onClick={onLogout}>
+                  Cikis Yap
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </aside>
     </>
   );
 };
-

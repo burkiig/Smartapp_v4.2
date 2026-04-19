@@ -1,513 +1,171 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Switch,
-  Alert,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useUser } from './context/UserContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useUser } from './_context/UserContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors, Shadows } from './shared/config/theme';
+
+const SETTINGS_KEY = '@smart_attendance_settings';
+
+const DEFAULT_SETTINGS = {
+  pushNotifications: true,
+  notifyFlagged:     true,
+  notifySessionEnds: true,
+  notifyClassStart:  true,
+  faceRecognition:   true,
+  qrCode:            true,
+  gpsVerification:   true,
+};
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { userName, userEmail } = useUser();
+  const { userName, userEmail, userDepartment } = useUser();
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  // Notification Settings
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [notifyFlagged, setNotifyFlagged] = useState(true);
-  const [notifySessionEnds, setNotifySessionEnds] = useState(true);
-  const [notifyClassStart, setNotifyClassStart] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(SETTINGS_KEY).then(raw => {
+      if (raw) try { setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) }); } catch {}
+    }).catch(() => {});
+  }, []);
 
-  // Preferences
-  const [language, setLanguage] = useState('English');
-  const [timeFormat, setTimeFormat] = useState('12-hour');
-  const [theme, setTheme] = useState('light');
-
-  // Auto Attendance
-  const [autoAttendance, setAutoAttendance] = useState(true);
-  const [faceRecognition, setFaceRecognition] = useState(true);
-  const [qrCode, setQrCode] = useState(true);
-  const [gpsVerification, setGpsVerification] = useState(true);
-
-  const handleSave = () => {
-    Alert.alert('Success', 'Settings saved!');
+  const update = (key, value) => {
+    const next = { ...settings, [key]: value };
+    setSettings(next);
+    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next)).catch(() => {});
   };
 
   const handleReset = () => {
-    Alert.alert(
-      'Reset Settings',
-      'Are you sure you want to reset all settings to default?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            setEmailNotifications(true);
-            setPushNotifications(true);
-            setNotifyFlagged(true);
-            setNotifySessionEnds(true);
-            setNotifyClassStart(false);
-            setLanguage('English');
-            setTimeFormat('12-hour');
-            setTheme('light');
-            setAutoAttendance(true);
-            setFaceRecognition(true);
-            setQrCode(true);
-            setGpsVerification(true);
-          },
-        },
-      ]
-    );
+    Alert.alert('Ayarları Sıfırla', 'Tüm ayarlar varsayılanlara döndürülecek.', [
+      { text: 'İptal', style: 'cancel' },
+      { text: 'Sıfırla', style: 'destructive', onPress: () => {
+        setSettings(DEFAULT_SETTINGS);
+        AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS)).catch(() => {});
+      }},
+    ]);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Manage your preferences</Text>
+        <View>
+          <Text style={styles.headerTitle}>Ayarlar</Text>
+          <Text style={styles.headerSub}>Tercihlerinizi yönetin</Text>
         </View>
-        <View style={styles.placeholder} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Notifications Section */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+
+        {/* Profile card */}
+        <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.profileCard}>
+          <View style={styles.profileAvatar}>
+            <Text style={styles.profileInitials}>
+              {(userName || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+            </Text>
+          </View>
+          <View>
+            <Text style={styles.profileName}>{userName || '—'}</Text>
+            <Text style={styles.profileEmail}>{userEmail || '—'}</Text>
+            {userDepartment && <Text style={styles.profileDept}>{userDepartment}</Text>}
+          </View>
+        </LinearGradient>
+
+        {/* Bildirimler */}
+        <Section icon="notifications" iconColor={Colors.primary} title="Bildirimler">
+          <Row label="Anlık Bildirimler"       desc="Yoklama uyarılarını anlık alın"        value={settings.pushNotifications} onChange={v => update('pushNotifications', v)} />
+          <Row label="Bayraklı Yoklama"         desc="Bayraklı kayıtlar için bildirim"       value={settings.notifyFlagged}     onChange={v => update('notifyFlagged', v)} last={false} />
+          <Row label="Oturum Bitişi"            desc="Yoklama oturumu bittiğinde bildirim"   value={settings.notifySessionEnds} onChange={v => update('notifySessionEnds', v)} last={false} />
+          <Row label="Ders Başlangıcı"          desc="Ders başlamak üzereyken bildirim"      value={settings.notifyClassStart}  onChange={v => update('notifyClassStart', v)} last />
+        </Section>
+
+        {/* Yoklama Yöntemleri */}
+        <Section icon="shield-checkmark" iconColor={Colors.warning} title="Yoklama Yöntemleri">
+          <Row label="Yüz Tanıma"   desc="Face ID ile yoklama doğrulaması" value={settings.faceRecognition} onChange={v => update('faceRecognition', v)} accent={Colors.warning} last={false} />
+          <Row label="QR Kod"       desc="QR kod ile yoklama"              value={settings.qrCode}          onChange={v => update('qrCode', v)}          accent={Colors.warning} last={false} />
+          <Row label="GPS Doğrulama" desc="Konum ile doğrulama"           value={settings.gpsVerification} onChange={v => update('gpsVerification', v)} accent={Colors.warning} last />
+        </Section>
+
+        {/* Sıfırla */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="notifications" size={24} color="#5B7FFF" />
-            <Text style={styles.sectionTitle}>Notifications</Text>
-          </View>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Email Notifications</Text>
-                <Text style={styles.settingDescription}>
-                  Receive attendance alerts via email
-                </Text>
-              </View>
-              <Switch
-                value={emailNotifications}
-                onValueChange={setEmailNotifications}
-                trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-                thumbColor={emailNotifications ? '#5B7FFF' : '#9CA3AF'}
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Push Notifications</Text>
-                <Text style={styles.settingDescription}>
-                  Get notifications for flagged attendance
-                </Text>
-              </View>
-              <Switch
-                value={pushNotifications}
-                onValueChange={setPushNotifications}
-                trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-                thumbColor={pushNotifications ? '#5B7FFF' : '#9CA3AF'}
-              />
-            </View>
-          </View>
-
-          <View style={styles.subsectionCard}>
-            <Text style={styles.subsectionTitle}>Beni bilgilendir</Text>
-            
-            <TouchableOpacity
-              style={styles.checkboxItem}
-              onPress={() => setNotifyFlagged(!notifyFlagged)}
-            >
-              <Ionicons
-                name={notifyFlagged ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={notifyFlagged ? '#5B7FFF' : '#9CA3AF'}
-              />
-              <Text style={styles.checkboxText}>
-                When student attendance is flagged
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkboxItem}
-              onPress={() => setNotifySessionEnds(!notifySessionEnds)}
-            >
-              <Ionicons
-                name={notifySessionEnds ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={notifySessionEnds ? '#5B7FFF' : '#9CA3AF'}
-              />
-              <Text style={styles.checkboxText}>When attendance session ends</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkboxItem}
-              onPress={() => setNotifyClassStart(!notifyClassStart)}
-            >
-              <Ionicons
-                name={notifyClassStart ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={notifyClassStart ? '#5B7FFF' : '#9CA3AF'}
-              />
-              <Text style={styles.checkboxText}>When class is about to start</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Preferences Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="settings" size={24} color="#10B981" />
-            <Text style={styles.sectionTitle}>Preferences</Text>
-          </View>
-
-          <View style={styles.settingCard}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Language</Text>
-                <Text style={styles.settingValue}>{language}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Time Format</Text>
-                <Text style={styles.settingValue}>
-                  {timeFormat === '12-hour' ? '12 hour (2:30 PM)' : '24 hour (14:30)'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Theme</Text>
-                <Text style={styles.settingValue}>
-                  {theme === 'light' ? 'Light' : 'Dark'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Auto Attendance Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="flash" size={24} color="#F59E0B" />
-            <Text style={styles.sectionTitle}>Auto Attendance</Text>
-          </View>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Auto Attendance</Text>
-                <Text style={styles.settingDescription}>
-                  Automatically open/close sessions
-                </Text>
-              </View>
-              <Switch
-                value={autoAttendance}
-                onValueChange={setAutoAttendance}
-                trackColor={{ false: '#E5E7EB', true: '#FCD34D' }}
-                thumbColor={autoAttendance ? '#F59E0B' : '#9CA3AF'}
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Face Recognition</Text>
-                <Text style={styles.settingDescription}>
-                  Take attendance with Face ID
-                </Text>
-              </View>
-              <Switch
-                value={faceRecognition}
-                onValueChange={setFaceRecognition}
-                trackColor={{ false: '#E5E7EB', true: '#FCD34D' }}
-                thumbColor={faceRecognition ? '#F59E0B' : '#9CA3AF'}
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>QR Code</Text>
-                <Text style={styles.settingDescription}>Take attendance with QR code</Text>
-              </View>
-              <Switch
-                value={qrCode}
-                onValueChange={setQrCode}
-                trackColor={{ false: '#E5E7EB', true: '#FCD34D' }}
-                thumbColor={qrCode ? '#F59E0B' : '#9CA3AF'}
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>GPS Verification</Text>
-                <Text style={styles.settingDescription}>
-                  Verify with location
-                </Text>
-              </View>
-              <Switch
-                value={gpsVerification}
-                onValueChange={setGpsVerification}
-                trackColor={{ false: '#E5E7EB', true: '#FCD34D' }}
-                thumbColor={gpsVerification ? '#F59E0B' : '#9CA3AF'}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Profile Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="person" size={24} color="#A855F7" />
-            <Text style={styles.sectionTitle}>Profile Information</Text>
-          </View>
-
-          <View style={styles.settingCard}>
-            <View style={styles.profileItem}>
-              <Text style={styles.profileLabel}>Name</Text>
-              <Text style={styles.profileValue}>{userName || 'Dr. Robert Chen'}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.profileItem}>
-              <Text style={styles.profileLabel}>Email</Text>
-              <Text style={styles.profileValue}>
-                {userEmail || 'robert.chen@university.edu'}
-              </Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.profileItem}>
-              <Text style={styles.profileLabel}>Department</Text>
-              <Text style={styles.profileValue}>Computer Science</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsSection}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.saveButtonText}>Save Changes</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-            <Ionicons name="refresh" size={20} color="#EF4444" />
-            <Text style={styles.resetButtonText}>Reset Settings</Text>
+          <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
+            <Ionicons name="refresh-outline" size={18} color={Colors.error} />
+            <Text style={styles.resetBtnText}>Ayarları Varsayılanlara Döndür</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.bottomPadding} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  placeholder: {
-    width: 40,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  settingCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  settingLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  settingDescription: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  settingValue: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 12,
-  },
-  subsectionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  subsectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  checkboxItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-  },
-  checkboxText: {
-    fontSize: 14,
-    color: '#1F2937',
-    flex: 1,
-  },
-  profileItem: {
-    paddingVertical: 12,
-  },
-  profileLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 6,
-  },
-  profileValue: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1F2937',
-  },
-  actionsSection: {
-    paddingHorizontal: 20,
-    marginTop: 32,
-    gap: 12,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#5B7FFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    shadowColor: '#5B7FFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-  },
-  resetButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#EF4444',
-  },
-  bottomPadding: {
-    height: 40,
-  },
-});
+function Section({ icon, iconColor, title, children }) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={[styles.sectionIconBox, { backgroundColor: iconColor + '18' }]}>
+          <Ionicons name={icon} size={18} color={iconColor} />
+        </View>
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      <View style={styles.card}>{children}</View>
+    </View>
+  );
+}
 
+function Row({ label, desc, value, onChange, accent = Colors.primary, last }) {
+  return (
+    <View style={[styles.row, !last && styles.rowBorder]}>
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {desc ? <Text style={styles.rowDesc}>{desc}</Text> : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: Colors.border, true: accent + '50' }}
+        thumbColor={value ? accent : Colors.textMuted}
+        ios_backgroundColor={Colors.border}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.bg },
+
+  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  backBtn:     { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.bgAlt, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.text, letterSpacing: -0.3 },
+  headerSub:   { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+
+  profileCard:     { marginHorizontal: 20, marginTop: 20, borderRadius: 18, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, ...Shadows.primary },
+  profileAvatar:   { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
+  profileInitials: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  profileName:     { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
+  profileEmail:    { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  profileDept:     { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+
+  section:       { paddingHorizontal: 20, marginTop: 24 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  sectionIconBox:{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle:  { fontSize: 15, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
+
+  card:     { backgroundColor: Colors.card, borderRadius: 16, paddingHorizontal: 16, ...Shadows.xs },
+  row:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
+  rowBorder:{ borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  rowInfo:  { flex: 1, marginRight: 16 },
+  rowLabel: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 3 },
+  rowDesc:  { fontSize: 12, color: Colors.textMuted },
+
+  resetBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 15, borderWidth: 1, borderColor: Colors.errorLight, ...Shadows.xs },
+  resetBtnText: { fontSize: 14, fontWeight: '700', color: Colors.error },
+});

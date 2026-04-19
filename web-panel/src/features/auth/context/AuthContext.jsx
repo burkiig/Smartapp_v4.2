@@ -1,44 +1,38 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginUser, logoutUser } from '../services/authService';
+import { loginUser, logoutUser, getMe } from '../services/authService';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const savedToken = localStorage.getItem('access_token');
-
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
+    const init = async () => {
+      // Verify session by hitting /auth/me — the httpOnly access_token cookie
+      // is sent automatically. No localStorage token to read.
+      const profile = await getMe();
+      if (profile) {
+        setUser(profile);
+        localStorage.setItem('user', JSON.stringify(profile));
+      } else {
         localStorage.removeItem('user');
       }
-    }
-
-    if (savedToken) {
-      setAccessToken(savedToken);
-    }
-
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    init();
   }, []);
 
-  const login = async (username, password, role) => {
+  const login = async (loginIdentifier, password) => {
     setError('');
     setIsLoading(true);
 
     try {
-      const result = await loginUser(username, password, role);
+      const result = await loginUser(loginIdentifier, password);
 
       if (result.success) {
         setUser(result.user);
-        setAccessToken(result.access_token);
-        localStorage.setItem('user', JSON.stringify(result.user));
         return { success: true };
       } else {
         setError(result.error);
@@ -54,32 +48,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await logoutUser();
+    await logoutUser();  // server clears httpOnly cookies
     setUser(null);
-    setAccessToken(null);
     localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-  };
-
-  /**
-   * Returns Authorization header object for authenticated API calls.
-   * Usage: fetch(url, { headers: { ...getAuthHeader(), 'Content-Type': 'application/json' } })
-   */
-  const getAuthHeader = () => {
-    const token = accessToken || localStorage.getItem('access_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   const value = {
     user,
-    accessToken,
     isLoading,
     error,
     login,
     logout,
-    getAuthHeader,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

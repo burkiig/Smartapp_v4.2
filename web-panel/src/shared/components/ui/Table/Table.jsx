@@ -4,7 +4,7 @@ import './Table.css';
 export const Table = ({ 
   columns = [], 
   data = [], 
-  emptyMessage = 'No data found',
+  emptyMessage = 'Veri bulunamadı',
   emptyIcon = '📋',
   onRowClick,
   className = ''

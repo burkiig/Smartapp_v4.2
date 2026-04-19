@@ -1,414 +1,413 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  FlatList,
-  TextInput,
-  Modal,
-  Alert,
+  View, Text, TouchableOpacity, StyleSheet,
+  ScrollView, FlatList, TextInput, Modal, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { sessions, rooms as roomsApi, attendance as attendanceApi, courses as coursesApi } from './shared/services/api';
+import { Colors, Shadows } from './shared/config/theme';
+
+const STATUS_MAP = {
+  present: { label: 'Mevcut',    color: Colors.success, bg: Colors.successLight },
+  absent:  { label: 'Devamsız',  color: Colors.error,   bg: Colors.errorLight   },
+  excused: { label: 'Mazeretli', color: Colors.warning, bg: Colors.warningLight },
+};
+
+const CANCEL_REASONS = ['Öğretim görevlisi müsait değil', 'Teknik sorun', 'Tatil / Etkinlik', 'Acil durum'];
 
 export default function ClassDetailsScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams();
+  const router  = useRouter();
+  const params  = useLocalSearchParams();
+  const courseId = params.courseId ? Number(params.courseId) : null;
 
-  const [activeTab, setActiveTab] = useState('overview'); // overview, students, manual
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason] = useState('Instructor unavailable');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [tab,           setTab]           = useState('overview');
+  const [students,      setStudents]      = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
+  const [faculties,     setFaculties]     = useState([]);
+  const [selFaculty,    setSelFaculty]    = useState(null);
+  const [search,        setSearch]        = useState('');
+  const [unsaved,       setUnsaved]       = useState(false);
+  const [loading,       setLoading]       = useState(false);
 
-  // Mock data - gerçekte params'tan gelecek
-  const classInfo = {
-    code: params.code || 'CS201',
-    title: params.title || 'Data Structures',
-    room: 'Lab 204',
-    time: '14:00 - 15:30',
-    status: 'in-progress',
-    totalStudents: 38,
-    present: 28,
-    absent: 8,
-    flagged: 2
+  // Modals
+  const [facultyModal, setFacultyModal] = useState(false);
+  const [cancelModal,  setCancelModal]  = useState(false);
+  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
+  const [starting,     setStarting]     = useState(false);
+  const [facLoading,   setFacLoading]   = useState(false);
+
+  useEffect(() => {
+    if (courseId) {
+      checkSession(courseId);
+      loadStudents(courseId);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (facultyModal && faculties.length === 0) fetchFaculties();
+  }, [facultyModal]);
+
+  const checkSession = async (id) => {
+    try {
+      const data = await sessions.list({ course_id: id, status: 'active' });
+      if (Array.isArray(data) && data.length > 0) setActiveSession(data[0]);
+    } catch {}
   };
 
-  const [students, setStudents] = useState([
-    { id: 'STU12001', name: 'Alice Anderson', status: 'present', avatar: 'AA' },
-    { id: 'STU12002', name: 'Bob Brown', status: 'present', avatar: 'BB' },
-    { id: 'STU12003', name: 'Charlie Davis', status: 'absent', avatar: 'CD' },
-    { id: 'STU12004', name: 'Diana Evans', status: 'excused', avatar: 'DE' },
-    { id: 'STU12005', name: 'Ethan Foster', status: 'present', avatar: 'EF' },
-    { id: 'STU12006', name: 'Fiona Garcia', status: 'present', avatar: 'FG' },
-    { id: 'STU12007', name: 'George Harris', status: 'present', avatar: 'GH' },
-    { id: 'STU12008', name: 'Hannah Irving', status: 'absent', avatar: 'HI' },
-  ]);
+  const loadStudents = async (id) => {
+    setLoading(true);
+    try {
+      const [enrolled, records] = await Promise.allSettled([
+        coursesApi.students(id),
+        attendanceApi.getRecords({ course_id: id }),
+      ]);
+      const statusMap = {};
+      if (records.status === 'fulfilled' && Array.isArray(records.value)) {
+        records.value.forEach(r => { statusMap[r.student_id] = { status: r.status, dbId: r.id }; });
+      }
+      if (enrolled.status === 'fulfilled' && Array.isArray(enrolled.value) && enrolled.value.length > 0) {
+        setStudents(enrolled.value.map(s => {
+          const rec  = statusMap[s.id] || {};
+          const name = s.name || s.username || `Öğrenci ${s.id}`;
+          return { id: String(s.id), dbId: rec.dbId || null, name, status: rec.status || 'absent', avatar: name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) };
+        }));
+      } else if (records.status === 'fulfilled' && Array.isArray(records.value)) {
+        setStudents(records.value.map(r => ({
+          id: String(r.student_id), dbId: r.id,
+          name: r.student_name || `Öğrenci ${r.student_id}`,
+          status: r.status || 'absent',
+          avatar: (r.student_name || `S${r.student_id}`).split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+        })));
+      }
+    } catch {}
+    finally { setLoading(false); }
+  };
 
-  const timeline = [
-    { time: '13:55', event: 'Auto attendance session opened', type: 'info' },
-    { time: '14:00', event: 'Class started', type: 'success' },
-    { time: '14:15', event: '2 students flagged for manual review', type: 'warning' },
-  ];
+  const fetchFaculties = async () => {
+    setFacLoading(true);
+    try {
+      const data = await roomsApi.list();
+      setFaculties(Array.isArray(data) ? data : []);
+    } catch (err) { Alert.alert('Hata', err?.message || 'Fakülteler yüklenemedi.'); }
+    finally { setFacLoading(false); }
+  };
+
+  const handleStartSession = async () => {
+    if (!selFaculty) { Alert.alert('Fakülte Seçin', 'Lütfen dersin yapılacağı fakülte / binayı seçin.'); return; }
+    if (!selFaculty.latitude) { Alert.alert('GPS Eksik', `${selFaculty.name} için GPS konumu tanımlı değil.`); return; }
+    if (!courseId) { Alert.alert('Hata', 'Ders bilgisi eksik.'); return; }
+    setStarting(true);
+    setFacultyModal(false);
+    try {
+      const result = await sessions.start(courseId, { room_id: selFaculty.id });
+      setActiveSession(result.session);
+      Alert.alert('Yoklama Başlatıldı', `${selFaculty.name} konumu kullanılıyor. ±${selFaculty.geofence_radius}m yarıçap`);
+    } catch (err) { Alert.alert('Başlatılamadı', err?.message || 'Oturum başlatılamadı.'); }
+    finally { setStarting(false); }
+  };
+
+  const handleEndSession = () => {
+    if (!activeSession) return;
+    Alert.alert('Yoklamayı Bitir', 'Oturumu kapatmak istiyor musunuz?', [
+      { text: 'Hayır', style: 'cancel' },
+      { text: 'Bitir', style: 'destructive', onPress: async () => {
+        try { await sessions.end(activeSession.id); setActiveSession(null); Alert.alert('Tamamlandı', 'Yoklama oturumu kapatıldı.'); }
+        catch (err) { Alert.alert('Hata', err?.message); }
+      }},
+    ]);
+  };
 
   const handleCancelClass = () => {
-    Alert.alert(
-      'Cancel Class',
-      `Class will be cancelled. Reason: ${cancelReason}`,
-      [
-        { text: 'Go Back', style: 'cancel' },
-        {
-          text: 'Cancel Class',
-          style: 'destructive',
-          onPress: () => {
-            setShowCancelModal(false);
-            router.back();
-          },
-        },
-      ]
-    );
+    if (!courseId) return;
+    Alert.alert('Ders İptali', `Sebep: ${cancelReason}`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'İptal Et', style: 'destructive', onPress: async () => {
+        try {
+          await sessions.cancel(courseId, cancelReason, activeSession?.id);
+          setActiveSession(null);
+          setCancelModal(false);
+          Alert.alert('İptal Edildi', 'Ders iptal edildi.', [{ text: 'Tamam', onPress: () => router.back() }]);
+        } catch (err) { Alert.alert('Hata', err?.message || 'İptal başarısız.'); }
+      }},
+    ]);
   };
 
-  const handleMarkAttendance = (studentId, newStatus) => {
-    setStudents(prevStudents =>
-      prevStudents.map(student =>
-        student.id === studentId ? { ...student, status: newStatus } : student
-      )
-    );
-    setHasUnsavedChanges(true);
+  const handleMark = (studentId, newStatus) => {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, status: newStatus } : s));
+    setUnsaved(true);
   };
 
-  const handleSaveAttendance = () => {
-    // TODO: API çağrısı yapılacak
-    Alert.alert(
-      'Success',
-      'Attendance has been saved successfully!',
-      [
-        {
-          text: 'OK',
-          onPress: () => setHasUnsavedChanges(false)
-        }
-      ]
-    );
+  const handleSave = async () => {
+    if (!activeSession) { Alert.alert('Hata', 'Aktif oturum bulunamadı.'); return; }
+    const withId = students.filter(s => s.dbId);
+    if (withId.length === 0) { Alert.alert('Bilgi', 'Güncellenecek kayıt bulunamadı.'); return; }
+    try {
+      const results = await Promise.allSettled(withId.map(s => attendanceApi.review(s.dbId, false, null, s.status)));
+      const fail = results.filter(r => r.status === 'rejected').length;
+      setUnsaved(false);
+      Alert.alert(fail > 0 ? 'Kısmen Kaydedildi' : 'Kaydedildi', fail > 0 ? `${withId.length - fail}/${withId.length} kayıt güncellendi.` : 'Yoklama güncellendi.');
+    } catch (err) { Alert.alert('Hata', err?.message); }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'present':
-        return '#10B981';
-      case 'absent':
-        return '#EF4444';
-      case 'excused':
-        return '#F59E0B';
-      default:
-        return '#6B7280';
-    }
-  };
+  const code    = params.code    || '—';
+  const title   = params.title   || '—';
+  const present = students.filter(s => s.status === 'present').length;
+  const absent  = students.filter(s => s.status === 'absent').length;
+  const excused = students.filter(s => s.status === 'excused').length;
+  const total   = students.length;
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'present':
-        return 'Present';
-      case 'absent':
-        return 'Absent';
-      case 'excused':
-        return 'Excused';
-      default:
-        return 'Unknown';
-    }
-  };
-
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = students.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) || s.id.includes(search)
   );
 
-  const renderStudentItem = ({ item }) => (
-    <View style={styles.studentCard}>
-      <View style={styles.studentLeft}>
-        <View style={styles.studentAvatar}>
-          <Text style={styles.studentAvatarText}>{item.avatar}</Text>
+  const timeline = activeSession
+    ? [
+        { time: activeSession.started_at ? new Date(activeSession.started_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—', event: 'Yoklama oturumu başlatıldı', type: 'success' },
+        { time: '—', event: `${present} mevcut · ${absent} devamsız · ${excused} mazeretli`, type: 'info' },
+      ]
+    : [{ time: '—', event: 'Henüz yoklama başlatılmadı', type: 'info' }];
+
+  const renderStudent = ({ item }) => {
+    const s = STATUS_MAP[item.status] || STATUS_MAP.absent;
+    return (
+      <View style={styles.studentCard}>
+        <View style={styles.avatarBox}>
+          <Text style={styles.avatarText}>{item.avatar}</Text>
         </View>
-        <View>
+        <View style={styles.studentBody}>
           <Text style={styles.studentName}>{item.name}</Text>
-          <Text style={styles.studentId}>{item.id}</Text>
+          <Text style={styles.studentId}>#{item.id}</Text>
         </View>
-      </View>
-      <View style={styles.studentRight}>
-        {activeTab === 'manual' ? (
-          <View style={styles.attendanceButtons}>
-            <TouchableOpacity
-              style={[
-                styles.attendanceBtn,
-                item.status === 'present' && styles.activePresentBtn
-              ]}
-              onPress={() => handleMarkAttendance(item.id, 'present')}
-            >
-              <Text style={[
-                styles.attendanceBtnText,
-                item.status === 'present' && styles.activePresentText
-              ]}>P</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.attendanceBtn,
-                item.status === 'excused' && styles.activeExcusedBtn
-              ]}
-              onPress={() => handleMarkAttendance(item.id, 'excused')}
-            >
-              <Text style={[
-                styles.attendanceBtnText,
-                item.status === 'excused' && styles.activeExcusedText
-              ]}>E</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.attendanceBtn,
-                item.status === 'absent' && styles.activeAbsentBtn
-              ]}
-              onPress={() => handleMarkAttendance(item.id, 'absent')}
-            >
-              <Text style={[
-                styles.attendanceBtnText,
-                item.status === 'absent' && styles.activeAbsentText
-              ]}>A</Text>
-            </TouchableOpacity>
+        {tab === 'manual' ? (
+          <View style={styles.markBtns}>
+            {['present', 'excused', 'absent'].map(st => {
+              const m = STATUS_MAP[st];
+              const active = item.status === st;
+              return (
+                <TouchableOpacity
+                  key={st}
+                  style={[styles.markBtn, active && { backgroundColor: m.bg, borderColor: m.color }]}
+                  onPress={() => handleMark(item.id, st)}
+                >
+                  <Text style={[styles.markBtnText, active && { color: m.color }]}>
+                    {st === 'present' ? 'M' : st === 'excused' ? 'E' : 'D'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : (
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-              {getStatusText(item.status)}
-            </Text>
+          <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
+            <Text style={[styles.statusText, { color: s.color }]}>{s.label}</Text>
           </View>
         )}
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{classInfo.code}</Text>
-          <Text style={styles.headerSubtitle}>{classInfo.title}</Text>
+          <Text style={styles.headerTitle}>{code}</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>{title}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.cancelButton}
-          onPress={() => setShowCancelModal(true)}
-        >
-          <Ionicons name="close-circle-outline" size={24} color="#EF4444" />
+        <TouchableOpacity style={styles.cancelIconBtn} onPress={() => setCancelModal(true)}>
+          <Ionicons name="close-circle-outline" size={22} color={Colors.error} />
         </TouchableOpacity>
       </View>
 
-      {/* Stats Card */}
-      <View style={styles.statsCard}>
-        <LinearGradient
-          colors={['#5B7FFF', '#7C3AED']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.statsGradient}
-        >
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{classInfo.totalStudents}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{classInfo.present}</Text>
-              <Text style={styles.statLabel}>Present</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{classInfo.absent}</Text>
-              <Text style={styles.statLabel}>Absent</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{classInfo.flagged}</Text>
-              <Text style={styles.statLabel}>Flagged</Text>
-            </View>
+      {/* Session bar */}
+      <View style={styles.sessionBar}>
+        {activeSession ? (
+          <TouchableOpacity style={styles.endBtn} onPress={handleEndSession}>
+            <Ionicons name="stop-circle" size={18} color="#fff" />
+            <Text style={styles.sessionBtnText}>Yoklamayı Bitir</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.startBtn} onPress={() => setFacultyModal(true)} disabled={starting}>
+            {starting ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="play-circle" size={18} color="#fff" />}
+            <Text style={styles.sessionBtnText}>{starting ? 'Başlatılıyor...' : 'Yoklama Başlat'}</Text>
+          </TouchableOpacity>
+        )}
+        {activeSession && (
+          <View style={styles.liveTag}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveTagText}>CANLI</Text>
           </View>
-          <View style={styles.classInfo}>
-            <View style={styles.infoItem}>
-              <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.infoText}>{classInfo.time}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.infoText}>{classInfo.room}</Text>
-            </View>
-          </View>
-        </LinearGradient>
+        )}
       </View>
+
+      {/* Stats gradient card */}
+      <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.statsCard}>
+        <View style={styles.statsRow}>
+          <StatCol label="Toplam"   value={total}   />
+          <View style={styles.statDiv} />
+          <StatCol label="Mevcut"   value={present} />
+          <View style={styles.statDiv} />
+          <StatCol label="Devamsız" value={absent}  />
+          <View style={styles.statDiv} />
+          <StatCol label="Mazeret"  value={excused} />
+        </View>
+        {activeSession && (
+          <View style={styles.statsSessionInfo}>
+            <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.statsSessionText}>
+              {activeSession.started_at ? new Date(activeSession.started_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—'} — Yoklama aktif
+            </Text>
+          </View>
+        )}
+      </LinearGradient>
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
-            Overview
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'students' && styles.tabActive]}
-          onPress={() => setActiveTab('students')}
-        >
-          <Text style={[styles.tabText, activeTab === 'students' && styles.tabTextActive]}>
-            Students
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'manual' && styles.tabActive]}
-          onPress={() => setActiveTab('manual')}
-        >
-          <Text style={[styles.tabText, activeTab === 'manual' && styles.tabTextActive]}>
-            Manual Attendance
-          </Text>
-        </TouchableOpacity>
+        {['overview', 'students', 'manual'].map(t => {
+          const labels = { overview: 'Genel Bakış', students: 'Öğrenciler', manual: 'Manuel' };
+          const isActive = tab === t;
+          return (
+            <TouchableOpacity key={t} style={[styles.tabBtn, isActive && styles.tabBtnActive]} onPress={() => setTab(t)}>
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{labels[t]}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Content */}
-      {activeTab === 'overview' && (
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Timeline</Text>
-            {timeline.map((item, index) => (
-              <View key={index} style={styles.timelineItem}>
-                <View style={[
-                  styles.timelineDot,
-                  { backgroundColor: 
-                    item.type === 'success' ? '#10B981' :
-                    item.type === 'warning' ? '#F59E0B' : '#5B7FFF'
-                  }
-                ]} />
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTime}>{item.time}</Text>
-                  <Text style={styles.timelineEvent}>{item.event}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Session Info</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                <Text style={styles.infoRowText}>Auto attendance active</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="time" size={20} color="#5B7FFF" />
-                <Text style={styles.infoRowText}>Duration: 80 minutes</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="location" size={20} color="#A855F7" />
-                <Text style={styles.infoRowText}>Location: {classInfo.room}</Text>
+      {tab === 'overview' ? (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewContent}>
+          <Text style={styles.sectionTitle}>Zaman Çizelgesi</Text>
+          {timeline.map((item, i) => (
+            <View key={i} style={styles.timelineItem}>
+              <View style={[styles.timelineDot, { backgroundColor: item.type === 'success' ? Colors.success : Colors.primary }]} />
+              <View style={styles.timelineBody}>
+                <Text style={styles.timelineTime}>{item.time}</Text>
+                <Text style={styles.timelineEvent}>{item.event}</Text>
               </View>
             </View>
+          ))}
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>Oturum Durumu</Text>
+          <View style={styles.infoCard}>
+            <InfoRow icon="checkmark-circle" color={activeSession ? Colors.success : Colors.border} text={activeSession ? 'Yoklama oturumu aktif' : 'Yoklama başlatılmadı'} />
+            <InfoRow icon="people-outline"   color={Colors.primary}  text={`${total} kayıtlı öğrenci`} />
+            <InfoRow icon="location-outline" color="#7C3AED"          text={selFaculty?.name || 'Konum seçilmedi'} last />
           </View>
         </ScrollView>
-      )}
-
-      {(activeTab === 'students' || activeTab === 'manual') && (
+      ) : (
         <>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#9CA3AF" />
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search student..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#9CA3AF"
+              placeholder="Öğrenci ara..."
+              placeholderTextColor={Colors.textMuted}
+              value={search}
+              onChangeText={setSearch}
             />
           </View>
-          <FlatList
-            data={filteredStudents}
-            renderItem={renderStudentItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-          {activeTab === 'manual' && hasUnsavedChanges && (
-            <View style={styles.saveButtonContainer}>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveAttendance}
-              >
-                <Ionicons name="save-outline" size={20} color="#fff" />
-                <Text style={styles.saveButtonText}>Save Attendance</Text>
+          {loading ? (
+            <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
+          ) : (
+            <FlatList
+              data={filtered}
+              renderItem={renderStudent}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View style={styles.centered}>
+                  <Ionicons name="people-outline" size={48} color={Colors.border} />
+                  <Text style={styles.emptyText}>Öğrenci bulunamadı</Text>
+                </View>
+              }
+            />
+          )}
+          {tab === 'manual' && unsaved && (
+            <View style={styles.savebar}>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                <Ionicons name="save-outline" size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>Değişiklikleri Kaydet</Text>
               </TouchableOpacity>
             </View>
           )}
         </>
       )}
 
-      {/* Cancel Modal */}
-      <Modal
-        visible={showCancelModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowCancelModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Cancel Class</Text>
-            <Text style={styles.modalSubtitle}>Select cancellation reason</Text>
-
-            <TouchableOpacity
-              style={[styles.reasonOption, cancelReason === 'Instructor unavailable' && styles.reasonOptionActive]}
-              onPress={() => setCancelReason('Instructor unavailable')}
-            >
-              <Text style={styles.reasonText}>Instructor unavailable</Text>
-              {cancelReason === 'Instructor unavailable' && (
-                <Ionicons name="checkmark-circle" size={20} color="#5B7FFF" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.reasonOption, cancelReason === 'Technical issues' && styles.reasonOptionActive]}
-              onPress={() => setCancelReason('Technical issues')}
-            >
-              <Text style={styles.reasonText}>Technical issues</Text>
-              {cancelReason === 'Technical issues' && (
-                <Ionicons name="checkmark-circle" size={20} color="#5B7FFF" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.reasonOption, cancelReason === 'Holiday/Event' && styles.reasonOptionActive]}
-              onPress={() => setCancelReason('Holiday/Event')}
-            >
-              <Text style={styles.reasonText}>Holiday/Event</Text>
-              {cancelReason === 'Holiday/Event' && (
-                <Ionicons name="checkmark-circle" size={20} color="#5B7FFF" />
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowCancelModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+      {/* Faculty Modal */}
+      <Modal visible={facultyModal} transparent animationType="slide" onRequestClose={() => setFacultyModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Fakülte / Bina Seç</Text>
+            <Text style={styles.sheetSub}>GPS konumu seçilen binadan alınacaktır</Text>
+            {facLoading ? (
+              <ActivityIndicator color={Colors.primary} size="large" style={{ marginVertical: 32 }} />
+            ) : faculties.length === 0 ? (
+              <View style={styles.centered}>
+                <Text style={styles.emptyText}>Kayıtlı fakülte bulunamadı.{'\n'}Yönetici panelinden ekleyin.</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                {faculties.map(f => (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[styles.facItem, selFaculty?.id === f.id && styles.facItemActive]}
+                    onPress={() => setSelFaculty(f)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.facName}>{f.name}</Text>
+                      {f.latitude
+                        ? <Text style={styles.facGps}>📍 {f.latitude.toFixed(4)}, {f.longitude.toFixed(4)} — ±{f.geofence_radius}m</Text>
+                        : <Text style={[styles.facGps, { color: Colors.error }]}>⚠ GPS tanımlı değil</Text>
+                      }
+                    </View>
+                    {selFaculty?.id === f.id && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={styles.sheetCancel} onPress={() => setFacultyModal(false)}>
+                <Text style={styles.sheetCancelText}>İptal</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[styles.sheetConfirm, !selFaculty && { opacity: 0.4 }]} onPress={handleStartSession} disabled={!selFaculty}>
+                <Text style={styles.sheetConfirmText}>Yoklamayı Başlat</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Modal */}
+      <Modal visible={cancelModal} transparent animationType="slide" onRequestClose={() => setCancelModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Ders İptali</Text>
+            <Text style={styles.sheetSub}>İptal nedenini seçin</Text>
+            {CANCEL_REASONS.map(r => (
               <TouchableOpacity
-                style={styles.modalConfirmButton}
-                onPress={handleCancelClass}
+                key={r}
+                style={[styles.reasonRow, cancelReason === r && styles.reasonRowActive]}
+                onPress={() => setCancelReason(r)}
               >
-                <Text style={styles.modalConfirmText}>Confirm</Text>
+                <Text style={[styles.reasonText, cancelReason === r && styles.reasonTextActive]}>{r}</Text>
+                {cancelReason === r && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
+              </TouchableOpacity>
+            ))}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={styles.sheetCancel} onPress={() => setCancelModal(false)}>
+                <Text style={styles.sheetCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sheetConfirm, { backgroundColor: Colors.error }]} onPress={handleCancelClass}>
+                <Text style={styles.sheetConfirmText}>İptal Et</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -418,390 +417,118 @@ export default function ClassDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  cancelButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsCard: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#5B7FFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statsGradient: {
-    padding: 20,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  classInfo: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  infoText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
-  },
-  tabs: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: '#5B7FFF',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  tabTextActive: {
-    color: '#5B7FFF',
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginTop: 6,
-    marginRight: 12,
-  },
-  timelineContent: {
-    flex: 1,
-  },
-  timelineTime: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  timelineEvent: {
-    fontSize: 14,
-    color: '#1F2937',
-  },
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  infoRowText: {
-    fontSize: 14,
-    color: '#1F2937',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginTop: 16,
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1F2937',
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  studentCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  studentLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  studentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#5B7FFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  studentAvatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  studentName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  studentId: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  studentRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  attendanceButtons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  attendanceBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  attendanceBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  activePresentBtn: {
-    backgroundColor: '#D1FAE5',
-    borderColor: '#10B981',
-  },
-  activePresentText: {
-    color: '#10B981',
-  },
-  activeExcusedBtn: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#F59E0B',
-  },
-  activeExcusedText: {
-    color: '#F59E0B',
-  },
-  activeAbsentBtn: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
-  },
-  activeAbsentText: {
-    color: '#EF4444',
-  },
-  saveButtonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#5B7FFF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
-    shadowColor: '#5B7FFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 20,
-  },
-  reasonOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 12,
-  },
-  reasonOptionActive: {
-    borderColor: '#5B7FFF',
-    backgroundColor: '#EEF2FF',
-  },
-  reasonText: {
-    fontSize: 15,
-    color: '#1F2937',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  modalConfirmButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-});
+function StatCol({ label, value }) {
+  return (
+    <View style={styles.statCol}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
 
+function InfoRow({ icon, color, text, last }) {
+  return (
+    <View style={[styles.infoRow, !last && styles.infoRowBorder]}>
+      <View style={[styles.infoIconBox, { backgroundColor: color + '18' }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <Text style={styles.infoRowText}>{text}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:    { flex: 1, backgroundColor: Colors.bg },
+  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+
+  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  backBtn:     { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  headerCenter:{ flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.text, letterSpacing: -0.3 },
+  headerSub:   { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  cancelIconBtn:{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+
+  sessionBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, gap: 12 },
+  startBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.success, paddingVertical: 11, borderRadius: 10 },
+  endBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.error, paddingVertical: 11, borderRadius: 10 },
+  sessionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  liveTag:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.errorLight, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
+  liveDot:    { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.error },
+  liveTagText:{ fontSize: 11, fontWeight: '800', color: Colors.error },
+
+  statsCard:       { marginHorizontal: 16, marginVertical: 14, borderRadius: 18, padding: 16, ...Shadows.primary },
+  statsRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statCol:         { flex: 1, alignItems: 'center' },
+  statValue:       { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  statLabel:       { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600', marginTop: 2 },
+  statDiv:         { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)' },
+  statsSessionInfo:{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  statsSessionText:{ fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+
+  tabs:       { flexDirection: 'row', backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  tabBtn:     { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBtnActive:{ borderBottomColor: Colors.primary },
+  tabText:    { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
+  tabTextActive:{ color: Colors.primary },
+
+  overviewContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 },
+  sectionTitle:    { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 },
+
+  timelineItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
+  timelineDot:  { width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0 },
+  timelineBody: { flex: 1 },
+  timelineTime: { fontSize: 12, fontWeight: '600', color: Colors.textMuted, marginBottom: 2 },
+  timelineEvent:{ fontSize: 14, color: Colors.text, fontWeight: '500' },
+
+  divider: { height: 1, backgroundColor: Colors.borderLight, marginVertical: 20 },
+
+  infoCard:      { backgroundColor: Colors.card, borderRadius: 14, padding: 16, ...Shadows.xs },
+  infoRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  infoRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  infoIconBox:   { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  infoRowText:   { fontSize: 14, color: Colors.text, fontWeight: '500' },
+
+  searchBox:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 20, marginVertical: 12, backgroundColor: Colors.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, ...Shadows.xs },
+  searchInput: { flex: 1, fontSize: 14, color: Colors.text },
+
+  listContent:  { paddingHorizontal: 20, paddingBottom: 20 },
+  studentCard:  { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: 14, padding: 12, marginBottom: 8, ...Shadows.xs },
+  avatarBox:    { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryMuted, alignItems: 'center', justifyContent: 'center' },
+  avatarText:   { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  studentBody:  { flex: 1 },
+  studentName:  { fontSize: 14, fontWeight: '600', color: Colors.text },
+  studentId:    { fontSize: 12, color: Colors.textMuted, marginTop: 1 },
+  markBtns:     { flexDirection: 'row', gap: 6 },
+  markBtn:      { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bgAlt },
+  markBtnText:  { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  statusPill:   { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusText:   { fontSize: 11, fontWeight: '700' },
+
+  emptyText: { fontSize: 14, color: Colors.textMuted, marginTop: 12, textAlign: 'center' },
+
+  savebar:    { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: Colors.card, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  saveBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 13, ...Shadows.primary },
+  saveBtnText:{ fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet:       { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 20 },
+  sheetTitle:  { fontSize: 20, fontWeight: '800', color: Colors.text, marginBottom: 4 },
+  sheetSub:    { fontSize: 13, color: Colors.textMuted, marginBottom: 16 },
+
+  facItem:       { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, marginBottom: 8, backgroundColor: Colors.bgAlt },
+  facItemActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
+  facName:       { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 3 },
+  facGps:        { fontSize: 11, color: Colors.textMuted },
+
+  reasonRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, marginBottom: 8 },
+  reasonRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
+  reasonText:      { fontSize: 14, fontWeight: '500', color: Colors.textSecondary },
+  reasonTextActive:{ color: Colors.primary, fontWeight: '600' },
+
+  sheetActions:     { flexDirection: 'row', gap: 12, marginTop: 16 },
+  sheetCancel:      { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
+  sheetCancelText:  { fontSize: 14, fontWeight: '600', color: Colors.textMuted },
+  sheetConfirm:     { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center' },
+  sheetConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+});

@@ -255,3 +255,48 @@
 .btn-secondary:hover {
   background: #4b5563;
 }
+
+/* ── Manual selectors ─────────────────────────── */
+.manual-selectors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px 24px;
+}
+
+.selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.selector-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.selector-group select {
+  padding: 10px 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.selector-group select:focus {
+  border-color: #3b82f6;
+}
+
+.no-data-hint {
+  font-size: 0.8rem;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+.scan-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

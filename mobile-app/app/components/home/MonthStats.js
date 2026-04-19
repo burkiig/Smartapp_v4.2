@@ -1,106 +1,75 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors, Shadows } from '../../shared/config/theme';
 
 export default function MonthStats({ stats }) {
+  const pct = Math.min(Math.max(stats.percentage || 0, 0), 100);
+  const barColor = pct >= 80 ? Colors.success : pct >= 60 ? Colors.warning : Colors.error;
+
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>This Month</Text>
+      <Text style={styles.sectionTitle}>Bu Ay</Text>
       <View style={styles.card}>
-        <View style={styles.header}>
-          <Text style={styles.subtitle}>Attendance Rate</Text>
-          <View style={styles.badge}>
-            <Ionicons name="trending-up" size={16} color="#10B981" />
+        {/* Rate row */}
+        <View style={styles.rateRow}>
+          <View>
+            <Text style={styles.rateLabel}>Devam Oranı</Text>
+            <Text style={[styles.rateValue, { color: barColor }]}>{pct}%</Text>
+          </View>
+          <View style={[styles.iconBox, { backgroundColor: barColor + '20' }]}>
+            <Ionicons
+              name={pct >= 80 ? 'trending-up' : pct >= 60 ? 'remove' : 'trending-down'}
+              size={22}
+              color={barColor}
+            />
           </View>
         </View>
-        <Text style={styles.percentage}>{stats.percentage}%</Text>
-        <View style={styles.details}>
-          <StatItem label="Total Days" value={stats.totalDays} />
-          <View style={styles.divider} />
-          <StatItem label="Present" value={stats.present} color="#10B981" />
-          <View style={styles.divider} />
-          <StatItem label="Absent" value={stats.absent} color="#EF4444" />
+
+        {/* Progress bar */}
+        <View style={styles.barBg}>
+          <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: barColor }]} />
+        </View>
+
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <StatPill icon="calendar-outline" color={Colors.primary} label="Toplam" value={stats.totalDays} />
+          <StatPill icon="checkmark-circle-outline" color={Colors.success} label="Mevcut" value={stats.present} />
+          <StatPill icon="close-circle-outline" color={Colors.error} label="Yok" value={stats.absent} />
         </View>
       </View>
     </View>
   );
 }
 
-function StatItem({ label, value, color = '#1F2937' }) {
+function StatPill({ icon, color, label, value }) {
   return (
-    <View style={styles.statItem}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
+    <View style={styles.pill}>
+      <View style={[styles.pillIcon, { backgroundColor: color + '18' }]}>
+        <Ionicons name={icon} size={16} color={color} />
+      </View>
+      <Text style={styles.pillValue}>{value}</Text>
+      <Text style={styles.pillLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  badge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  percentage: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#5B7FFF',
-    marginBottom: 16,
-  },
-  details: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  divider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 8,
-  },
-});
+  section:      { paddingHorizontal: 20, marginBottom: 20 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, marginBottom: 14, letterSpacing: -0.2 },
+  card:         { backgroundColor: Colors.card, borderRadius: 18, padding: 20, ...Shadows.sm },
 
+  rateRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  rateLabel:  { fontSize: 13, color: Colors.textMuted, fontWeight: '500', marginBottom: 4 },
+  rateValue:  { fontSize: 38, fontWeight: '800', letterSpacing: -1 },
+  iconBox:    { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+
+  barBg:   { height: 6, backgroundColor: Colors.border, borderRadius: 3, marginBottom: 18, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3 },
+
+  statsRow: { flexDirection: 'row', gap: 10 },
+  pill:     { flex: 1, alignItems: 'center', gap: 6 },
+  pillIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  pillValue:{ fontSize: 18, fontWeight: '800', color: Colors.text },
+  pillLabel:{ fontSize: 11, color: Colors.textMuted, fontWeight: '600' },
+});

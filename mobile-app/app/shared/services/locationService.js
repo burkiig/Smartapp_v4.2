@@ -70,7 +70,7 @@ export const verifyLocation = async (sessionId) => {
   const { latitude, longitude, accuracy } = await getCurrentLocation();
 
   // 2 — Send to backend for geofence check
-  const result = await apiAdapter.post('/verify/location', {
+  const result = await apiAdapter.post('/attendance/verify-location', {
     session_id: sessionId,
     latitude,
     longitude

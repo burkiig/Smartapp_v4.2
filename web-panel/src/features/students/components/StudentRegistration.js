@@ -1,103 +1,140 @@
-import React, { useState, useRef } from 'react';
-import Webcam from 'react-webcam';
-import axios from 'axios';
-import { config } from '../../../shared/config/env';
+import React, { useState } from 'react';
+import apiClient from '../../../shared/services/apiClient';
 import './StudentRegistration.css';
 
 function StudentRegistration() {
-    const [studentId, setStudentId] = useState('');
-    const [name, setName] = useState('');
+    const [form, setForm] = useState({
+        username: '',
+        email: '',
+        password: '',
+        name: '',
+        student_number: '',
+        department: '',
+    });
     const [message, setMessage] = useState({ text: '', type: '' });
-    const [showCamera, setShowCamera] = useState(false);
-    const webcamRef = useRef(null);
+    const [loading, setLoading] = useState(false);
 
-    const capture = async () => {
-        if (!studentId || !name) {
-            setMessage({ text: 'Lütfen tüm alanları doldurun', type: 'error' });
+    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!form.username || !form.email || !form.password || !form.name) {
+            setMessage({ text: 'Lütfen zorunlu alanları doldurun', type: 'error' });
             return;
         }
 
-        const imageSrc = webcamRef.current.getScreenshot();
-
+        setLoading(true);
+        setMessage({ text: '', type: '' });
         try {
-            const response = await axios.post(`${config.API_URL}/api/register`, {
-                student_id: studentId,
-                name: name,
-                image: imageSrc
+            await apiClient.post('/users', {
+                username: form.username,
+                email: form.email,
+                password: form.password,
+                name: form.name,
+                role: 'student',
+                student_number: form.student_number || undefined,
+                department: form.department || undefined,
             });
 
-            if (response.data.success) {
-                setMessage({ text: 'Öğrenci başarıyla kaydedildi!', type: 'success' });
-                setStudentId('');
-                setName('');
-                setShowCamera(false);
-            } else {
-                setMessage({ text: response.data.message, type: 'error' });
-            }
+            setMessage({ text: `✓ ${form.name} başarıyla kaydedildi!`, type: 'success' });
+            setForm({ username: '', email: '', password: '', name: '', student_number: '', department: '' });
         } catch (error) {
-            setMessage({ text: 'Kayıt sırasında hata oluştu', type: 'error' });
+            setMessage({ text: error.message || 'Kayıt sırasında hata oluştu', type: 'error' });
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className="register-container">
-            <h2>Register New Student</h2>
-            <p>Yeni öğrenci kaydı için bilgileri doldurun ve fotoğraf çekin</p>
+            <div className="register-header">
+                <h2>Yeni Öğrenci Kaydı</h2>
+                <p>Sisteme yeni öğrenci eklemek için formu doldurun</p>
+            </div>
 
             {message.text && (
                 <div className={`message ${message.type}`}>
-                    {message.type === 'success' ? '✓' : '⚠'} {message.text}
+                    {message.text}
                 </div>
             )}
 
-            <div className="form-group">
-                <label>Öğrenci No:</label>
-                <input
-                    type="text"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="Öğrenci numarasını girin"
-                />
-            </div>
-
-            <div className="form-group">
-                <label>Ad Soyad:</label>
-                <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Öğrenci adını girin"
-                />
-            </div>
-
-            <div className="camera-container">
-                {showCamera ? (
-                    <Webcam
-                        audio={false}
-                        ref={webcamRef}
-                        screenshotFormat="image/jpeg"
-                        className="webcam"
-                    />
-                ) : (
-                    <div className="camera-placeholder">
-                        <p>Kamera kapalı</p>
+            <form onSubmit={handleSubmit} className="register-form">
+                <div className="form-row-reg">
+                    <div className="form-group-reg">
+                        <label>Kullanıcı Adı *</label>
+                        <input
+                            type="text"
+                            value={form.username}
+                            onChange={e => set('username', e.target.value)}
+                            placeholder="johndoe"
+                            required
+                        />
                     </div>
-                )}
-            </div>
+                    <div className="form-group-reg">
+                        <label>E-posta *</label>
+                        <input
+                            type="email"
+                            value={form.email}
+                            onChange={e => set('email', e.target.value)}
+                            placeholder="john@example.com"
+                            required
+                        />
+                    </div>
+                </div>
 
-            <div className="button-group">
-                <button
-                    className="btn btn-primary"
-                    onClick={() => setShowCamera(!showCamera)}
-                >
-                    {showCamera ? 'Kamerayı Kapat' : 'Kamerayı Aç'}
+                <div className="form-row-reg">
+                    <div className="form-group-reg">
+                        <label>Ad Soyad *</label>
+                        <input
+                            type="text"
+                            value={form.name}
+                            onChange={e => set('name', e.target.value)}
+                            placeholder="John Doe"
+                            required
+                        />
+                    </div>
+                    <div className="form-group-reg">
+                        <label>Şifre *</label>
+                        <input
+                            type="password"
+                            value={form.password}
+                            onChange={e => set('password', e.target.value)}
+                            placeholder="Güçlü bir şifre girin"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="form-row-reg">
+                    <div className="form-group-reg">
+                        <label>Öğrenci Numarası</label>
+                        <input
+                            type="text"
+                            value={form.student_number}
+                            onChange={e => set('student_number', e.target.value)}
+                            placeholder="2021001"
+                        />
+                    </div>
+                    <div className="form-group-reg">
+                        <label>Bölüm</label>
+                        <input
+                            type="text"
+                            value={form.department}
+                            onChange={e => set('department', e.target.value)}
+                            placeholder="Bilgisayar Mühendisliği"
+                        />
+                    </div>
+                </div>
+
+                <div className="register-note">
+                    <span>Not:</span>
+                    <span>Öğrenci kaydedildikten sonra mobil uygulamadan giriş yaparak yüz kaydını tamamlamalıdır.</span>
+                </div>
+
+                <button type="submit" className="register-btn" disabled={loading}>
+                    {loading ? 'Kaydediliyor...' : '+ Öğrenciyi Kaydet'}
                 </button>
-                {showCamera && (
-                    <button className="btn btn-success" onClick={capture}>
-                        Fotoğraf Çek ve Kaydet
-                    </button>
-                )}
-            </div>
+            </form>
         </div>
     );
 }

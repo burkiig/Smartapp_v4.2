@@ -1,198 +1,204 @@
 /**
- * attendanceService.js
- *
- * Şüpheli (flagged) yoklama kayıtları için backend entegrasyonu.
- * Backend endpoint'leri:
- *   GET   /api/attendance/flagged
- *   PATCH /api/attendance/<id>/review  → { status, is_flagged, flag_reason }
+ * attendanceService.js — Updated for new FastAPI backend (/api/v1)
  */
 
 import apiClient from '../../../shared/services/apiClient';
 
-// ── FLAG REASON LABEL MAP ────────────────────────────────────────────────────
-
 const FLAG_REASON_LABELS = {
   duplicate_attendance:     'Çift yoklama girişimi',
   location_bypassed:        'GPS doğrulaması atlandı',
+  location_skipped:         'GPS koordinatı tanımlı değil',
   face_simulated:           'Yüz tanıma simüle edildi',
   location_and_face_bypass: 'GPS ve yüz tanıma ikisi de atlandı',
+  manual_no_face:           'Manuel yoklama (yüzsüz)',
+  manual_no_face_ref:       'Yüz referansı bulunamadı',
+  face_not_enrolled:        'Yüz kaydı yok',
 };
 
-// ── MOCK DATA (backend erişilemezse) ────────────────────────────────────────
-
-const MOCK_FLAGGED = [
-  {
-    id: 'mock-1',
-    student: 'Sarah Johnson',
-    studentId: 'STU12345',
-    course: 'CS101',
-    courseTitle: 'Introduction to Programming',
-    timestamp: '2026-03-08 09:05',
-    reason: 'Yüz tanıma simüle edildi',
-    reasonType: 'warning',
-    method: 'GPS + QR',
-    location: '—',
-    status: 'pending',
-  },
-  {
-    id: 'mock-2',
-    student: 'Michael Chen',
-    studentId: 'STU12346',
-    course: 'CS201',
-    courseTitle: 'Data Structures',
-    timestamp: '2026-03-08 14:12',
-    reason: 'Çift yoklama girişimi',
-    reasonType: 'error',
-    method: 'QR',
-    location: '—',
-    status: 'pending',
-  },
-];
-
-// ── DATA NORMALIZER ──────────────────────────────────────────────────────────
-// Backend kaydını UI'ın beklediği shape'e dönüştürür.
+export const STATUS_LABELS = {
+  present:        'Mevcut',
+  absent:         'Yok',
+  excused:        'Mazeretli',
+  pending_review: 'İncelemede',
+};
 
 function normalizeRecord(r) {
   return {
     id: r.id,
-    student: r.name || r.student_id || '—',
-    studentId: r.student_id || '—',
-    course: r.course_id ? String(r.course_id) : '—',
-    courseTitle: r.course_title || '',
-    timestamp: r.timestamp
-      ? new Date(r.timestamp).toLocaleString('tr-TR')
+    student_id: r.student_id,
+    studentId: r.student_id,
+    studentName: r.student_name || `Öğrenci #${r.student_id}`,
+    student: r.student_name || `Öğrenci #${r.student_id}`,
+    course_id: r.course_id,
+    courseId: r.course_id,
+    courseTitle: r.course_name || r.course_code || `Ders #${r.course_id}`,
+    course: r.course_name || r.course_code || `Ders #${r.course_id}`,
+    session_id: r.session_id,
+    timestamp: r.marked_at
+      ? new Date(r.marked_at).toLocaleString('tr-TR')
       : '—',
+    markedAt: r.marked_at,
     reason: FLAG_REASON_LABELS[r.flag_reason] || r.flag_reason || '—',
     reasonType: r.flag_reason === 'duplicate_attendance' ? 'error' : 'warning',
+    flagReason: r.flag_reason,
     method: buildMethod(r.verification_steps),
-    location: r.verification_steps?.location_distance != null
-      ? `${r.verification_steps.location_distance} m`
+    location: r.verification_steps?.location_distance_m != null
+      ? `${r.verification_steps.location_distance_m} m`
       : '—',
-    status: r.status || 'pending',
+    status: r.status || 'present',
+    isFlagged: r.is_flagged,
+    is_flagged: r.is_flagged,
+    verificationSteps: r.verification_steps,
   };
 }
 
 function buildMethod(steps = {}) {
   const parts = [];
-  if (steps.location_ok !== false) parts.push('GPS');
-  if (steps.face_ok !== false)     parts.push('Yüz');
-  if (steps.qr_ok !== false)       parts.push('QR');
+  if (steps?.location_ok !== false) parts.push('GPS');
+  if (steps?.face_ok !== false)     parts.push('Yüz');
+  if (steps?.qr_ok !== false)       parts.push('QR');
   return parts.length ? parts.join(' + ') : 'QR';
 }
 
-// ── API CALLS ────────────────────────────────────────────────────────────────
+// ── Flagged attendance ────────────────────────────────────────────────────────
 
-/**
- * Tüm şüpheli yoklama kayıtlarını getirir.
- */
 export const fetchFlaggedRecords = async () => {
   try {
-    const data = await apiClient.get('/attendance/flagged');
-    if (data.success) {
-      const records = (data.records || []).map(normalizeRecord);
-      return { success: true, data: records };
-    }
-    throw new Error('Invalid response');
+    const records = await apiClient.get('/attendance/flagged');
+    return { success: true, data: (records || []).map(normalizeRecord) };
   } catch (err) {
-    console.warn('[attendanceService] API unavailable, using mock:', err.message);
-    return { success: true, data: [...MOCK_FLAGGED] };
+    console.error('[attendanceService] fetchFlaggedRecords:', err.message);
+    return { success: false, data: [], error: err.message };
   }
 };
 
-/**
- * Şüpheli kaydı onaylar.
- * PATCH /api/attendance/<id>/review  → status: 'present', is_flagged: false
- */
 export const approveFlaggedRecord = async (recordId) => {
   try {
-    const data = await apiClient.patch(`/attendance/${recordId}/review`, {
-      status: 'present',
+    await apiClient.patch(`/attendance/${recordId}/review`, {
       is_flagged: false,
-      flag_reason: null,
+      status: 'present',
     });
-    return { success: !!data.success };
-  } catch (err) {
-    console.warn('[attendanceService] approve failed, simulating:', err.message);
     return { success: true };
+  } catch (err) {
+    console.error('[attendanceService] approve:', err.message);
+    return { success: false, error: err.message };
   }
 };
 
-/**
- * Şüpheli kaydı reddeder (absent olarak işaretler).
- * PATCH /api/attendance/<id>/review  → status: 'absent', is_flagged: true
- */
 export const rejectFlaggedRecord = async (recordId) => {
   try {
-    const data = await apiClient.patch(`/attendance/${recordId}/review`, {
+    await apiClient.patch(`/attendance/${recordId}/review`, {
+      is_flagged: false,
       status: 'absent',
-      is_flagged: true,
     });
-    return { success: !!data.success };
-  } catch (err) {
-    console.warn('[attendanceService] reject failed, simulating:', err.message);
     return { success: true };
+  } catch (err) {
+    console.error('[attendanceService] reject:', err.message);
+    return { success: false, error: err.message };
   }
 };
 
-/**
- * Onay/reddi geri alır — tekrar pending'e döner.
- * PATCH /api/attendance/<id>/review  → status: 'pending', is_flagged: true
- */
 export const undoFlaggedRecord = async (recordId) => {
   try {
-    const data = await apiClient.patch(`/attendance/${recordId}/review`, {
-      status: 'pending',
+    await apiClient.patch(`/attendance/${recordId}/review`, {
       is_flagged: true,
+      status: 'present',
     });
-    return { success: !!data.success };
-  } catch (err) {
-    console.warn('[attendanceService] undo failed, simulating:', err.message);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 };
 
-/**
- * Tüm yoklama kayıtlarını getirir (raporlar için).
- */
+// ── Attendance records ────────────────────────────────────────────────────────
+
 export const fetchAttendanceRecords = async (filters = {}) => {
   try {
-    const data = await apiClient.get('/attendance/records', { params: filters });
-    if (data.success) {
-      return { success: true, data: data.records || [] };
-    }
-    throw new Error('Invalid response');
+    const response = await apiClient.get('/attendance/records', { params: { page: 1, page_size: 100, ...filters } });
+    // Backend returns paginated object: { records: [...], total, page, total_pages }
+    const data = Array.isArray(response) ? response : (response?.records || []);
+    return {
+      success: true,
+      data,
+      total: response?.total || data.length,
+      total_pages: response?.total_pages || 1,
+    };
   } catch (err) {
-    console.error('[attendanceService] fetchAttendanceRecords error:', err.message);
-    return { success: true, data: [] };
+    console.error('[attendanceService] fetchAttendanceRecords:', err.message);
+    return { success: false, data: [], error: err.message };
   }
 };
 
-/**
- * Sınıf detaylarını getirir.
- */
-export const fetchClassDetails = async (classId) => {
+export const fetchSessionAttendance = async (sessionId) => {
   try {
-    const data = await apiClient.get(`/sessions/${classId}`);
-    if (data.success) {
-      return { success: true, data: data.session };
-    }
-    throw new Error('Invalid response');
+    const records = await apiClient.get(`/attendance/session/${sessionId}`);
+    return { success: true, data: records || [] };
   } catch (err) {
-    console.error('[attendanceService] fetchClassDetails error:', err.message);
-    return {
-      success: true,
-      data: {
-        id: classId,
-        code: 'CS101',
-        title: 'Introduction to Programming',
-        room: 'Sınıf 401',
-        time: '09:00 - 10:30',
-        status: 'Tamamlandı',
-        totalStudents: 45,
-        present: 42,
-        absent: 2,
-        flagged: 1,
-      },
-    };
+    return { success: false, data: [], error: err.message };
+  }
+};
+
+// ── Sessions ─────────────────────────────────────────────────────────────────
+
+export const fetchActiveSessions = async () => {
+  try {
+    const sessions = await apiClient.get('/sessions/active');
+    return { success: true, data: sessions || [] };
+  } catch (err) {
+    return { success: false, data: [], error: err.message };
+  }
+};
+
+export const startSession = async (courseId, options = {}) => {
+  try {
+    const result = await apiClient.post('/sessions/start', {
+      course_id: courseId,
+      ...options,
+    });
+    return { success: true, data: result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const endSession = async (sessionId) => {
+  try {
+    const result = await apiClient.post(`/sessions/${sessionId}/end`);
+    return { success: true, data: result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const getSessionQR = async (sessionId) => {
+  try {
+    const result = await apiClient.get(`/sessions/${sessionId}/qr`);
+    return { success: true, qr_image: result.qr_image };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const cancelClass = async (courseId, reason, sessionId = null) => {
+  try {
+    const result = await apiClient.post('/sessions/cancel', {
+      course_id: courseId,
+      session_id: sessionId,
+      reason,
+    });
+    return { success: true, data: result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+// ── Class details ─────────────────────────────────────────────────────────────
+
+export const fetchClassDetails = async (sessionId) => {
+  try {
+    const session = await apiClient.get(`/sessions/${sessionId}`);
+    return { success: true, data: session };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 };

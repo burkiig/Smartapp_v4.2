@@ -1,96 +1,127 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Dimensions,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
+import { attendance } from './shared/services/api';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function FaceScanScreen() {
   const router = useRouter();
-  const { session_id, location_bypassed, location_distance } = useLocalSearchParams();
-  const [hasPermission, setHasPermission] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [camera, setCamera] = useState(null);
+  const { session_id } = useLocalSearchParams();
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isScanning, setIsScanning] = useState(false);
+  const cameraRef = useRef(null);
 
   const handleStartScan = async () => {
+    if (!cameraRef.current || isScanning) return;
     setIsScanning(true);
 
-    // TODO (Phase 5): Replace simulation with real face recognition API call
-    // const image = await captureFromCamera();
-    // const result = await apiAdapter.post('/verify/face', { image, session_id });
-    setTimeout(() => {
-      setIsScanning(false);
-      // Proceed to QR scan (Step 3 of 3)
-      // location_bypassed ve location_distance GPS adımından miras alınır.
-      // face_simulated = true çünkü gerçek yüz tanıma henüz entegre edilmedi.
-      router.push({
-        pathname: '/qr-scan',
-        params: {
-          session_id,
-          location_bypassed: location_bypassed ?? 'false',
-          location_distance: location_distance ?? null,
-          face_simulated: 'true',
-          face_confidence: null,
-        },
+    try {
+      // Take first frame
+      const photo1 = await cameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.7,
       });
-    }, 3000);
+
+      if (!photo1?.base64) {
+        Alert.alert('Hata', 'Fotoğraf çekilemedi. Lütfen tekrar deneyin.');
+        return;
+      }
+
+      // Wait briefly and take second frame for liveness detection
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      let photo2Base64 = null;
+      try {
+        const photo2 = await cameraRef.current.takePictureAsync({
+          base64: true,
+          quality: 0.7,
+        });
+        photo2Base64 = photo2?.base64 || null;
+      } catch {
+        // Second frame optional — liveness will be skipped on backend
+      }
+
+      const result = await attendance.verifyFace(
+        parseInt(session_id),
+        photo1.base64,
+        photo2Base64,
+      );
+
+      // Only 'verified' state is success — 'pending' or 'failed' are not
+      if (result?.face_status === 'verified') {
+        router.replace({
+          pathname: '/gps-verify',
+          params: { session_id },
+        });
+      } else {
+        Alert.alert(
+          'Yüz Tanıma Başarısız',
+          'Yüzünüz tanınamadı. Lütfen iyi aydınlatılmış bir ortamda, gözlük ve maske olmadan tekrar deneyin.',
+          [{ text: 'Tamam' }]
+        );
+      }
+    } catch (err) {
+      Alert.alert('Hata', err?.message || 'Yüz tanıma sırasında bir hata oluştu.');
+    } finally {
+      setIsScanning(false);
+    }
   };
 
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={64} color="#A855F7" />
-          <Text style={styles.permissionTitle}>Requesting Permission...</Text>
-          <Text style={styles.permissionText}>
-            Please wait while we request camera access
-          </Text>
-        </View>
+        <LinearGradient colors={['#7C3AED', '#A855F7']} style={styles.gradient}>
+          <View style={styles.permissionContainer}>
+            <Ionicons name="camera-outline" size={64} color="#fff" />
+            <Text style={styles.permissionTitle}>İzin İsteniyor...</Text>
+            <Text style={styles.permissionText}>Lütfen bekleyin</Text>
+          </View>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="close-circle-outline" size={64} color="#EF4444" />
-          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
-          <Text style={styles.permissionText}>
-            Face scanning requires camera access. Please enable camera permission in your device settings to mark attendance.
-          </Text>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => Linking.openSettings()}
-          >
-            <Ionicons name="settings-outline" size={20} color="#fff" />
-            <Text style={styles.settingsButtonText}>Open Settings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.backButtonAlt}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backButtonAltText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
+        <LinearGradient colors={['#7C3AED', '#A855F7']} style={styles.gradient}>
+          <View style={styles.permissionContainer}>
+            <Ionicons name="close-circle-outline" size={64} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.permissionTitle}>Kamera İzni Gerekli</Text>
+            <Text style={styles.permissionText}>
+              Yüz tanıma için kamera iznine ihtiyaç var. Lütfen ayarlardan kamera iznini etkinleştirin.
+            </Text>
+            {permission.canAskAgain ? (
+              <TouchableOpacity style={styles.settingsButton} onPress={requestPermission}>
+                <Ionicons name="camera" size={20} color="#7C3AED" />
+                <Text style={styles.settingsButtonText}>İzin Ver</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.settingsButton} onPress={() => Linking.openSettings()}>
+                <Ionicons name="settings-outline" size={20} color="#7C3AED" />
+                <Text style={styles.settingsButtonText}>Ayarları Aç</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.backButtonAlt} onPress={() => router.back()}>
+              <Text style={styles.backButtonAltText}>Geri Dön</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
@@ -98,50 +129,60 @@ export default function FaceScanScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#A855F7', '#EC4899']}
+        colors={['#7C3AED', '#A855F7']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Face ID Attendance</Text>
-            <Text style={styles.headerSubtitle}>Adım 2 / 3 — Yüz Tanıma</Text>
+            <Text style={styles.headerTitle}>Yüz Tanıma</Text>
+            <Text style={styles.headerSubtitle}>Adım 2 / 3 — Yüz Doğrulama</Text>
+          </View>
+          <View style={styles.stepIndicator}>
+            <View style={styles.stepDot} />
+            <View style={[styles.stepDot, styles.stepDotActive]} />
+            <View style={styles.stepDot} />
           </View>
         </View>
 
-        {/* Camera Preview */}
+        {/* Live Camera View */}
         <View style={styles.cameraContainer}>
-          <View style={styles.cameraFrame}>
-            <View style={styles.scanArea}>
+          <View style={[styles.cameraFrame, { width: width * 0.78, height: width * 0.78 }]}>
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing="front"
+            />
+            <View style={styles.overlay}>
               {/* Corner decorations */}
               <View style={[styles.corner, styles.cornerTopLeft]} />
               <View style={[styles.corner, styles.cornerTopRight]} />
               <View style={[styles.corner, styles.cornerBottomLeft]} />
               <View style={[styles.corner, styles.cornerBottomRight]} />
-              
-              {/* Face icon */}
-              <View style={styles.faceIconContainer}>
-                <Ionicons name="happy-outline" size={80} color="#A855F7" />
-              </View>
+
+              {/* Scanning overlay */}
+              {isScanning && (
+                <View style={styles.scanningOverlay}>
+                  <ActivityIndicator size="large" color="#fff" />
+                  <Text style={styles.scanningText}>Yüz taranıyor...</Text>
+                </View>
+              )}
             </View>
           </View>
-          
+
           <View style={styles.statusContainer}>
             <Text style={styles.statusText}>
-              {isScanning ? 'Scanning...' : 'Ready to Scan'}
+              {isScanning ? 'Taranıyor...' : 'Taramaya Hazır'}
             </Text>
             <Text style={styles.statusSubtext}>
               {isScanning
-                ? 'Hold still during the scanning process'
-                : 'Press the button below to start'}
+                ? 'Lütfen hareketsiz bekleyin'
+                : 'Yüzünüzü çerçeve içine alın, ardından butona basın'}
             </Text>
           </View>
         </View>
@@ -155,44 +196,40 @@ export default function FaceScanScreen() {
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={isScanning ? ['#9CA3AF', '#6B7280'] : ['#A855F7', '#EC4899']}
+              colors={isScanning ? ['#6B7280', '#4B5563'] : ['#7C3AED', '#A855F7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.scanButtonGradient}
             >
-              <Text style={styles.scanButtonText}>
-                {isScanning ? 'Scanning...' : 'Start Face Scan'}
-              </Text>
+              {isScanning ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.scanButtonText}>Yüz Taramasını Başlat</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {/* Instructions */}
         <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionsTitle}>Instructions</Text>
+          <Text style={styles.instructionsTitle}>Talimatlar</Text>
           <View style={styles.instructionItem}>
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>1</Text>
             </View>
-            <Text style={styles.instructionText}>
-              Position your face in the center of the frame
-            </Text>
+            <Text style={styles.instructionText}>Yüzünüzü çerçeve içine ortalayın</Text>
           </View>
           <View style={styles.instructionItem}>
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>2</Text>
             </View>
-            <Text style={styles.instructionText}>
-              Ensure good lighting for better recognition
-            </Text>
+            <Text style={styles.instructionText}>İyi aydınlatılmış bir ortamda olduğunuzdan emin olun</Text>
           </View>
           <View style={styles.instructionItem}>
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>3</Text>
             </View>
-            <Text style={styles.instructionText}>
-              Hold still during the scanning process
-            </Text>
+            <Text style={styles.instructionText}>Tarama sırasında hareketsiz durun</Text>
           </View>
         </View>
       </LinearGradient>
@@ -209,115 +246,95 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 24,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
   },
   headerContent: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
   },
+  stepIndicator: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
+  stepDotActive: { backgroundColor: '#fff', width: 20, borderRadius: 4 },
   cameraContainer: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
     paddingHorizontal: 20,
   },
   cameraFrame: {
-    width: width * 0.8,
-    height: width * 0.8,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#fff',
+    position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  scanArea: {
-    flex: 1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
   corner: {
     position: 'absolute',
     width: 40,
     height: 40,
-    borderColor: '#A855F7',
+    borderColor: '#fff',
   },
-  cornerTopLeft: {
-    top: 20,
-    left: 20,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 8,
-  },
-  cornerTopRight: {
-    top: 20,
-    right: 20,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderTopRightRadius: 8,
-  },
-  cornerBottomLeft: {
-    bottom: 20,
-    left: 20,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderBottomLeftRadius: 8,
-  },
-  cornerBottomRight: {
-    bottom: 20,
-    right: 20,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderBottomRightRadius: 8,
-  },
-  faceIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F3E8FF',
+  cornerTopLeft: { top: 16, left: 16, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
+  cornerTopRight: { top: 16, right: 16, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
+  cornerBottomLeft: { bottom: 16, left: 16, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
+  cornerBottomRight: { bottom: 16, right: 16, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
+  scanningOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
   },
+  scanningText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   statusContainer: {
-    marginTop: 24,
     alignItems: 'center',
   },
   statusText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statusSubtext: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
   },
   buttonContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 16,
   },
   scanButton: {
     borderRadius: 16,
@@ -328,12 +345,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  scanButtonDisabled: {
-    opacity: 0.6,
-  },
+  scanButtonDisabled: { opacity: 0.6 },
   scanButtonGradient: {
     paddingVertical: 18,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
   },
   scanButtonText: {
     fontSize: 16,
@@ -341,86 +358,67 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   instructionsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     marginHorizontal: 20,
     marginBottom: 20,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
   },
   instructionsTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   instructionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   instructionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
-  instructionNumberText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
-  },
+  instructionNumberText: { fontSize: 12, fontWeight: '600', color: '#fff' },
   instructionText: {
     flex: 1,
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.95)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.95)',
   },
   permissionContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#F9FAFB',
+    padding: 32,
+    gap: 16,
   },
   permissionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginTop: 20,
-    marginBottom: 12,
+    fontWeight: '700',
+    color: '#fff',
     textAlign: 'center',
   },
   permissionText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
-    marginBottom: 24,
     lineHeight: 20,
   },
   settingsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#fff',
     paddingVertical: 14,
     paddingHorizontal: 32,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 14,
   },
-  settingsButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  backButtonAlt: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  backButtonAltText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
+  settingsButtonText: { fontSize: 15, fontWeight: '600', color: '#7C3AED' },
+  backButtonAlt: { paddingVertical: 12 },
+  backButtonAltText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
 });

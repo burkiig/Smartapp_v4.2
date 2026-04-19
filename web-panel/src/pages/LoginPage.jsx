@@ -6,8 +6,8 @@ import './LoginPage.css';
 export const LoginPage = () => {
   const { login, isLoading, error } = useAuth();
 
-  const handleLogin = async (username, password, role) => {
-    await login(username, password, role);
+  const handleLogin = async (username, password) => {
+    await login(username, password);
   };
 
   return (

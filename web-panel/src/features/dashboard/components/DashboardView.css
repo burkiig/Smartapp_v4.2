@@ -15,8 +15,8 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #e5e5e7;
-  border-top-color: #0071e3;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2563eb;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -515,4 +515,76 @@
     flex-shrink: 0;
     white-space: nowrap;
   }
+}
+
+/* ── Today's Classes ─────────────────────────────────────────────────────────── */
+.todays-classes { margin-bottom: 20px; }
+.today-course-list { display: flex; flex-direction: column; gap: 8px; }
+.today-course-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.today-course-item.approaching {
+  background: #fffbeb;
+  border-color: #fbbf24;
+}
+.today-course-item.ongoing {
+  background: #f0fdf4;
+  border-color: #34d399;
+}
+.today-course-info { display: flex; align-items: center; gap: 10px; }
+.today-course-code {
+  font-weight: 700; font-size: 0.85rem; color: #2563eb;
+  background: #eff6ff; padding: 2px 8px; border-radius: 5px;
+}
+.today-course-name { font-size: 0.9rem; color: #374151; }
+.today-course-right { display: flex; align-items: center; gap: 8px; }
+.today-course-time { font-size: 0.82rem; color: #6b7280; font-weight: 600; }
+.approaching-badge {
+  font-size: 0.75rem; font-weight: 700; color: #92400e;
+  background: #fef3c7; padding: 2px 8px; border-radius: 12px;
+}
+.ongoing-badge {
+  font-size: 0.75rem; font-weight: 700; color: #065f46;
+  background: #d1fae5; padding: 2px 8px; border-radius: 12px;
+}
+.see-all-btn {
+  width: 100%; margin-top: 8px; padding: 8px;
+  background: none; border: 1px dashed #d1d5db;
+  border-radius: 6px; color: #6b7280; font-size: 0.82rem;
+  cursor: pointer; transition: all 0.15s;
+}
+.see-all-btn:hover { background: #f3f4f6; color: #374151; }
+.review-student-num { font-size: 0.78rem; color: #9ca3af; font-weight: 400; }
+
+/* ── Stat icon enhancements (react-icons) ─────────────────────────────────── */
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.stat-icon.blue   { background: #dbeafe; color: #2563eb; }
+.stat-icon.green  { background: #dcfce7; color: #16a34a; }
+.stat-icon.orange { background: #ffedd5; color: #ea580c; }
+.stat-icon.yellow { background: #fef9c3; color: #ca8a04; }
+
+/* ── Responsive grid ─────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .stats-grid-top { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .stats-grid-top { grid-template-columns: 1fr; }
+  .dashboard { padding: 16px; }
 }

@@ -31,7 +31,8 @@ export default {
         {
           cameraPermission: "Allow Smart Attendance to access your camera for Face ID and QR code scanning."
         }
-      ]
+      ],
+      "expo-router"
     ],
     extra: {
       // Environment variables - accessible via Constants.expoConfig.extra

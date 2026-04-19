@@ -27,7 +27,7 @@ export const useStudents = () => {
             setStudents(data);
         } catch (err) {
             console.error('[useStudents] Fetch error:', err);
-            setError(err.message || 'Failed to fetch students');
+            setError(err.message || 'Öğrenci listesi alınamadı');
         } finally {
             setLoading(false);
             setRefreshing(false);

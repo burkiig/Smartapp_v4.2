@@ -1,24 +1,28 @@
 /**
- * Environment configuration for web panel
- * Manages API URLs and environment-specific settings
+ * Web Panel — Environment Configuration
+ * New backend runs on port 8000 (FastAPI)
  */
-
 const ENV = {
-    development: {
-        API_URL: 'http://localhost:5000',
-        ENABLE_DEVTOOLS: true,
-        LOG_LEVEL: 'debug'
-    },
-    production: {
-        API_URL: process.env.REACT_APP_API_URL || 'https://api.smartattendance.com',
-        ENABLE_DEVTOOLS: false,
-        LOG_LEVEL: 'error'
-    }
+  development: {
+    API_URL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+    ENABLE_DEVTOOLS: true,
+    LOG_LEVEL: 'debug',
+  },
+  production: {
+    API_URL: process.env.REACT_APP_API_URL || 'https://api.smartattendance.com',
+    ENABLE_DEVTOOLS: false,
+    LOG_LEVEL: 'error',
+  },
 };
 
-export const config = ENV[process.env.NODE_ENV || 'development'];
+const getEnvVars = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return ENV.production;
+  }
+  return ENV.development;
+};
 
-// Export individual values for convenience
+export const config = getEnvVars();
 export const API_URL = config.API_URL;
 export const ENABLE_DEVTOOLS = config.ENABLE_DEVTOOLS;
 export const LOG_LEVEL = config.LOG_LEVEL;

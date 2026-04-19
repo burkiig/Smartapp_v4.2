@@ -1,38 +1,40 @@
 /**
- * Merkezi API Servisi
- * Tüm backend endpoint çağrıları buradan yapılır.
- * apiAdapter → apiClient (Axios + JWT interceptor + NetInfo) üzerinde çalışır.
+ * Merkezi API Servisi — Updated for FastAPI backend (/api/v1)
  */
 import apiAdapter from '../utils/apiAdapter';
 
 // ==================== AUTH ====================
 
 export const auth = {
-  /** POST /api/login */
-  login: (username, password) =>
-    apiAdapter.post('/login', { username, password }),
+  /** POST /api/v1/auth/login */
+  login: (login, password) =>
+    apiAdapter.post('/auth/login', { login, password }),
 
-  /** POST /api/logout */
+  /** POST /api/v1/auth/logout */
   logout: () =>
-    apiAdapter.post('/logout', {}),
+    apiAdapter.post('/auth/logout', {}),
 
-  /** POST /api/users/push-token */
+  /** GET /api/v1/auth/me */
+  me: () =>
+    apiAdapter.get('/auth/me'),
+
+  /** POST /api/v1/auth/refresh — uses refresh token from SecureStore */
+  refresh: (refreshToken) =>
+    apiAdapter.postWithToken('/auth/refresh', {}, refreshToken),
+
+  /** POST /api/v1/auth/push-token */
   savePushToken: (push_token) =>
-    apiAdapter.post('/users/push-token', { push_token }),
-
-  /** POST /api/auth/refresh */
-  refresh: () =>
-    apiAdapter.post('/auth/refresh', {}),
+    apiAdapter.post('/auth/push-token', { push_token }),
 };
 
 // ==================== SESSIONS ====================
 
 export const sessions = {
-  /** GET /api/sessions/active */
+  /** GET /api/v1/sessions/active */
   getActive: () =>
     apiAdapter.get('/sessions/active'),
 
-  /** GET /api/sessions?course_id=&status= */
+  /** GET /api/v1/sessions?course_id=&status= */
   list: (params = {}) => {
     const query = new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
@@ -40,53 +42,77 @@ export const sessions = {
     return apiAdapter.get(`/sessions${query ? `?${query}` : ''}`);
   },
 
-  /** GET /api/sessions/<id> */
+  /** GET /api/v1/sessions/<id> */
   get: (sessionId) =>
     apiAdapter.get(`/sessions/${sessionId}`),
 
-  /** POST /api/sessions */
-  create: (courseId, date, startTime, endTime) =>
-    apiAdapter.post('/sessions', {
-      course_id: courseId,
-      date,
-      start_time: startTime,
-      end_time: endTime,
-    }),
+  /** POST /api/v1/sessions/start */
+  start: (courseId, options = {}) =>
+    apiAdapter.post('/sessions/start', { course_id: courseId, ...options }),
 
-  /** POST /api/sessions/<id>/close */
-  close: (sessionId) =>
-    apiAdapter.post(`/sessions/${sessionId}/close`, {}),
+  /** POST /api/v1/sessions/<id>/end */
+  end: (sessionId) =>
+    apiAdapter.post(`/sessions/${sessionId}/end`, {}),
+
+  /** POST /api/v1/sessions/cancel */
+  cancel: (courseId, reason, sessionId = null) =>
+    apiAdapter.post('/sessions/cancel', { course_id: courseId, reason, session_id: sessionId }),
 };
 
-// ==================== ATTENDANCE ====================
+// ==================== ATTENDANCE PIPELINE ====================
 
 export const attendance = {
-  /** GET /api/attendance/records?date= */
-  getRecords: (date) => {
-    const query = date ? `?date=${date}` : '';
-    return apiAdapter.get(`/attendance/records${query}`);
-  },
-
   /**
-   * POST /api/attendance — yüz tanıma ile yoklama
-   * @param {string} imageBase64 - base64 encoded image
-   * @param {string} sessionId
-   * @param {{ gps: bool, face: bool, qr: bool }} verificationSteps
-   * @param {{ lat: number, lng: number }} location
+   * STEP 1 — POST /api/v1/attendance/scan-qr
    */
-  markWithFace: (imageBase64, sessionId, verificationSteps = {}, location = null) =>
-    apiAdapter.post('/attendance', {
-      image: imageBase64,
+  scanQR: (sessionId, qrToken) =>
+    apiAdapter.post('/attendance/scan-qr', {
       session_id: sessionId,
-      verification_steps: verificationSteps,
-      location,
+      qr_token: qrToken,
     }),
 
-  /** GET /api/attendance/flagged */
+  /**
+   * STEP 2 — POST /api/v1/attendance/verify-face
+   */
+  verifyFace: (sessionId, imageBase64, imageBase64_2 = null) =>
+    apiAdapter.post('/attendance/verify-face', {
+      session_id: sessionId,
+      image_base64: imageBase64,
+      image_base64_2: imageBase64_2,
+    }),
+
+  /**
+   * STEP 3 — POST /api/v1/attendance/verify-location
+   */
+  verifyLocation: (sessionId, latitude, longitude, accuracy = null) =>
+    apiAdapter.post('/attendance/verify-location', {
+      session_id: sessionId,
+      latitude,
+      longitude,
+      accuracy,
+    }),
+
+  /** GET /api/v1/attendance/attempt/<session_id> — current pipeline state */
+  getAttempt: (sessionId) =>
+    apiAdapter.get(`/attendance/attempt/${sessionId}`),
+
+  /** GET /api/v1/attendance/my-history */
+  myHistory: () =>
+    apiAdapter.get('/attendance/my-history'),
+
+  /** GET /api/v1/attendance/records */
+  getRecords: (params = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+    ).toString();
+    return apiAdapter.get(`/attendance/records${query ? `?${query}` : ''}`);
+  },
+
+  /** GET /api/v1/attendance/flagged */
   getFlagged: () =>
     apiAdapter.get('/attendance/flagged'),
 
-  /** PATCH /api/attendance/<id>/review */
+  /** PATCH /api/v1/attendance/<id>/review */
   review: (recordId, isFlagged, flagReason, status) =>
     apiAdapter.patch(`/attendance/${recordId}/review`, {
       is_flagged: isFlagged,
@@ -95,107 +121,107 @@ export const attendance = {
     }),
 };
 
-// ==================== QR VERIFICATION ====================
+// ==================== FACE ====================
 
-export const qrVerify = {
-  /**
-   * POST /api/verify/qr
-   * Yoklama zincirinin son adımı. Tüm doğrulama adımlarının sonuçlarını da gönderir
-   * (backend şüpheli durumları tespit etmek için kullanır).
-   *
-   * @param {string}  sessionId         - Aktif oturum UUID'si
-   * @param {string}  qrCode            - QR okuyucudan okunan değer
-   * @param {object}  verificationMeta  - Önceki adımlardan gelen ek bilgiler
-   * @param {boolean} verificationMeta.location_bypassed - GPS dev modda atlandıysa true
-   * @param {boolean} verificationMeta.face_simulated    - Yüz tanıma simüle edildiyse true
-   * @param {number}  verificationMeta.location_distance - GPS mesafesi (metre)
-   * @param {number}  verificationMeta.face_confidence   - Yüz güven skoru 0-1
-   */
-  verify: (sessionId, qrCode, verificationMeta = {}) =>
-    apiAdapter.post('/verify/qr', {
-      session_id: sessionId,
-      qr_code: qrCode,
-      location_bypassed: verificationMeta.location_bypassed ?? false,
-      face_simulated: verificationMeta.face_simulated ?? true,
-      location_distance: verificationMeta.location_distance ?? null,
-      face_confidence: verificationMeta.face_confidence ?? null,
-    }),
+export const face = {
+  /** POST /api/v1/face/enroll — student self-enrolls */
+  enroll: (imageBase64) =>
+    apiAdapter.post('/face/enroll', { image_base64: imageBase64 }),
+
+  /** GET /api/v1/face/my-status */
+  myStatus: () =>
+    apiAdapter.get('/face/my-status'),
 };
 
-// ==================== STUDENTS ====================
+// ==================== USERS ====================
 
-export const students = {
-  /** GET /api/students */
-  list: () =>
-    apiAdapter.get('/students'),
+export const users = {
+  /** GET /api/v1/users/students */
+  students: () =>
+    apiAdapter.get('/users/students'),
 
-  /**
-   * POST /api/register
-   * @param {string} studentId
-   * @param {string} name
-   * @param {string} [imageBase64]
-   */
-  register: (studentId, name, imageBase64 = null) =>
-    apiAdapter.post('/register', {
-      student_id: studentId,
-      name,
-      image: imageBase64,
-    }),
+  /** GET /api/v1/users/instructors */
+  instructors: () =>
+    apiAdapter.get('/users/instructors'),
 
-  /** DELETE /api/students/<id> */
-  delete: (studentId) =>
-    apiAdapter.delete(`/students/${studentId}`),
+  /** POST /api/v1/users — create user (admin) */
+  create: (userData) =>
+    apiAdapter.post('/users', userData),
+
+  /** DELETE /api/v1/users/<id> */
+  delete: (userId) =>
+    apiAdapter.delete(`/users/${userId}`),
 };
 
 // ==================== COURSES ====================
 
 export const courses = {
-  /** GET /api/courses */
+  /** GET /api/v1/courses/ */
   list: () =>
-    apiAdapter.get('/courses'),
+    apiAdapter.get('/courses/'),
+
+  /** GET /api/v1/courses/<id>/students */
+  students: (courseId) =>
+    apiAdapter.get(`/courses/${courseId}/students`),
+
+  /** POST /api/v1/courses/<id>/enroll */
+  enroll: (courseId, studentId) =>
+    apiAdapter.post(`/courses/${courseId}/enroll`, { student_id: studentId, course_id: courseId }),
+
+  /** DELETE /api/v1/courses/<id>/enroll/<student_id> */
+  unenroll: (courseId, studentId) =>
+    apiAdapter.delete(`/courses/${courseId}/enroll/${studentId}`),
 };
 
 // ==================== EXCUSES ====================
 
 export const excuses = {
-  /**
-   * GET /api/excuses?student_id=&course_id=
-   */
-  list: (studentId, courseId) => {
-    const params = [];
-    if (studentId) params.push(`student_id=${studentId}`);
-    if (courseId)  params.push(`course_id=${courseId}`);
-    return apiAdapter.get(`/excuses${params.length ? `?${params.join('&')}` : ''}`);
+  /** GET /api/v1/excuses?course_id= */
+  list: (params = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+    ).toString();
+    return apiAdapter.get(`/excuses${query ? `?${query}` : ''}`);
   },
 
-  /**
-   * POST /api/excuses
-   * @param {object} params
-   * @param {string} params.studentId
-   * @param {string|number} params.courseId
-   * @param {string} params.sessionDate   - 'YYYY-MM-DD'
-   * @param {string} params.excuseType    - 'health'|'family'|'school_activity'|'transportation'|'other'
-   * @param {string} params.description
-   * @param {string} [params.documentUrl]
-   */
-  submit: ({ studentId, courseId, sessionDate, excuseType, description, documentUrl = '' }) =>
-    apiAdapter.post('/excuses', {
-      student_id: studentId,
+  /** POST /api/v1/excuses/ */
+  submit: ({ courseId, sessionId, sessionDate, excuseType, description, documentUrl = '' }) =>
+    apiAdapter.post('/excuses/', {
       course_id: courseId,
+      session_id: sessionId || null,
       session_date: sessionDate,
       excuse_type: excuseType,
       description,
       document_url: documentUrl,
     }),
 
-  /**
-   * PATCH /api/excuses/<id>
-   */
+  /** PATCH /api/v1/excuses/<id> */
   review: (excuseId, status, notes = '') =>
-    apiAdapter.patch(`/excuses/${excuseId}`, {
-      status,
-      instructor_notes: notes,
-    }),
+    apiAdapter.patch(`/excuses/${excuseId}/`, { status, instructor_notes: notes }),
+};
+
+// ==================== DISPUTES ====================
+
+export const disputes = {
+  /** POST /api/v1/disputes/ — student submits a dispute */
+  submit: ({ sessionId, courseId, reason }) =>
+    apiAdapter.post('/disputes/', { session_id: sessionId, course_id: courseId, reason }),
+
+  /** GET /api/v1/disputes/ — student: own disputes, instructor: course disputes */
+  list: () =>
+    apiAdapter.get('/disputes/'),
+
+  /** PATCH /api/v1/disputes/<id> — instructor reviews dispute */
+  review: (disputeId, status, instructorNotes = '') =>
+    apiAdapter.patch(`/disputes/${disputeId}`, { status, instructor_notes: instructorNotes }),
+};
+
+// ==================== ROOMS / FACULTIES ====================
+
+export const rooms = {
+  /** GET /api/v1/rooms — list all faculties/buildings with GPS */
+  list: () =>
+    apiAdapter.get('/rooms/'),
 };
 
 // ==================== DASHBOARD ====================
