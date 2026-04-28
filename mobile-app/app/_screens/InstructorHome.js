@@ -13,7 +13,8 @@ import { Colors, Shadows } from '../shared/config/theme';
 
 export default function InstructorHome() {
   const router = useRouter();
-  const { userName } = useUser();
+  const { user } = useUser();
+  const userName = user?.name || user?.username || '';
 
   const [stats,    setStats]    = useState(null);
   const [today,    setToday]    = useState([]);

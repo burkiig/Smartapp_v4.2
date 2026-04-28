@@ -14,21 +14,22 @@ import { Colors, Shadows, Radius } from '../shared/config/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { userType, userName, userEmail, userDepartment, userStudentNumber, logout } = useUser();
+  const { user, logout } = useUser();
+  const role = user?.role;
   const [profile, setProfile]     = useState(null);
   const [faceStatus, setFaceStatus] = useState(null);
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
-    if (userType !== 'instructor') {
+    if (role !== 'instructor') {
       Promise.allSettled([auth.me(), face.myStatus()]).then(([me, fs]) => {
         if (me.status === 'fulfilled') setProfile(me.value);
         if (fs.status === 'fulfilled') setFaceStatus(fs.value);
       }).finally(() => setLoading(false));
     }
-  }, [userType]);
+  }, [role]);
 
-  if (userType === 'instructor') return <InstructorProfile />;
+  if (role === 'instructor') return <InstructorProfile />;
 
   const handleLogout = () =>
     Alert.alert('Çıkış Yap', 'Çıkmak istediğinize emin misiniz?', [
@@ -36,10 +37,10 @@ export default function ProfileScreen() {
       { text: 'Çıkış Yap', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
     ]);
 
-  const name     = profile?.name || userName || '—';
-  const email    = profile?.email || userEmail || '—';
-  const dept     = profile?.department || userDepartment || '—';
-  const stuNum   = profile?.student_number || userStudentNumber || '—';
+  const name   = profile?.name || user?.name || user?.username || '—';
+  const email  = profile?.email || user?.email || '—';
+  const dept   = profile?.department || user?.department || '—';
+  const stuNum = profile?.student_number || user?.student_number || '—';
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'ST';
   const joinDate = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })

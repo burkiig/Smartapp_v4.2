@@ -13,14 +13,15 @@ import { Colors, Shadows } from '../shared/config/theme';
 import HomeScreen from './home';
 
 export default function DashboardScreen() {
-  const { userType } = useUser();
-  if (userType === 'student') return <HomeScreen />;
+  const { user } = useUser();
+  if (user?.role === 'student') return <HomeScreen />;
   return <InstructorDashboard />;
 }
 
 function InstructorDashboard() {
   const router = useRouter();
-  const { userName } = useUser();
+  const { user } = useUser();
+  const userName = user?.name || user?.username || '';
   const [stats,     setStats]     = useState(null);
   const [nextClass, setNextClass] = useState(null);
   const [loading,   setLoading]   = useState(true);

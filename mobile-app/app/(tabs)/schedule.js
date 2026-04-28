@@ -273,8 +273,8 @@ function InstructorSchedule() {
 }
 
 export default function ScheduleScreen() {
-  const { userType } = useUser();
-  if (userType === 'student') return <HistoryScreen />;
+  const { user } = useUser();
+  if (user?.role === 'student') return <HistoryScreen />;
   return <InstructorSchedule />;
 }
 

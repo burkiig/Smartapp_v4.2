@@ -9,15 +9,18 @@ logger = logging.getLogger(__name__)
 async def on_startup():
     logger.info("Smart Attendance System v3.0.0 starting up...")
 
-    # Create all DB tables
-    create_all_tables()
-    logger.info("Database tables created/verified.")
+    if not (settings.TESTING or settings.ENV == "test"):
+        # Create all DB tables
+        create_all_tables()
+        logger.info("Database tables created/verified.")
 
-    # Seed default admin
-    _seed_admin()
+        # Seed default admin
+        _seed_admin()
 
-    # Start APScheduler
-    start_scheduler()
+        # Start APScheduler
+        start_scheduler()
+    else:
+        logger.info("Test mode: skipping DB bootstrap and scheduler startup.")
 
     logger.info("Startup complete.")
 

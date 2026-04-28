@@ -24,7 +24,10 @@ const DEFAULT_SETTINGS = {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { userName, userEmail, userDepartment } = useUser();
+  const { user } = useUser();
+  const userName = user?.name || user?.username || '';
+  const userEmail = user?.email || '';
+  const userDepartment = user?.department || '';
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   useEffect(() => {

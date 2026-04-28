@@ -41,9 +41,10 @@ const SCREEN_OPTIONS = {
 };
 
 export default function TabLayout() {
-  const { userType } = useUser();
+  const { user } = useUser();
+  const role = user?.role;
 
-  if (userType === 'instructor' || userType === 'admin') {
+  if (role === 'instructor' || role === 'admin') {
     return (
       <Tabs screenOptions={SCREEN_OPTIONS}>
         <Tabs.Screen

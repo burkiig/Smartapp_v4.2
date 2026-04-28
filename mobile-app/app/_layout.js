@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Alert, View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
 import { UserProvider, useUser } from './_context/UserContext';
 import { isAuthenticated } from './shared/services/authService';
@@ -11,28 +11,31 @@ import {
 } from './shared/services/notificationService';
 
 function AuthGuard() {
-  const { isLoggedIn, isLoading, userType } = useUser();
+  const { isLoggedIn, isLoading, user } = useUser();
   const router = useRouter();
   const segments = useSegments();
+  const role = user?.role;
+
+  // Sadece kritik grup değiştiğinde yeniden hesapla
+  const routeGroup = useMemo(() => {
+    if (segments.length === 0 || segments[0] === 'index') return 'login';
+    if (segments[0] === '(tabs)') return 'tabs';
+    return 'other';
+  }, [segments[0], segments.length]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inTabsGroup = segments[0] === '(tabs)';
-    const onLoginScreen = segments.length === 0 || segments[0] === 'index';
-
-    if (isLoggedIn && onLoginScreen) {
-      // On login screen but already authenticated — redirect to tabs
-      const destination = (userType === 'instructor' || userType === 'admin')
+    if (isLoggedIn && routeGroup === 'login') {
+      const destination = (role === 'instructor' || role === 'admin')
         ? '/(tabs)/dashboard'
         : '/(tabs)/home';
       router.replace(destination);
-    } else if (!isLoggedIn && inTabsGroup) {
-      // Logged out but inside tabs — push back to login
+    } else if (!isLoggedIn && routeGroup === 'tabs') {
       router.replace('/');
     }
     // Other screens (qr-scan, face-scan, gps-verify, etc.) — leave as-is
-  }, [isLoggedIn, isLoading, segments, userType]);
+  }, [isLoggedIn, isLoading, routeGroup, role]);
 
   return null;
 }
@@ -65,9 +68,10 @@ function TokenRefreshManager() {
 }
 
 function NotificationManager() {
-  const { isLoggedIn, userType } = useUser();
+  const { isLoggedIn, user } = useUser();
   const router = useRouter();
   const listenersRef = useRef(null);
+  const role = user?.role;
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -80,7 +84,7 @@ function NotificationManager() {
         const { title, body, data } = notification.request.content;
         if (!title && !body) return;
         // Yoklama başladı bildirimi — öğrenciye direkt yönlendirme seçeneği sun
-        if (data?.type === 'session_started' && userType === 'student') {
+        if (data?.type === 'session_started' && role === 'student') {
           Alert.alert(title, body, [
             { text: 'Sonra', style: 'cancel' },
             {
@@ -99,7 +103,7 @@ function NotificationManager() {
       // Kullanıcı bildirime tıkladı (uygulama kapalıyken veya arka plandayken)
       (response) => {
         const data = response.notification.request.content.data;
-        if (data?.type === 'session_started' && userType === 'student') {
+        if (data?.type === 'session_started' && role === 'student') {
           router.push({
             pathname: '/qr-scan',
             params: { session_id: data.session_id },
@@ -111,7 +115,7 @@ function NotificationManager() {
     return () => {
       removeNotificationListeners(listenersRef.current);
     };
-  }, [isLoggedIn, userType]);
+  }, [isLoggedIn, role]);
 
   return null;
 }

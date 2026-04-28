@@ -68,7 +68,6 @@ export async function registerForPushNotificationsAsync() {
 
     const tokenData = await Notifications.getExpoPushTokenAsync();
     const token = tokenData.data;
-    console.log('[Notifications] Expo push token alındı:', token);
     return token;
   } catch (error) {
     console.error('[Notifications] Token alma hatası:', error);
@@ -89,7 +88,6 @@ export async function setupPushNotifications() {
 
     const response = await auth.savePushToken(token);
     if (response?.success) {
-      console.log('[Notifications] Push token backend\'e kaydedildi');
       return true;
     }
     return false;
@@ -111,14 +109,12 @@ export async function setupPushNotifications() {
 export function addNotificationListeners(onNotification, onResponseReceive) {
   const notificationListener = Notifications.addNotificationReceivedListener(
     (notification) => {
-      console.log('[Notifications] Bildirim alındı:', notification);
       if (onNotification) onNotification(notification);
     }
   );
 
   const responseListener = Notifications.addNotificationResponseReceivedListener(
     (response) => {
-      console.log('[Notifications] Bildirime tıklandı:', response);
       if (onResponseReceive) onResponseReceive(response);
     }
   );

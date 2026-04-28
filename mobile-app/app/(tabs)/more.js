@@ -35,12 +35,14 @@ const MENU = [
 
 export default function MoreScreen() {
   const router = useRouter();
-  const { userType, userName, userRole, logout } = useUser();
+  const { user, logout } = useUser();
+  const role = user?.role;
+  const userName = user?.name || user?.username || '';
 
-  if (userType === 'student') return <ProfileScreen />;
+  if (role === 'student') return <ProfileScreen />;
 
   const initials = userName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'RC';
-  const roleLabel = userType === 'admin' ? 'Yönetici' : 'Öğretim Görevlisi';
+  const roleLabel = role === 'admin' ? 'Yönetici' : 'Öğretim Görevlisi';
 
   const handleLogout = () =>
     Alert.alert('Çıkış Yap', 'Hesabınızdan çıkmak istediğinize emin misiniz?', [

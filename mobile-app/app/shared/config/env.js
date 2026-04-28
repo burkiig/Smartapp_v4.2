@@ -11,7 +11,7 @@
  *   Set EXPO_PUBLIC_API_URL in EAS build secrets / app.config.js
  */
 
-const FALLBACK_DEV_URL = 'http://192.168.6.103:8000';
+const FALLBACK_DEV_URL = 'http://192.168.1.101:8000';
 
 const ENV = {
   development: {

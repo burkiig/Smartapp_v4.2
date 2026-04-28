@@ -24,7 +24,8 @@ const FILTER_KEY = { 'Tümü': null, 'Mevcut': 'present', 'Devamsız': 'absent',
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { userType } = useUser();
+  const { user } = useUser();
+  const role = user?.role;
   const [filter, setFilter]   = useState('Tümü');
   const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,10 +46,10 @@ export default function HistoryScreen() {
   }, []);
 
   useEffect(() => {
-    if (userType !== 'instructor') fetchHistory();
-  }, [fetchHistory, userType]);
+    if (role !== 'instructor') fetchHistory();
+  }, [fetchHistory, role]);
 
-  if (userType === 'instructor') return <InstructorHistory />;
+  if (role === 'instructor') return <InstructorHistory />;
 
   const onRefresh = () => { setRefreshing(true); fetchHistory(); };
 

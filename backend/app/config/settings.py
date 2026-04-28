@@ -11,6 +11,11 @@ _UNSAFE_ADMIN_PASS = "admin123"
 class Settings:
     # ── Database ─────────────────────────────────────────────────────────────
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./smart_attendance.db")
+    ENV: str = os.getenv("ENV", "development").lower()
+    TESTING: bool = (
+        os.getenv("TESTING", "false").lower() == "true"
+        or os.getenv("PYTEST_CURRENT_TEST") is not None
+    )
 
     # ── JWT ──────────────────────────────────────────────────────────────────
     SECRET_KEY: str = os.getenv("SECRET_KEY", _UNSAFE_SECRET)

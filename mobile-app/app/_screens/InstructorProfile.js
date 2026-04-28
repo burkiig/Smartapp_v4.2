@@ -13,7 +13,7 @@ import { Colors, Shadows } from '../shared/config/theme';
 
 export default function InstructorProfile() {
   const router = useRouter();
-  const { userName, userEmail, userDepartment, logout } = useUser();
+  const { user, logout } = useUser();
   const [profile, setProfile] = useState(null);
   const [stats,   setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,9 +33,9 @@ export default function InstructorProfile() {
       { text: 'Çıkış Yap', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
     ]);
 
-  const name     = profile?.name || userName || '—';
-  const email    = profile?.email || userEmail || '—';
-  const dept     = profile?.department || userDepartment || '—';
+  const name     = profile?.name || user?.name || user?.username || '—';
+  const email    = profile?.email || user?.email || '—';
+  const dept     = profile?.department || user?.department || '—';
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'HO';
 
   const STATS = [

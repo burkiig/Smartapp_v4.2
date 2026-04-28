@@ -126,8 +126,8 @@ function InstructorReports() {
 }
 
 export default function ReportsScreen() {
-  const { userType } = useUser();
-  if (userType === 'student') return <HistoryScreen />;
+  const { user } = useUser();
+  if (user?.role === 'student') return <HistoryScreen />;
   return <InstructorReports />;
 }
 

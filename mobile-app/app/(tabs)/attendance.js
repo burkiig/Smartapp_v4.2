@@ -40,7 +40,8 @@ const badge = (status) => BADGE[status] || BADGE.pending;
 
 /* ─── Main component ─────────────────────────────────────────────────────── */
 export default function AttendanceScreen() {
-  const { userType } = useUser();
+  const { user } = useUser();
+  const role = user?.role;
 
   const [activeTab,    setActiveTab]    = useState('pending');
   const [flagged,      setFlagged]      = useState([]);
@@ -64,9 +65,9 @@ export default function AttendanceScreen() {
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useEffect(() => { if (userType !== 'student') fetchAll(); }, [fetchAll, userType]);
+  useEffect(() => { if (role !== 'student') fetchAll(); }, [fetchAll, role]);
 
-  if (userType === 'student') return <StudentPlaceholder />;
+  if (role === 'student') return <StudentPlaceholder />;
 
   const onRefresh = () => { setRefreshing(true); fetchAll(); };
 

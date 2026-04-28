@@ -14,7 +14,8 @@ import { sessions, dashboard, courses } from '../shared/services/api';
 // ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
 function StudentHomeScreen() {
   const router = useRouter();
-  const { userName } = useUser();
+  const { user } = useUser();
+  const userName = user?.name || user?.username || '';
 
   // expo-camera v17 hook-based permission API
 
@@ -154,9 +155,10 @@ function StudentHomeScreen() {
 
 // ─── Ana Yönlendirici ─────────────────────────────────────────────────────────
 export default function HomeScreen() {
-  const { userType } = useUser();
+  const { user } = useUser();
+  const role = user?.role;
 
-  if (userType === 'instructor' || userType === 'admin') {
+  if (role === 'instructor' || role === 'admin') {
     return <InstructorHome />;
   }
   return <StudentHomeScreen />;

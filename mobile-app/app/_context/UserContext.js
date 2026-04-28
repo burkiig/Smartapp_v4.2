@@ -1,57 +1,75 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { login as apiLogin, logout as apiLogout, isAuthenticated, getStoredUser } from '../shared/services/authService';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  isAuthenticated,
+  getStoredUser,
+} from '../shared/services/authService';
 
-const UserContext = createContext();
+/**
+ * @typedef {Object} User
+ * @property {number}  id              - Backend DB primary key
+ * @property {string}  username        - Login identifier (email veya kullanıcı adı)
+ * @property {string}  email           - E-posta adresi
+ * @property {string}  name            - Tam ad ("Ad Soyad")
+ * @property {('admin'|'instructor'|'student')} role
+ * @property {string} [department]     - Bölüm (öğrenci/öğretim üyesi)
+ * @property {string} [student_number] - Öğrenci numarası (sadece role=student)
+ * @property {boolean} is_active
+ * @property {string}  created_at      - ISO 8601 timestamp
+ *
+ * @typedef {Object} UserContextValue
+ * @property {User|null} user                 - Tek doğruluk kaynağı; null = giriş yok
+ * @property {boolean}   isLoggedIn
+ * @property {boolean}   isLoading
+ * @property {string}    authError            - Son login hatası
+ * @property {(username: string, password: string, expectedRole?: string) => Promise<{success: boolean, user?: User, error?: string}>} login
+ * @property {() => Promise<void>} logout
+ * @property {() => Promise<void>} checkAuthStatus
+ */
+
+const UserContext = createContext(/** @type {UserContextValue|undefined} */ (undefined));
+
+const EMPTY_USER = null;
 
 export function UserProvider({ children }) {
-  const [userType, setUserType] = useState('student');   // 'student' | 'instructor' | 'admin'
-  const [userEmail, setUserEmail] = useState('');
-  const [userName, setUserName] = useState('');
-  const [userId, setUserId] = useState('');
-  const [userRole, setUserRole] = useState('');
-  const [userDepartment, setUserDepartment] = useState('');
-  const [userStudentNumber, setUserStudentNumber] = useState('');
-  const [userDbId, setUserDbId] = useState(null);  // numeric DB id
+  const [user, setUser] = useState(EMPTY_USER);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       const authenticated = await isAuthenticated();
       if (authenticated) {
-        const user = await getStoredUser();
-        if (user) {
-          setUserType(user.role || 'student');
-          setUserRole(user.role || '');
-          setUserName(user.name || user.username || '');
-          setUserEmail(user.email || '');
-          setUserId(user.username || '');
-          setUserDbId(user.id || null);
-          setUserDepartment(user.department || '');
-          setUserStudentNumber(user.student_number || '');
+        const storedUser = await getStoredUser();
+        if (storedUser) {
+          setUser(storedUser);
         }
+      } else {
+        setUser(EMPTY_USER);
       }
       setIsLoggedIn(authenticated);
     } catch {
+      setUser(EMPTY_USER);
       setIsLoggedIn(false);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  /**
-   * Gerçek login — backend'e bağlanır, token kaydeder, state günceller.
-   * @param {string} username
-   * @param {string} password
-   * @param {string} [expectedRole] - 'student' | 'instructor' | 'admin'
-   * @returns {{ success: boolean, error?: string }}
-   */
-  const login = async (username, password, expectedRole = null) => {
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  const login = useCallback(async (username, password, expectedRole = null) => {
     setAuthError('');
     setIsLoading(true);
 
@@ -64,27 +82,17 @@ export function UserProvider({ children }) {
         return { success: false, error: err };
       }
 
-      const user = result.user;
+      const loggedInUser = result.user;
 
-      // Rol kontrolü (opsiyonel)
-      if (expectedRole && user.role !== expectedRole) {
+      if (expectedRole && loggedInUser.role !== expectedRole) {
         const err = `Bu hesap ${expectedRole} olarak kayıtlı değil`;
         setAuthError(err);
         return { success: false, error: err };
       }
 
-      // State güncelle
-      setUserType(user.role);
-      setUserRole(user.role);
-      setUserName(user.name || user.username);
-      setUserEmail(user.email || '');
-      setUserId(user.username);
-      setUserDbId(user.id || null);
-      setUserDepartment(user.department || '');
-      setUserStudentNumber(user.student_number || '');
+      setUser(loggedInUser);
       setIsLoggedIn(true);
-
-      return { success: true, user };
+      return { success: true, user: loggedInUser };
     } catch (err) {
       const message = err?.message || 'Beklenmeyen bir hata oluştu';
       setAuthError(message);
@@ -92,47 +100,33 @@ export function UserProvider({ children }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  /**
-   * Logout — backend'i bilgilendirir, token'ları ve state'i temizler.
-   */
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await apiLogout();
     } catch {
       // Hata olsa bile state'i temizle
     } finally {
-      setUserType('student');
-      setUserRole('');
-      setUserEmail('');
-      setUserName('');
-      setUserId('');
-      setUserDbId(null);
-      setUserDepartment('');
-      setUserStudentNumber('');
+      setUser(EMPTY_USER);
       setIsLoggedIn(false);
       setAuthError('');
     }
-  };
+  }, []);
+
+  /** @type {UserContextValue} — Single Source of Truth: sadece user objesi ve auth state */
+  const value = useMemo(() => ({
+    user,
+    isLoggedIn,
+    isLoading,
+    authError,
+    login,
+    logout,
+    checkAuthStatus,
+  }), [user, isLoggedIn, isLoading, authError, login, logout, checkAuthStatus]);
 
   return (
-    <UserContext.Provider value={{
-      userType,
-      userRole,
-      userEmail,
-      userName,
-      userId,
-      userDbId,
-      userDepartment,
-      userStudentNumber,
-      isLoggedIn,
-      isLoading,
-      authError,
-      login,
-      logout,
-      checkAuthStatus
-    }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );

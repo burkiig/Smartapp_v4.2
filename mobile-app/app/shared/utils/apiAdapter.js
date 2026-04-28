@@ -106,13 +106,52 @@ async function request(method, path, body = null, customToken = null) {
   }
 }
 
+/**
+ * normalizeResponse — Backend'den gelen heterojen response/error formatlarını
+ * mobil tarafın anlayacağı standart envelope'a dönüştürür.
+ *
+ * UI katmanı backend formatından (Pydantic response_model, {success, message},
+ * {detail}, vb.) bağımsız hale gelir.
+ *
+ * @typedef {Object} NormalizedResponse
+ * @property {boolean} success         - true: HTTP 2xx + parse OK, false: aksi
+ * @property {*}       data            - success=true ise raw payload, aksi null
+ * @property {string|null} message     - hata mesajı (success=false) veya null
+ * @property {boolean} requiresLogin   - 401 sonrası refresh başarısızsa true
+ *
+ * @param {Function} promiseFn - request(...) çağrısı dönen promise
+ * @returns {Promise<NormalizedResponse>}
+ */
+async function normalizeResponse(promiseFn) {
+  try {
+    const data = await promiseFn();
+    return { success: true, data, message: null, requiresLogin: false };
+  } catch (err) {
+    return {
+      success: false,
+      data: null,
+      message: err?.message || 'Bilinmeyen hata',
+      requiresLogin: err?.requiresLogin === true,
+    };
+  }
+}
+
 const apiAdapter = {
+  // ── Raw API (mevcut tüketiciler — başarıda payload, hatada throw) ────────
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
   patch: (path, body) => request('PATCH', path, body),
   delete: (path) => request('DELETE', path),
   postWithToken: (path, body, token) => request('POST', path, body, token),
+
+  // ── Normalized API (yeni kod için — her zaman envelope döner, throw yok) ──
+  getNormalized:    (path)        => normalizeResponse(() => request('GET',    path)),
+  postNormalized:   (path, body)  => normalizeResponse(() => request('POST',   path, body)),
+  putNormalized:    (path, body)  => normalizeResponse(() => request('PUT',    path, body)),
+  patchNormalized:  (path, body)  => normalizeResponse(() => request('PATCH',  path, body)),
+  deleteNormalized: (path)        => normalizeResponse(() => request('DELETE', path)),
 };
 
+export { normalizeResponse };
 export default apiAdapter;
