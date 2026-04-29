@@ -112,7 +112,8 @@ class AttendancePipelineService:
 
     def verify_location(self, student: User, session_id: int,
                         latitude: float, longitude: float,
-                        accuracy: Optional[float] = None) -> dict:
+                        accuracy: Optional[float] = None,
+                        is_mocked: Optional[bool] = None) -> dict:
         attempt = self.attempt_repo.get_by_student_session(student.id, session_id)
         if not attempt or attempt.face_status != "verified":
             raise HTTPException(status_code=400, detail="Önce yüz doğrulamasını tamamlayın")
@@ -125,6 +126,14 @@ class AttendancePipelineService:
         location_skipped = False
 
         if session.latitude is not None and session.longitude is not None:
+            if accuracy is not None and accuracy > settings.GPS_ACCURACY_THRESHOLD:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Konum doğrulaması başarısız. GPS doğruluğu çok düşük "
+                        f"(±{accuracy:.1f}m, maksimum: ±{settings.GPS_ACCURACY_THRESHOLD:.1f}m)."
+                    ),
+                )
             inside, distance_m = verify_location(
                 latitude, longitude,
                 session.latitude, session.longitude,
@@ -153,8 +162,16 @@ class AttendancePipelineService:
         # Flag analysis
         flag_reason = None
         is_flagged = False
+        low_accuracy = accuracy is not None and 30 < accuracy <= settings.GPS_ACCURACY_THRESHOLD
+        fake_gps_detected = bool(is_mocked)
 
-        if not self.face_service.engine.is_available:
+        if fake_gps_detected:
+            flag_reason = "fake_gps_detected"
+            is_flagged = True
+        elif low_accuracy:
+            flag_reason = "low_accuracy"
+            is_flagged = True
+        elif not self.face_service.engine.is_available:
             flag_reason = "face_simulated"
             is_flagged = True
         elif location_skipped:
@@ -171,6 +188,9 @@ class AttendancePipelineService:
             "face_confidence": attempt.face_confidence,
             "location_distance_m": distance_m,
             "location_skipped": location_skipped,
+            "gps_accuracy_m": accuracy,
+            "is_mocked": bool(is_mocked),
+            "fake_gps_detected": fake_gps_detected,
         }
 
         final_record = self.final_repo.create(
@@ -388,6 +408,8 @@ class AttendancePipelineService:
                 "location_skipped": "GPS koordinatı tanımlı değil",
                 "manual_no_face": "Manuel yoklama (yüzsüz)",
                 "manual_no_face_ref": "Yüz referansı bulunamadı",
+                "fake_gps_detected": "Sahte GPS / düşük doğruluk tespit edildi",
+                "low_accuracy": "GPS doğruluğu düşük (inceleme gerekli)",
             }
             label = REASON_LABELS.get(flag_reason, flag_reason)
             send_expo_push(

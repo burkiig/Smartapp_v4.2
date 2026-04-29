@@ -54,7 +54,7 @@ def verify_location(
     """STEP 3: Location verification + finalize attendance"""
     service = AttendancePipelineService(db)
     return service.verify_location(
-        student, data.session_id, data.latitude, data.longitude, data.accuracy
+        student, data.session_id, data.latitude, data.longitude, data.accuracy, data.is_mocked
     )
 
 

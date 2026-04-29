@@ -34,6 +34,7 @@ class VerifyLocationRequest(BaseModel):
     latitude: float
     longitude: float
     accuracy: Optional[float] = None
+    is_mocked: Optional[bool] = None
 
 
 class AttendanceAttemptResponse(BaseModel):

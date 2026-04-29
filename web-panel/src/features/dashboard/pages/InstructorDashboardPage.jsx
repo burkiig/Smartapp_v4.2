@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
 import DashboardView from '../components/DashboardView';
@@ -28,9 +28,28 @@ const INSTRUCTOR_MENU_ITEMS = [
   { id: 'settings',   label: 'Ayarlar'           },
 ];
 
+/**
+ * Reads URL parameters and returns flagged triage context if present.
+ */
+const readTriageContextFromUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const filter = params.get('filter');
+  const sessionId = params.get('session_id');
+  if (tab !== 'attendance' || filter !== 'flagged' || !sessionId) return null;
+  return { tab, filter, sessionId: String(sessionId) };
+};
+
 export const InstructorDashboardPage = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [preselectedStudent, setPreselectedStudent] = useState(null);
+  const triageContext = useMemo(() => readTriageContextFromUrl(), []);
+
+  useEffect(() => {
+    if (!triageContext) return;
+    setActiveTab('attendance');
+  }, [triageContext]);
 
   const handleTabChange = (id) => {
     if (id === 'logout') {
@@ -63,7 +82,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
       case 'register':
         return <StudentRegistration />;
       case 'attendance':
-        return <AttendancePage />;
+        return <AttendancePage triageContext={triageContext} />;
       case 'excuses':
         return <ExcusesPage />;
       case 'disputes':

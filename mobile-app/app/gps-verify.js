@@ -20,12 +20,12 @@ import {
 import { attendance } from './shared/services/api';
 
 /**
- * GPS Doğrulama Ekranı — 3'lü güvenlik zincirinin 1. adımı.
+ * GPS Dogrulama Ekrani — 3'lu guvenlik zincirinin 3. ve son adimi.
  *
  * Params:
- *   session_id  : aktif yoklama oturumu UUID'si
+ *   session_id: aktif yoklama oturumu ID'si
  *
- * Başarılı olunca face-scan ekranına session_id ile yönlendirir.
+ * Basarili olunca yoklama tamamlanir ve kullanici ana ekrana yonlendirilir.
  */
 export default function GPSVerifyScreen() {
   const router = useRouter();
@@ -67,8 +67,14 @@ export default function GPSVerifyScreen() {
 
       // Step 2 — Get location & call backend
       setStep('checking');
-      const { latitude, longitude, accuracy } = await getCurrentLocation();
-      const verification = await attendance.verifyLocation(parseInt(session_id), latitude, longitude, accuracy);
+      const { latitude, longitude, accuracy, is_mocked } = await getCurrentLocation();
+      const verification = await attendance.verifyLocation(
+        parseInt(session_id, 10),
+        latitude,
+        longitude,
+        accuracy,
+        is_mocked
+      );
       // Backend 400 fırlatırsa catch'e gider (konum dışı veya hata).
       // Exception yoksa = başarılı = sınıf içinde veya GPS kontrolü atlandı.
       setResult({
@@ -76,6 +82,7 @@ export default function GPSVerifyScreen() {
         latitude,
         longitude,
         gps_accuracy: accuracy,
+        is_mocked,
         room_name: verification?.attendance_record?.room_name || '—',
         is_flagged: verification?.is_flagged || false,
         flag_reason: verification?.flag_reason || null,
@@ -175,7 +182,9 @@ export default function GPSVerifyScreen() {
               <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>Not:</Text>
               <Text style={[styles.infoValue, { color: '#F59E0B' }]}>
                 {result.flag_reason === 'location_skipped' ? 'GPS kontrolü atlandı (konum tanımlı değil)' :
-                 result.flag_reason === 'face_simulated' ? 'Yüz tanıma simüle edildi' : result.flag_reason}
+                 result.flag_reason === 'face_simulated' ? 'Yüz tanıma simüle edildi' :
+                 result.flag_reason === 'fake_gps_detected' ? 'Sahte GPS / düşük doğruluk nedeniyle incelemeye alındı' :
+                 result.flag_reason}
               </Text>
             </View>
           )}

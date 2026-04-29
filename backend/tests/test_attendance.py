@@ -133,6 +133,81 @@ class TestDuplicatePrevention:
         assert r2.status_code in (200, 409)
 
 
+class TestFakeGpsFlagging:
+    def _prepare_attempt_for_location(
+        self,
+        client,
+        db,
+        student_headers,
+        active_session,
+        enrollment,
+        student_user,
+        set_session_coords: bool = True,
+    ):
+        """Create a pipeline state ready for STEP 3 location verification."""
+        # Optionally set session coordinates (some tests intentionally skip geofence).
+        if set_session_coords:
+            active_session.latitude = 41.015137
+            active_session.longitude = 28.979530
+        else:
+            active_session.latitude = None
+            active_session.longitude = None
+        db.commit()
+
+        # STEP 1 (QR) via API, then mark STEP 2 as verified for focused STEP 3 tests.
+        qr_resp = client.post("/api/v1/attendance/scan-qr", json={
+            "session_id": active_session.id,
+            "qr_token": active_session.qr_token,
+        }, headers=student_headers)
+        assert qr_resp.status_code == 200
+
+        from app.models.attendance import AttendanceAttempt
+        attempt = db.query(AttendanceAttempt).filter(
+            AttendanceAttempt.student_id == student_user.id,
+            AttendanceAttempt.session_id == active_session.id,
+        ).first()
+        attempt.face_status = "verified"
+        db.commit()
+
+    def test_is_mocked_true_always_flagged(self, client, db, student_headers, active_session, enrollment, student_user):
+        """If mobile reports mocked location, record must be flagged regardless of accuracy."""
+        self._prepare_attempt_for_location(client, db, student_headers, active_session, enrollment, student_user)
+
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": active_session.latitude,
+            "longitude": active_session.longitude,
+            "accuracy": 5.0,
+            "is_mocked": True,
+        }, headers=student_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_flagged"] is True
+        assert data["flag_reason"] == "fake_gps_detected"
+        assert data["status"] == "pending_review"
+
+    def test_accuracy_above_threshold_flagged_even_if_not_mocked(self, client, db, student_headers, active_session, enrollment, student_user):
+        """If GPS accuracy is too poor (> threshold), record must be flagged even when is_mocked=False."""
+        self._prepare_attempt_for_location(
+            client, db, student_headers, active_session, enrollment, student_user, set_session_coords=False
+        )
+
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 41.015137,
+            "longitude": 28.979530,
+            "accuracy": 150.0,
+            "is_mocked": False,
+        }, headers=student_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_flagged"] is True
+        assert data["flag_reason"] == "fake_gps_detected"
+        assert data["status"] == "pending_review"
+
+
 class TestReviewAttendance:
     def _create_final_record(self, db, student_id, session_id, course_id):
         from app.models.attendance import FinalAttendanceRecord

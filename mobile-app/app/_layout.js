@@ -1,9 +1,12 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useMemo } from 'react';
-import { Alert, View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserProvider, useUser } from './_context/UserContext';
 import { isAuthenticated } from './shared/services/authService';
+import InAppBanner from './shared/components/InAppBanner';
 import {
   setupPushNotifications,
   addNotificationListeners,
@@ -71,7 +74,147 @@ function NotificationManager() {
   const { isLoggedIn, user } = useUser();
   const router = useRouter();
   const listenersRef = useRef(null);
+  const processedNotificationIdsRef = useRef(new Set());
+  const consumedResponseKeysRef = useRef(new Set());
+  const bannerIdRef = useRef(0);
+  const [bannerQueue, setBannerQueue] = useState([]);
+  const [activeBanner, setActiveBanner] = useState(null);
   const role = user?.role;
+  const insets = useSafeAreaInsets();
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+
+  const getNotificationDedupKey = useCallback((notificationLike) => {
+    const identifier = notificationLike?.request?.identifier || notificationLike?.notification?.request?.identifier;
+    if (identifier) return identifier;
+    const data = notificationLike?.request?.content?.data || notificationLike?.notification?.request?.content?.data || {};
+    const type = data?.type || 'unknown';
+    const sessionId = data?.session_id ?? 'none';
+    return `${type}:${String(sessionId)}`;
+  }, []);
+
+  /**
+   * Returns true when notification id/key was already processed.
+   */
+  const hasProcessedNotification = useCallback((dedupKey) => {
+    if (!dedupKey) return false;
+    return processedNotificationIdsRef.current.has(dedupKey);
+  }, []);
+
+  /**
+   * Marks a notification id/key as processed.
+   * Keeps the set bounded to avoid unbounded memory growth.
+   */
+  const markNotificationProcessed = useCallback((dedupKey) => {
+    if (!dedupKey) return;
+    const cache = processedNotificationIdsRef.current;
+    cache.add(dedupKey);
+    if (cache.size > 100) {
+      const oldest = cache.values().next().value;
+      cache.delete(oldest);
+    }
+  }, []);
+
+  /**
+   * Marks a last-notification-response key as consumed.
+   * Prevents re-processing same response object across remount/login cycles.
+   */
+  const markResponseConsumed = useCallback((dedupKey) => {
+    if (!dedupKey) return;
+    const cache = consumedResponseKeysRef.current;
+    cache.add(dedupKey);
+    if (cache.size > 100) {
+      const oldest = cache.values().next().value;
+      cache.delete(oldest);
+    }
+  }, []);
+
+  const enqueueBanner = useCallback((payload) => {
+    if (!payload?.message) return;
+    bannerIdRef.current += 1;
+    setBannerQueue(prev => [...prev, { id: bannerIdRef.current, ...payload }]);
+  }, []);
+
+  const processNotificationByType = useCallback((data = {}, mode = 'foreground', meta = {}) => {
+    const { title, body } = meta;
+    if (data?.type === 'session_started' && role === 'student') {
+      if (mode === 'response') {
+        router.push({
+          pathname: '/qr-scan',
+          params: { session_id: data.session_id },
+        });
+      } else {
+        enqueueBanner({
+          type: 'info',
+          message: title || body || 'Yoklama basladi. Katilim icin QR dogrulamaya gidin.',
+          actionLabel: 'Yoklama Al',
+          onAction: () =>
+            router.push({
+              pathname: '/qr-scan',
+              params: { session_id: data.session_id },
+            }),
+        });
+      }
+      return true;
+    }
+
+    if (data?.type === 'flagged_attendance' && (role === 'instructor' || role === 'admin')) {
+      if (mode === 'response') {
+        router.push({
+          pathname: '/(tabs)/attendance',
+          params: { filter: 'flagged', session_id: String(data.session_id) },
+        });
+      } else {
+        enqueueBanner({
+          type: 'warning',
+          message: title || body || 'Supheli yoklama kaydi inceleme bekliyor.',
+          actionLabel: 'Incele',
+          onAction: () =>
+            router.push({
+              pathname: '/(tabs)/attendance',
+              params: { filter: 'flagged', session_id: String(data.session_id) },
+            }),
+        });
+      }
+      return true;
+    }
+
+    if (data?.type === 'class_cancelled') {
+      enqueueBanner({
+        type: 'error',
+        message: `Ders iptal edildi: ${data?.session_name || 'Bilinmeyen oturum'}`,
+      });
+      return true;
+    }
+
+    if (title && body && mode === 'foreground') {
+      enqueueBanner({ type: 'info', message: `${title}: ${body}` });
+      return true;
+    }
+    return false;
+  }, [enqueueBanner, role, router]);
+
+  const processResponse = useCallback(async (response) => {
+    if (!isLoggedIn) return;
+    const dedupKey = getNotificationDedupKey(response);
+    if (consumedResponseKeysRef.current.has(dedupKey)) return;
+    if (hasProcessedNotification(dedupKey)) return;
+    markResponseConsumed(dedupKey);
+    markNotificationProcessed(dedupKey);
+    const data = response?.notification?.request?.content?.data || {};
+    processNotificationByType(data, 'response');
+    try {
+      await Notifications.dismissAllNotificationsAsync();
+    } catch {
+      // Notification center cleanup should never break navigation flow.
+    }
+  }, [
+    getNotificationDedupKey,
+    hasProcessedNotification,
+    isLoggedIn,
+    markNotificationProcessed,
+    markResponseConsumed,
+    processNotificationByType,
+  ]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -81,43 +224,49 @@ function NotificationManager() {
     listenersRef.current = addNotificationListeners(
       // Uygulama açıkken gelen bildirim — banner olarak göster
       (notification) => {
+        const dedupKey = getNotificationDedupKey(notification);
+        if (hasProcessedNotification(dedupKey)) return;
+        markNotificationProcessed(dedupKey);
         const { title, body, data } = notification.request.content;
         if (!title && !body) return;
-        // Yoklama başladı bildirimi — öğrenciye direkt yönlendirme seçeneği sun
-        if (data?.type === 'session_started' && role === 'student') {
-          Alert.alert(title, body, [
-            { text: 'Sonra', style: 'cancel' },
-            {
-              text: 'Yoklama Al',
-              onPress: () =>
-                router.push({
-                  pathname: '/qr-scan',
-                  params: { session_id: data.session_id },
-                }),
-            },
-          ]);
-        } else if (title && body) {
-          Alert.alert(title, body);
+        const handled = processNotificationByType(data || {}, 'foreground', { title, body });
+        if (!handled && title && body) {
+          enqueueBanner({ type: 'info', message: `${title}: ${body}` });
         }
       },
       // Kullanıcı bildirime tıkladı (uygulama kapalıyken veya arka plandayken)
-      (response) => {
-        const data = response.notification.request.content.data;
-        if (data?.type === 'session_started' && role === 'student') {
-          router.push({
-            pathname: '/qr-scan',
-            params: { session_id: data.session_id },
-          });
-        }
-      }
+      (response) => { void processResponse(response); }
     );
 
     return () => {
       removeNotificationListeners(listenersRef.current);
     };
-  }, [isLoggedIn, role]);
+  }, [enqueueBanner, getNotificationDedupKey, hasProcessedNotification, isLoggedIn, markNotificationProcessed, processNotificationByType, processResponse]);
 
-  return null;
+  useEffect(() => {
+    if (!isLoggedIn || !lastNotificationResponse) return;
+    void processResponse(lastNotificationResponse);
+  }, [isLoggedIn, lastNotificationResponse, processResponse]);
+
+  useEffect(() => {
+    if (activeBanner || bannerQueue.length === 0) return;
+    setActiveBanner(bannerQueue[0]);
+    setBannerQueue(prev => prev.slice(1));
+  }, [activeBanner, bannerQueue]);
+
+  return (
+    <InAppBanner
+      item={activeBanner}
+      visible={Boolean(activeBanner)}
+      topInset={insets.top}
+      durationMs={3000}
+      onActionPress={(item) => {
+        item?.onAction?.();
+        setActiveBanner(null);
+      }}
+      onDone={() => setActiveBanner(null)}
+    />
+  );
 }
 
 function LoadingScreen() {

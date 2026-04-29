@@ -22,6 +22,13 @@ export const NotificationBell = () => {
   const prevCountRef = useRef(0);
   const dropdownRef = useRef(null);
 
+  const handleNotificationClick = useCallback((notification) => {
+    if (notification?.type !== 'flagged' || !notification?.sessionId) return;
+    const target = `/?tab=attendance&filter=flagged&session_id=${encodeURIComponent(String(notification.sessionId))}`;
+    setOpen(false);
+    window.location.assign(target);
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
     try {
       const [flaggedRes, excusesRes] = await Promise.allSettled([
@@ -41,6 +48,7 @@ export const NotificationBell = () => {
               type: 'flagged',
               title: 'Suphelı Yoklama',
               body: `Ogrenci #${r.student_id} — ${r.flag_reason || 'Bayraklı kayıt'}`,
+              sessionId: r.session_id,
               time: r.marked_at,
               read: false,
             });
@@ -136,7 +144,12 @@ export const NotificationBell = () => {
           ) : (
             <div className="notif-list">
               {notifications.slice(0, 20).map(n => (
-                <div key={n.id} className={`notif-item ${n.type} ${n.read ? 'read' : 'unread'}`}>
+                <button
+                  key={n.id}
+                  type="button"
+                  className={`notif-item ${n.type} ${n.read ? 'read' : 'unread'}`}
+                  onClick={() => handleNotificationClick(n)}
+                >
                   <div className="notif-item-icon">
                     {n.type === 'flagged' ? '!' : 'M'}
                   </div>
@@ -145,7 +158,7 @@ export const NotificationBell = () => {
                     <div className="notif-item-text">{n.body}</div>
                     {n.time && <div className="notif-item-time">{formatTime(n.time)}</div>}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

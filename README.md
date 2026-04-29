@@ -239,6 +239,24 @@ Expo Go uygulaması veya emülatör ile `http://localhost:8081` üzerinden bağl
 
 ---
 
+## Backend Test Standardı (Docker)
+
+Yerel testlerde host/compose farkından kaynaklı DB bağlantı hatalarını önlemek için testleri daima aşağıdaki komutla çalıştırın:
+
+```bash
+docker compose run --rm --no-deps \
+  -e TESTING=true \
+  -e DATABASE_URL=sqlite:///./test.db \
+  backend python -m pytest -v
+```
+
+Notlar:
+- `--no-deps` ile `db` container'ı zorunlu değildir.
+- Test veritabanı SQLite'dır; development/production PostgreSQL yapılandırması etkilenmez.
+- Standart dışı komutlar (`python -m pytest` doğrudan hosttan vb.) ortamlar arası farklı hatalara neden olabilir.
+
+---
+
 ## Ortam Değişkenleri (`backend/.env`)
 
 | Değişken | Varsayılan | Açıklama |

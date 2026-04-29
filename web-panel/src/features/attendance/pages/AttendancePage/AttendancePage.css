@@ -33,6 +33,17 @@
   font-weight: 600;
 }
 
+.triage-context-banner {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /* Tabs */
 .tabs-container {
   display: flex;

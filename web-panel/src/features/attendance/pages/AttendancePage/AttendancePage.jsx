@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAttendance } from '../../hooks/useAttendance';
 import { useExcuses } from '../../hooks/useExcuses';
 import { FlaggedAttendanceList } from '../../components/FlaggedAttendanceList';
@@ -8,9 +8,13 @@ import './AttendancePage.css';
 
 const STATUS_LABELS = { pending: 'Bekliyor', approved: 'Onaylandı', rejected: 'Reddedildi' };
 
-export const AttendancePage = () => {
+/**
+ * Attendance review page for instructors.
+ * Supports deep-link triage context from push notifications.
+ */
+export const AttendancePage = ({ triageContext = null }) => {
   const {
-    filteredRecords, loading, activeTab, setActiveTab, tabCounts, approve, reject, undo,
+    flaggedRecords, filteredRecords, loading, activeTab, setActiveTab, tabCounts, approve, reject, undo,
   } = useAttendance();
 
   const {
@@ -19,6 +23,9 @@ export const AttendancePage = () => {
 
   const [showExcuseModal, setShowExcuseModal] = useState(false);
   const [selectedExcuse, setSelectedExcuse] = useState(null);
+  const [focusedRecordId, setFocusedRecordId] = useState(null);
+  const triageSessionId = triageContext?.sessionId ? String(triageContext.sessionId) : null;
+  const isFlaggedTriage = Boolean(triageContext?.filter === 'flagged' && triageSessionId);
 
   const tabs = useMemo(() => [
     { id: 'all', label: 'Tümü', count: tabCounts.all },
@@ -27,8 +34,70 @@ export const AttendancePage = () => {
     { id: 'excuses', label: 'Mazeretler', count: excusePendingCount },
   ], [tabCounts.all, tabCounts.flagged, tabCounts.resolved, excusePendingCount]);
 
-  const handleApprove = useCallback(async (id) => { await approve(id); }, [approve]);
-  const handleReject = useCallback(async (id) => { await reject(id); }, [reject]);
+  useEffect(() => {
+    if (!isFlaggedTriage) return;
+    setActiveTab('flagged');
+  }, [isFlaggedTriage, setActiveTab]);
+
+  const triageRecords = useMemo(() => {
+    if (!isFlaggedTriage) return filteredRecords;
+    return flaggedRecords.filter(
+      (record) => record.isFlagged && String(record.session_id) === triageSessionId
+    );
+  }, [filteredRecords, flaggedRecords, isFlaggedTriage, triageSessionId]);
+
+  useEffect(() => {
+    if (!isFlaggedTriage) return;
+    if (triageRecords.length === 0) {
+      setFocusedRecordId(null);
+      return;
+    }
+    const currentStillVisible = triageRecords.some((record) => record.id === focusedRecordId);
+    if (!currentStillVisible) {
+      setFocusedRecordId(triageRecords[0].id);
+    }
+  }, [focusedRecordId, isFlaggedTriage, triageRecords]);
+
+  useEffect(() => {
+    if (!isFlaggedTriage || !focusedRecordId) return;
+    const rowEl = document.querySelector(`.student-cell[data-record-id="${focusedRecordId}"]`);
+    if (rowEl) {
+      rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [focusedRecordId, isFlaggedTriage]);
+
+  /**
+   * Returns next flagged record id for auto-advance.
+   */
+  const getNextRecordId = useCallback((currentId) => {
+    const index = triageRecords.findIndex((record) => record.id === currentId);
+    if (index === -1) return triageRecords[0]?.id ?? null;
+    if (index >= triageRecords.length - 1) return null;
+    return triageRecords[index + 1]?.id ?? null;
+  }, [triageRecords]);
+
+  /**
+   * Approves a flagged record and focuses next pending one.
+   */
+  const handleApprove = useCallback(async (id) => {
+    const nextId = isFlaggedTriage ? getNextRecordId(id) : null;
+    const result = await approve(id);
+    if (result?.success && isFlaggedTriage) {
+      setFocusedRecordId(nextId);
+    }
+  }, [approve, getNextRecordId, isFlaggedTriage]);
+
+  /**
+   * Rejects a flagged record and focuses next pending one.
+   */
+  const handleReject = useCallback(async (id) => {
+    const nextId = isFlaggedTriage ? getNextRecordId(id) : null;
+    const result = await reject(id);
+    if (result?.success && isFlaggedTriage) {
+      setFocusedRecordId(nextId);
+    }
+  }, [getNextRecordId, isFlaggedTriage, reject]);
+
   const handleUndo = useCallback(async (id) => { await undo(id); }, [undo]);
 
   const handleExcuseApprove = useCallback(async (id) => {
@@ -134,6 +203,12 @@ export const AttendancePage = () => {
         </div>
       </div>
 
+      {isFlaggedTriage && (
+        <div className="triage-context-banner" role="status" aria-live="polite">
+          Bildirimden geldiniz: Oturum {triageSessionId} - Supheli Kayitlar Inceleniyor
+        </div>
+      )}
+
       <div className="tabs-container">
         {tabs.map(tab => (
           <button
@@ -150,12 +225,13 @@ export const AttendancePage = () => {
         renderExcuseTable
       ) : (
         <FlaggedAttendanceList
-          records={filteredRecords}
+          records={triageRecords}
           onApprove={handleApprove}
           onReject={handleReject}
           onUndo={handleUndo}
           onViewDetails={(record) => handleViewExcuse(record)}
           loading={loading}
+          focusedRecordId={focusedRecordId}
         />
       )}
 

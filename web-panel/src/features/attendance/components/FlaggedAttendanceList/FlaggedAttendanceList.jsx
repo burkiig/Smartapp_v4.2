@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Table } from '../../../../shared/components/ui/Table';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import './FlaggedAttendanceList.css';
 
+/**
+ * Generates initials for avatar fallback rendering.
+ */
 const getInitials = (name) => {
   if (!name || name.startsWith('Öğrenci #')) return '??';
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -15,6 +18,7 @@ export const FlaggedAttendanceList = ({
   onUndo,
   onViewDetails,
   loading = false,
+  focusedRecordId = null,
 }) => {
   if (loading) {
     return (
@@ -30,10 +34,17 @@ export const FlaggedAttendanceList = ({
       key: 'student',
       label: 'Öğrenci',
       render: (value, record) => (
-        <div className="student-cell">
+        <div
+          className="student-cell"
+          data-session-id={String(record.session_id ?? '')}
+          data-record-id={String(record.id)}
+        >
           <div className="student-avatar">{getInitials(record.studentName)}</div>
           <div>
-            <div className="student-name">{record.studentName}</div>
+            <div className={`student-name ${record.id === focusedRecordId ? 'focused-student-name' : ''}`}>
+              {record.id === focusedRecordId ? '▶ ' : ''}
+              {record.studentName}
+            </div>
             <div className="student-id">#{record.studentId}</div>
           </div>
         </div>

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ScrollView, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '../_context/UserContext';
 import { attendance, excuses as excusesApi, disputes as disputesApi } from '../shared/services/api';
 import { Colors, Shadows } from '../shared/config/theme';
@@ -42,6 +42,20 @@ const badge = (status) => BADGE[status] || BADGE.pending;
 export default function AttendanceScreen() {
   const { user } = useUser();
   const role = user?.role;
+  const { filter, session_id } = useLocalSearchParams();
+  const listRef = useRef(null);
+  const hasAppliedSessionFocus = useRef(false);
+  const hasAppliedInitialFilter = useRef(false);
+  const highlightTimeoutRef = useRef(null);
+
+  const deepLinkFilter = useMemo(
+    () => (Array.isArray(filter) ? filter[0] : filter),
+    [filter]
+  );
+  const deepLinkSessionId = useMemo(() => {
+    const raw = Array.isArray(session_id) ? session_id[0] : session_id;
+    return raw != null ? String(raw) : null;
+  }, [session_id]);
 
   const [activeTab,    setActiveTab]    = useState('pending');
   const [flagged,      setFlagged]      = useState([]);
@@ -50,6 +64,7 @@ export default function AttendanceScreen() {
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [processingId, setProcessingId] = useState(null);
+  const [highlightedSessionId, setHighlightedSessionId] = useState(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -66,6 +81,24 @@ export default function AttendanceScreen() {
   }, []);
 
   useEffect(() => { if (role !== 'student') fetchAll(); }, [fetchAll, role]);
+  useEffect(() => {
+    if (hasAppliedInitialFilter.current) return;
+    hasAppliedInitialFilter.current = true;
+    if (!deepLinkFilter) return;
+    const tabByFilter = {
+      flagged: 'pending',
+      pending: 'pending',
+      all: 'all',
+      excuses: 'excuses',
+      disputes: 'disputes',
+    };
+    if (tabByFilter[deepLinkFilter]) {
+      setActiveTab(tabByFilter[deepLinkFilter]);
+    }
+  }, [deepLinkFilter]);
+  useEffect(() => () => {
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+  }, []);
 
   if (role === 'student') return <StudentPlaceholder />;
 
@@ -110,14 +143,46 @@ export default function AttendanceScreen() {
     : activeTab === 'pending'  ? flagged.filter(r => r.is_flagged)
     : flagged;
 
+  useEffect(() => {
+    if (!deepLinkSessionId || loading || !listData.length) return;
+    if (activeTab !== 'pending' && activeTab !== 'all') return;
+    if (hasAppliedSessionFocus.current) return;
+
+    let matchIndex = listData.findIndex(item => String(item.session_id) === deepLinkSessionId);
+    if (matchIndex < 0) {
+      if (activeTab === 'pending') {
+        const hasSessionInAll = flagged.some(item => String(item.session_id) === deepLinkSessionId);
+        if (hasSessionInAll) {
+          setActiveTab('all');
+        } else {
+          hasAppliedSessionFocus.current = true;
+        }
+      } else {
+        hasAppliedSessionFocus.current = true;
+      }
+      return;
+    }
+
+    hasAppliedSessionFocus.current = true;
+    setHighlightedSessionId(deepLinkSessionId);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index: matchIndex, animated: true, viewPosition: 0.2 });
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedSessionId(null);
+      }, 2000);
+    });
+  }, [activeTab, deepLinkSessionId, flagged, listData, loading]);
+
   /* ── Render items ─────────────────────────────────────────────────────── */
   const renderFlagged = ({ item }) => {
     const b = badge(item.status);
     const busy = processingId === item.id;
     const nameLabel = item.student_name || `Öğrenci #${item.student_id}`;
     const initial = item.student_name ? item.student_name[0].toUpperCase() : '#';
+    const isHighlighted = highlightedSessionId && String(item.session_id) === highlightedSessionId;
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, isHighlighted && styles.highlightCard]}>
         <View style={styles.cardTop}>
           <View style={styles.studentRow}>
             <View style={[styles.avatarCircle, { backgroundColor: Colors.primaryMuted }]}>
@@ -286,11 +351,22 @@ export default function AttendanceScreen() {
         <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
         <FlatList
+          ref={listRef}
           data={listData}
           renderItem={renderItem}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onScrollToIndexFailed={(info) => {
+            const fallbackOffset = Math.max(0, info.averageItemLength * info.index);
+            listRef.current?.scrollToOffset({ offset: fallbackOffset, animated: true });
+            setTimeout(() => {
+              listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.2 });
+            }, 100);
+            // Target index hazir degilse deep-link highlight'ini bekletmeden kapat.
+            if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+            setHighlightedSessionId(null);
+          }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
           ListEmptyComponent={
             <View style={styles.centered}>
@@ -341,6 +417,7 @@ const styles = StyleSheet.create({
   // Cards
   listContent: { paddingHorizontal: 20, paddingVertical: 16 },
   card:        { backgroundColor: Colors.card, borderRadius: 16, padding: 16, marginBottom: 12, ...Shadows.sm },
+  highlightCard: { borderWidth: 2, borderColor: Colors.warning },
 
   cardTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   studentRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },

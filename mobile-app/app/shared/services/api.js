@@ -84,12 +84,13 @@ export const attendance = {
   /**
    * STEP 3 — POST /api/v1/attendance/verify-location
    */
-  verifyLocation: (sessionId, latitude, longitude, accuracy = null) =>
+  verifyLocation: (sessionId, latitude, longitude, accuracy = null, is_mocked = null) =>
     apiAdapter.post('/attendance/verify-location', {
       session_id: sessionId,
       latitude,
       longitude,
       accuracy,
+      is_mocked,
     }),
 
   /** GET /api/v1/attendance/attempt/<session_id> — current pipeline state */

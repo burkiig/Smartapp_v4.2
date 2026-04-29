@@ -10,12 +10,19 @@ _UNSAFE_ADMIN_PASS = "admin123"
 
 class Settings:
     # ── Database ─────────────────────────────────────────────────────────────
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./smart_attendance.db")
     ENV: str = os.getenv("ENV", "development").lower()
     TESTING: bool = (
         os.getenv("TESTING", "false").lower() == "true"
         or os.getenv("PYTEST_CURRENT_TEST") is not None
+        or ENV == "test"
     )
+    _DATABASE_URL_RAW: str = os.getenv("DATABASE_URL", "sqlite:///./smart_attendance.db")
+    DATABASE_URL: str = "sqlite:///./test.db" if TESTING else _DATABASE_URL_RAW
+    if TESTING and "postgresql" in _DATABASE_URL_RAW.lower():
+        raise RuntimeError(
+            "Unsafe test configuration: TESTING=true while DATABASE_URL points to PostgreSQL. "
+            "Use a dedicated test database URL (for example sqlite:///./test.db)."
+        )
 
     # ── JWT ──────────────────────────────────────────────────────────────────
     SECRET_KEY: str = os.getenv("SECRET_KEY", _UNSAFE_SECRET)
@@ -35,7 +42,8 @@ class Settings:
 
     # ── Geofencing ───────────────────────────────────────────────────────────
     DEFAULT_GEOFENCE_RADIUS_M: int = int(os.getenv("DEFAULT_GEOFENCE_RADIUS_M", "50"))
-    MAX_GPS_ACCURACY_M: float = float(os.getenv("MAX_GPS_ACCURACY_M", "30.0"))
+    MAX_GPS_ACCURACY_M: float = float(os.getenv("MAX_GPS_ACCURACY_M", "80.0"))
+    GPS_ACCURACY_THRESHOLD: float = float(os.getenv("GPS_ACCURACY_THRESHOLD", "80.0"))
 
     # ── Admin defaults ───────────────────────────────────────────────────────
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "admin@attendance.com")

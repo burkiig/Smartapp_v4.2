@@ -21,7 +21,7 @@ def verify_location(
     target_lon: float,
     radius_m: int = 50,
     accuracy_m: Optional[float] = None,
-    max_accuracy_m: float = 30.0,
+    max_accuracy_m: float = 80.0,
 ) -> Tuple[bool, float]:
     """
     Check if student is within geofence.
@@ -29,8 +29,11 @@ def verify_location(
     Returns:
         (inside: bool, distance_m: float)
     """
+    # Hard-reject only when accuracy is worse than max_accuracy_m.
+    # Lower-but-imperfect ranges (for example 30-80m) should continue and be
+    # handled by higher-level flagging policy.
     if accuracy_m is not None and accuracy_m > max_accuracy_m:
-        return False, -1.0   # GPS too inaccurate
+        return False, -1.0
 
     distance = haversine_distance(student_lat, student_lon, target_lat, target_lon)
     return distance <= radius_m, round(distance, 1)

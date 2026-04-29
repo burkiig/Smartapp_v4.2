@@ -28,7 +28,7 @@ export const hasLocationPermission = async () => {
  * Throws if permission is not granted or location is unavailable.
  *
  * @param {{ accuracy?: Location.Accuracy, timeout?: number }} options
- * @returns {{ latitude: number, longitude: number, accuracy: number }}
+ * @returns {{ latitude: number, longitude: number, accuracy: number|null, is_mocked: boolean }}
  */
 export const getCurrentLocation = async (options = {}) => {
   const granted = await hasLocationPermission();
@@ -47,7 +47,8 @@ export const getCurrentLocation = async (options = {}) => {
   return {
     latitude: location.coords.latitude,
     longitude: location.coords.longitude,
-    accuracy: location.coords.accuracy
+    accuracy: location.coords.accuracy ?? null,
+    is_mocked: location.coords.mocked === true,
   };
 };
 

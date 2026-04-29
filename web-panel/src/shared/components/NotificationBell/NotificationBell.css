@@ -104,6 +104,18 @@
   cursor: default;
 }
 
+button.notif-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+}
+
+button.notif-item.flagged {
+  cursor: pointer;
+}
+
 .notif-item:hover { background: #f9fafb; }
 .notif-item.unread { background: #fffbeb; }
 .notif-item.unread:hover { background: #fef3c7; }

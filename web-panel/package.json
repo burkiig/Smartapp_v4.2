@@ -17,6 +17,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:smoke": "playwright test --config=playwright.config.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -37,6 +38,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "http-proxy-middleware": "^3.0.5"
   }
 }
