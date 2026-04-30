@@ -2,11 +2,33 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.config.settings import settings
 
-connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+def create_postgres_engine(url: str):
+    use_pgbouncer = "pgbouncer=true" in url.lower()
+    connect_args = {
+        "connect_timeout": 10,
+        "sslmode": "require",
+        "options": "-c statement_timeout=30000",
+    }
+    engine_kwargs = {
+        "pool_size": 5,       # 2 workers * (5 + 10) = 30 max connections, safe for Supabase free tier(60).
+        "max_overflow": 10,   # Short traffic bursts can borrow extra connections without permanent cost.
+        "pool_timeout": 30,   # Fail fast after 30s instead of waiting indefinitely for pool checkout.
+        "pool_recycle": 1800, # Recycle every 30 minutes to avoid stale/idle upstream connections.
+        "pool_pre_ping": True,# Validate pooled connections before use to avoid stale socket failures.
+        "connect_args": connect_args,
+    }
+    if use_pgbouncer:
+        # Supabase transaction-mode pooler does not support prepared statements.
+        engine_kwargs["execution_options"] = {"no_parameters": True}
+    return create_engine(url, **engine_kwargs)
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+if "sqlite" in settings.DATABASE_URL.lower():
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_postgres_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

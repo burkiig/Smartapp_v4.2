@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -8,7 +8,7 @@ from app.schemas.excuse import ExcuseCreate, ExcuseReview, ExcuseResponse
 from app.repositories.excuse_repo import ExcuseRepository
 from app.security.dependencies import get_current_user, require_student, require_instructor
 from app.models.user import User
-from app.models.excuse import Excuse
+from app.services.excuse_service import upload_excuse_document, get_excuse_signed_url
 
 router = APIRouter()
 
@@ -46,8 +46,25 @@ def submit_excuse(
         session_date=data.session_date,
         excuse_type=data.excuse_type,
         description=data.description,
-        document_url=data.document_url,
+        storage_path=data.storage_path,
     )
+
+
+@router.post("/upload", response_model=ExcuseResponse)
+async def upload_excuse_file(
+    excuse_id: int = Query(..., ge=1),
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_student),
+    db: Session = Depends(get_db),
+):
+    repo = ExcuseRepository(db)
+    excuse = repo.get_by_id(excuse_id)
+    if not excuse:
+        raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
+    if excuse.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Sadece kendi mazeret belgenizi yukleyebilirsiniz")
+    await upload_excuse_document(current_user.id, file, excuse_id, db)
+    return repo.get_by_id(excuse_id)
 
 
 @router.get("/{excuse_id}", response_model=ExcuseResponse)
@@ -79,6 +96,30 @@ def review_excuse(
     if not excuse:
         raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
     return repo.update(excuse, **data.model_dump(exclude_none=True))
+
+
+@router.get("/{excuse_id}/document")
+def get_excuse_document(
+    excuse_id: int,
+    expires_in: int = Query(default=3600, ge=60, le=7200),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    repo = ExcuseRepository(db)
+    excuse = repo.get_by_id(excuse_id)
+    if not excuse:
+        raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
+    if not excuse.storage_path:
+        raise HTTPException(status_code=404, detail="Bu mazeret icin belge yuklenmemis")
+    signed_url = get_excuse_signed_url(
+        storage_path=excuse.storage_path,
+        requesting_user_id=current_user.id,
+        requesting_user_role=current_user.role,
+        db=db,
+        expires_in=expires_in,
+        excuse_owner_id=excuse.student_id,
+    )
+    return {"excuse_id": excuse_id, "signed_url": signed_url, "expires_in": expires_in}
 
 
 class BulkExcuseReview(BaseModel):

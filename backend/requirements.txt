@@ -2,11 +2,13 @@
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
+httpx>=0.27.0          # Health check readiness probe (Supabase REST ping)
 
 # ── Database ──────────────────────────────────────────────────────────────────
 sqlalchemy>=2.0.30
 alembic>=1.13.1
 psycopg2-binary>=2.9.9   # PostgreSQL driver (no-op on SQLite)
+supabase>=2.0.0
 
 # ── Auth / Security ───────────────────────────────────────────────────────────
 python-jose[cryptography]>=3.3.0
@@ -15,6 +17,7 @@ email-validator>=2.0.0
 
 # ── Config ────────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.1
+cryptography>=42.0.0
 
 # ── QR Code ───────────────────────────────────────────────────────────────────
 qrcode[pil]>=7.4.2
@@ -30,9 +33,10 @@ APScheduler==3.10.4
 numpy==1.26.3
 insightface==0.7.3
 onnxruntime==1.19.2
-opencv-python==4.10.0.84
+opencv-python-headless==4.10.0.84
+
+# ── Testing ───────────────────────────────────────────────────────────────────
 pytest==8.2.2
-httpx==0.27.0
 
 # ── Export (Excel / PDF) ─────────────────────────────────────────────────────
 openpyxl>=3.1.2

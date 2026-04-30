@@ -143,6 +143,28 @@ def start_scheduler():
     except Exception as e:
         logger.warning(f"[Scheduler] Could not register session reminder job: {e}")
 
+    # Retention: delete read notifications older than 30 days — runs at 03:00 daily
+    def _cleanup_notifications():
+        from app.database.connection import SessionLocal
+        from app.repositories.notification_repo import NotificationRepository
+        db = SessionLocal()
+        try:
+            deleted = NotificationRepository.cleanup_old_notifications(db)
+            if deleted:
+                logger.info("[Scheduler] Notification cleanup: deleted %d old rows", deleted)
+        except Exception as exc:
+            logger.error("[Scheduler] Notification cleanup failed: %s", exc)
+        finally:
+            db.close()
+
+    _scheduler.add_job(
+        _cleanup_notifications,
+        trigger=CronTrigger(hour=3, minute=0),
+        id="notification_cleanup",
+        replace_existing=True,
+    )
+    logger.info("[Scheduler] Notification cleanup job scheduled (daily 03:00)")
+
     return _scheduler
 
 

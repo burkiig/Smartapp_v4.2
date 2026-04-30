@@ -8,6 +8,7 @@ from app.models.excuse import Excuse
 from app.models.audit_log import AuditLog
 from app.models.dispute import AttendanceDispute
 from app.models.system_setting import SystemSetting
+from app.models.notification import Notification
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "AuditLog",
     "AttendanceDispute",
     "SystemSetting",
+    "Notification",
 ]

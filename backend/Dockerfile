@@ -5,19 +5,18 @@ WORKDIR /app
 # System deps for insightface / onnxruntime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential g++ gcc \
-    libgl1 libglib2.0-0 && \
+    libgl1 libglib2.0-0 \
+    curl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install psycopg2 for PostgreSQL support
-RUN pip install --no-cache-dir psycopg2-binary
-
 COPY . .
+
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["gunicorn", "main:app", \
-     "-w", "2", "-k", "uvicorn.workers.UvicornWorker", \
-     "-b", "0.0.0.0:8000", "--timeout", "120"]
+CMD ["/app/entrypoint.sh"]

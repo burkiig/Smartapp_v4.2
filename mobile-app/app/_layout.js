@@ -201,6 +201,21 @@ function NotificationManager() {
     markResponseConsumed(dedupKey);
     markNotificationProcessed(dedupKey);
     const data = response?.notification?.request?.content?.data || {};
+
+    // Mark the corresponding DB notification as read.
+    // This path covers the cold-start / killed-app scenario where
+    // lastNotificationResponse fires directly, bypassing the listener in
+    // notificationService.js that would otherwise call markRead.
+    const notifId = data?.notificationId;
+    if (notifId) {
+      try {
+        const { notifications: notifApi } = await import('./shared/services/api');
+        await notifApi.markRead(notifId);
+      } catch {
+        // Non-critical — ignore silently
+      }
+    }
+
     processNotificationByType(data, 'response');
     try {
       await Notifications.dismissAllNotificationsAsync();

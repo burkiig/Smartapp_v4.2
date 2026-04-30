@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 from typing import Optional
@@ -47,18 +47,20 @@ class EnrollForStudentRequest(BaseModel):
 @router.post("/enroll")
 def enroll_self(
     data: EnrollRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Student self-enrolls their own face"""
     _validate_image(data.image_base64)
     service = FaceService(db)
-    return service.enroll(current_user.id, data.image_base64)
+    return service.enroll(current_user.id, data.image_base64, accessed_by="/api/v1/face/enroll", ip_address=request.client.host if request.client else None)
 
 
 @router.post("/enroll/student")
 def enroll_student(
     data: EnrollForStudentRequest,
+    request: Request,
     current_user: User = Depends(require_instructor),
     db: Session = Depends(get_db),
 ):
@@ -69,7 +71,7 @@ def enroll_student(
     if not student:
         raise HTTPException(status_code=404, detail="Öğrenci bulunamadı")
     service = FaceService(db)
-    return service.enroll(data.student_id, data.image_base64)
+    return service.enroll(data.student_id, data.image_base64, accessed_by="/api/v1/face/enroll/student", ip_address=request.client.host if request.client else None)
 
 
 @router.get("/status/{user_id}")

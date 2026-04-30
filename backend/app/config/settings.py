@@ -23,6 +23,10 @@ class Settings:
             "Unsafe test configuration: TESTING=true while DATABASE_URL points to PostgreSQL. "
             "Use a dedicated test database URL (for example sqlite:///./test.db)."
         )
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")
 
     # ── JWT ──────────────────────────────────────────────────────────────────
     SECRET_KEY: str = os.getenv("SECRET_KEY", _UNSAFE_SECRET)
@@ -97,3 +101,28 @@ if settings.DEBUG:
         "Set DEBUG=false for production.",
         stacklevel=2,
     )
+
+if not settings.TESTING:
+    _is_prod = settings.ENV == "production"
+
+    if not settings.SUPABASE_URL:
+        warnings.warn(
+            "SUPABASE_URL not set. Storage features unavailable.",
+            stacklevel=2,
+        )
+    if not settings.SUPABASE_SERVICE_KEY:
+        warnings.warn(
+            "SUPABASE_SERVICE_KEY not set. Storage features unavailable.",
+            stacklevel=2,
+        )
+    if not settings.ENCRYPTION_KEY:
+        if _is_prod:
+            raise RuntimeError(
+                "ENCRYPTION_KEY is required in production. "
+                "Refusing to start without it — biometric data would be stored unencrypted. "
+                "Generate a key with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        warnings.warn(
+            "ENCRYPTION_KEY not set. Face embeddings unencrypted.",
+            stacklevel=2,
+        )

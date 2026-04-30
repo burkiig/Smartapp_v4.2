@@ -30,7 +30,12 @@ function normalizeExcuse(e) {
     excuseTypeLabel: EXCUSE_TYPE_LABELS[e.excuse_type] || e.excuse_type || 'Diğer',
     excuseDescription: e.description || '',
     description: e.description || '',
-    documents: e.document_url ? [{ name: 'Belge', url: e.document_url }] : [],
+    // storage_path is a private storage key; the actual download URL is obtained
+    // on demand via GET /excuses/{id}/document (returns a time-limited signed URL).
+    hasDocument: !!e.storage_path,
+    documents: e.storage_path
+      ? [{ name: 'Belge', excuseId: e.id, storagePath: e.storage_path }]
+      : [],
     submittedAt: e.created_at
       ? new Date(e.created_at).toLocaleString('tr-TR')
       : '—',
@@ -92,7 +97,7 @@ export const undoExcuse = async (excuseId) => {
   }
 };
 
-export const submitExcuse = async ({ courseId, sessionId, sessionDate, excuseType, description, documentUrl = '' }) => {
+export const submitExcuse = async ({ courseId, sessionId, sessionDate, excuseType, description }) => {
   try {
     const excuse = await apiClient.post('/excuses/', {
       course_id: courseId,
@@ -100,11 +105,22 @@ export const submitExcuse = async ({ courseId, sessionId, sessionDate, excuseTyp
       session_date: sessionDate,
       excuse_type: excuseType,
       description,
-      document_url: documentUrl,
     });
     return { success: true, excuse };
   } catch (err) {
     console.error('[excuseService] submitExcuse:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
+export const fetchExcuseDocumentUrl = async (excuseId, expiresIn = 3600) => {
+  try {
+    const data = await apiClient.get(`/excuses/${excuseId}/document`, {
+      params: { expires_in: expiresIn },
+    });
+    return { success: true, signedUrl: data.signed_url, expiresIn: data.expires_in };
+  } catch (err) {
+    console.error('[excuseService] fetchExcuseDocumentUrl:', err.message);
     return { success: false, error: err.message };
   }
 };

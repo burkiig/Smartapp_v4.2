@@ -93,7 +93,7 @@ class AttendancePipelineService:
             return attempt
 
         verified, confidence = self.face_service.verify(
-            student.id, image_base64, image_base64_2
+            student.id, image_base64, image_base64_2, accessed_by="attendance.verify_face"
         )
         # Only "verified" is success — pending/failed both mean not verified
         status = "verified" if verified else "failed"
@@ -253,7 +253,7 @@ class AttendancePipelineService:
 
         if image_base64 and self.face_service.engine.is_available:
             try:
-                verified, confidence = self.face_service.verify(student_id, image_base64)
+                verified, confidence = self.face_service.verify(student_id, image_base64, accessed_by="attendance.manual_attendance")
                 if not verified:
                     raise HTTPException(
                         status_code=400,
@@ -319,7 +319,7 @@ class AttendancePipelineService:
         face_confidence = 0.0
         face_reason = None
         try:
-            face_ok, face_confidence = self.face_service.verify(student.id, image_base64)
+            face_ok, face_confidence = self.face_service.verify(student.id, image_base64, accessed_by="attendance.web_attend")
         except HTTPException as e:
             face_reason = "face_not_enrolled" if e.status_code == 404 else "face_error"
             face_ok = False
@@ -397,12 +397,16 @@ class AttendancePipelineService:
         }
 
     def _notify_instructor_flagged(self, session, student: User, flag_reason: str):
+        """
+        Notify the course instructor (push + DB) and the student (DB only)
+        when an attendance record is flagged for review.
+
+        Push is best-effort — any exception is silently logged so it never
+        breaks the attendance pipeline.
+        """
         try:
-            if not session.course or not session.course.instructor:
-                return
-            instructor = session.course.instructor
-            if not instructor.push_token:
-                return
+            from app.services.notification_service import create_notification
+
             REASON_LABELS = {
                 "face_simulated": "Yüz tanıma simüle edildi",
                 "location_skipped": "GPS koordinatı tanımlı değil",
@@ -412,11 +416,52 @@ class AttendancePipelineService:
                 "low_accuracy": "GPS doğruluğu düşük (inceleme gerekli)",
             }
             label = REASON_LABELS.get(flag_reason, flag_reason)
-            send_expo_push(
-                tokens=[instructor.push_token],
-                title="⚠️ Şüpheli Yoklama",
-                body=f"{session.course.code} — {student.name}: {label}",
-                data={"type": "flagged_attendance", "session_id": session.id},
+            course_code = session.course.code if session.course else f"Ders #{session.course_id}"
+            notif_data = {
+                "type": "flagged_attendance",
+                "session_id": session.id,
+                "student_id": student.id,
+            }
+
+            # ── Instructor: DB notification first, then push with notificationId ─
+            if session.course and session.course.instructor:
+                instructor = session.course.instructor
+                instructor_title = "⚠️ Şüpheli Yoklama"
+                instructor_body = f"{course_code} — {student.name}: {label}"
+
+                # Create DB row first so we get its ID for the push payload.
+                instr_notif = create_notification(
+                    db=self.db,
+                    user_id=instructor.id,
+                    type="flagged_attendance",
+                    title=instructor_title,
+                    body=instructor_body,
+                    data=notif_data,
+                )
+                if instructor.push_token:
+                    push_data = {
+                        **notif_data,
+                        # Mobile app reads this to PATCH /notifications/{id}/read on tap.
+                        "notificationId": instr_notif.id if instr_notif else None,
+                    }
+                    send_expo_push(
+                        tokens=[instructor.push_token],
+                        title=instructor_title,
+                        body=instructor_body,
+                        data=push_data,
+                    )
+
+            # ── Student: DB notification (no push — they initiated the flow) ─
+            create_notification(
+                db=self.db,
+                user_id=student.id,
+                type="flagged_attendance",
+                title="Yoklamanız İncelemeye Alındı",
+                body=f"{course_code} dersi yoklamanız öğretmen incelemesine gönderildi: {label}",
+                data=notif_data,
             )
-        except Exception:
-            pass  # Push failure must not break attendance flow
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "_notify_instructor_flagged failed (non-critical): %s", exc
+            )

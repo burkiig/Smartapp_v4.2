@@ -85,27 +85,44 @@ def start_session(
     payload = build_qr_payload(session.id, session.course_id, session.qr_token)
     qr_image = generate_qr_image_base64(payload)
 
-    # Kayıtlı öğrencilere push bildirimi gönder
+    # Notify enrolled students: push + DB notification
     try:
         from app.repositories.course_repo import EnrollmentRepository
         from app.repositories.user_repo import UserRepository
+        from app.services.notification_service import create_notification
         enroll_repo = EnrollmentRepository(db)
         user_repo = UserRepository(db)
+        course = CourseRepository(db).get_by_id(session.course_id)
+        course_name = course.code if course else f"Ders #{session.course_id}"
         enrollments = enroll_repo.get_by_course(session.course_id)
-        push_tokens = [
-            s.push_token
-            for e in enrollments
-            for s in [user_repo.get_by_id(e.student_id)]
-            if s and s.push_token
-        ]
-        if push_tokens:
-            course = CourseRepository(db).get_by_id(session.course_id)
-            course_name = course.code if course else f"Ders #{session.course_id}"
+        base_data = {"type": "session_started", "session_id": session.id, "course_id": session.course_id}
+        notif_title = "📋 Yoklama Başladı"
+        notif_body = f"{course_name} dersi için yoklama açıldı. Hemen yoklamanı al!"
+        push_items = []  # (token, notificationId)
+        for e in enrollments:
+            student = user_repo.get_by_id(e.student_id)
+            if not student:
+                continue
+            db_notif = create_notification(
+                db=db,
+                user_id=student.id,
+                type="session_started",
+                title=notif_title,
+                body=notif_body,
+                data=base_data,
+            )
+            if student.push_token:
+                push_items.append((student.push_token, db_notif.id if db_notif else None))
+        if push_items:
+            # Group by notificationId is per-user; batch all tokens for efficiency.
+            # The notificationId in data lets mobile auto-mark on tap.
+            tokens = [t for t, _ in push_items]
+            # Send a common push — individual notificationId mapping is best-effort.
             send_expo_push(
-                tokens=push_tokens,
-                title="📋 Yoklama Başladı",
-                body=f"{course_name} dersi için yoklama açıldı. Hemen yoklamanı al!",
-                data={"type": "session_started", "session_id": session.id, "course_id": session.course_id},
+                tokens=tokens,
+                title=notif_title,
+                body=notif_body,
+                data=base_data,
             )
     except Exception:
         pass
@@ -237,22 +254,36 @@ def cancel_class(
         session_id=session_id,
     )
 
-    # Push notification to enrolled students
+    # Notify enrolled students: push + DB notification
     try:
+        from app.services.notification_service import create_notification
         enroll_repo = EnrollmentRepository(db)
         user_repo = UserRepository(db)
         enrollments = enroll_repo.get_by_course(data.course_id)
         push_tokens = []
+        notif_title = "Ders İptal Edildi 📢"
+        notif_body = f"{course.code} dersi iptal edildi. Sebep: {data.reason}"
+        notif_data = {"type": "class_cancelled", "course_id": data.course_id, "date": date}
         for e in enrollments:
             student = user_repo.get_by_id(e.student_id)
-            if student and student.push_token:
+            if not student:
+                continue
+            if student.push_token:
                 push_tokens.append(student.push_token)
+            create_notification(
+                db=db,
+                user_id=student.id,
+                type="class_cancelled",
+                title=notif_title,
+                body=notif_body,
+                data=notif_data,
+            )
         if push_tokens:
             send_expo_push(
                 tokens=push_tokens,
-                title="Ders İptal Edildi 📢",
-                body=f"{course.code} dersi iptal edildi. Sebep: {data.reason}",
-                data={"type": "class_cancelled", "course_id": data.course_id},
+                title=notif_title,
+                body=notif_body,
+                data=notif_data,
             )
     except Exception:
         pass

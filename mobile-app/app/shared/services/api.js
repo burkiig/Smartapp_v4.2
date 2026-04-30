@@ -186,19 +186,46 @@ export const excuses = {
   },
 
   /** POST /api/v1/excuses/ */
-  submit: ({ courseId, sessionId, sessionDate, excuseType, description, documentUrl = '' }) =>
+  submit: ({ courseId, sessionId, sessionDate, excuseType, description }) =>
     apiAdapter.post('/excuses/', {
       course_id: courseId,
       session_id: sessionId || null,
       session_date: sessionDate,
       excuse_type: excuseType,
       description,
-      document_url: documentUrl,
     }),
+
+  /** GET /api/v1/excuses/<id>/document — returns time-limited signed URL */
+  getDocumentUrl: (excuseId, expiresIn = 3600) =>
+    apiAdapter.get(`/excuses/${excuseId}/document?expires_in=${expiresIn}`),
 
   /** PATCH /api/v1/excuses/<id> */
   review: (excuseId, status, notes = '') =>
     apiAdapter.patch(`/excuses/${excuseId}/`, { status, instructor_notes: notes }),
+};
+
+// ==================== NOTIFICATIONS ====================
+
+export const notifications = {
+  /** GET /api/v1/notifications/count — lightweight badge poll */
+  count: () =>
+    apiAdapter.get('/notifications/count'),
+
+  /** GET /api/v1/notifications/?limit=50 — full feed */
+  list: (params = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+    ).toString();
+    return apiAdapter.get(`/notifications/${query ? `?${query}` : ''}`);
+  },
+
+  /** PATCH /api/v1/notifications/{id}/read — mark single as read */
+  markRead: (notificationId) =>
+    apiAdapter.patch(`/notifications/${notificationId}/read`, {}),
+
+  /** PATCH /api/v1/notifications/read-all — mark all as read */
+  markAllRead: () =>
+    apiAdapter.patch('/notifications/read-all', {}),
 };
 
 // ==================== DISPUTES ====================

@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -24,6 +25,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+warnings.filterwarnings("ignore", message=".*SQLite.*")
 
 
 def run_migrations_offline() -> None:
@@ -35,6 +37,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -52,6 +55,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_schemas=True,
         )
         with context.begin_transaction():
             context.run_migrations()

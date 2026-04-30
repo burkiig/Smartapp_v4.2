@@ -29,17 +29,48 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://smartapp:${POSTGRES_PASSWORD:-changeme}@db:5432/smartapp
+      # ── Database ────────────────────────────────────────────────────────────
+      # Runtime URL: use pooler (6543) if PgBouncer is in front; else direct.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://smartapp:${POSTGRES_PASSWORD:-changeme}@db:5432/smartapp}
+      # Migration URL: always direct connection (port 5432) — poolers block Alembic.
+      MIGRATION_DATABASE_URL: postgresql://smartapp:${POSTGRES_PASSWORD:-changeme}@db:5432/smartapp
+      # ── Security ────────────────────────────────────────────────────────────
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      # ── Admin seed ──────────────────────────────────────────────────────────
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@smartapp.local}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      DEBUG: "false"
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_NAME: ${ADMIN_NAME:-System Administrator}
+      # ── Supabase (optional — leave blank for local-only mode) ───────────────
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+      # ── App ─────────────────────────────────────────────────────────────────
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      DEBUG: ${DEBUG:-false}
+      ENV: ${ENV:-development}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
+      FACE_SIMILARITY_THRESHOLD: ${FACE_SIMILARITY_THRESHOLD:-0.4}
+      FACE_LIVENESS_THRESHOLD: ${FACE_LIVENESS_THRESHOLD:-0.5}
+      DEFAULT_GEOFENCE_RADIUS_M: ${DEFAULT_GEOFENCE_RADIUS_M:-50}
+      MAX_GPS_ACCURACY_M: ${MAX_GPS_ACCURACY_M:-80.0}
+      QR_TOKEN_TTL_SECONDS: ${QR_TOKEN_TTL_SECONDS:-60}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
     ports:
       - "8000:8000"
     volumes:
       - face_models:/root/.insightface
-    command: ["gunicorn", "main:app", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--timeout", "120"]
+      - sqlite_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   # ── React Web Panel ────────────────────────────────────────────────────────
   frontend:
@@ -68,3 +99,4 @@ services:
 volumes:
   postgres_data:
   face_models:
+  sqlite_data:

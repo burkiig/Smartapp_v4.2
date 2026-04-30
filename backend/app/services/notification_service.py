@@ -1,18 +1,93 @@
-"""Notification service: email helpers + APScheduler jobs.
+"""Notification service: in-app, push, and email notification helpers.
 
-Feature 6: When a scheduled class is about to start (5 min before),
-           send push notification to the instructor.
+Layers
+------
+1. DB persistence  — create_notification() / broadcast_to_role()
+   Writes a row to the `notifications` table.  This is the source-of-truth
+   for unread counts and the notification feed visible in the web panel.
 
-Feature 7: When a session ends, email absent students.
+2. Push (Expo)     — send_expo_push() in utils/push.py
+   Fire-and-forget best-effort delivery to mobile devices.
+
+3. Email           — send_email() + notify_absent_students()
+   SMTP delivery for high-importance async events.
+
+4. Scheduler jobs  — schedule_session_reminder_jobs()
+   APScheduler cron job for 5-min pre-class push reminders.
 """
+from __future__ import annotations
+
 import smtplib
 import logging
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
+
+# ── DB-backed notification helpers ───────────────────────────────────────────
+
+def create_notification(
+    db: "Session",
+    user_id: int,
+    type: str,
+    title: str,
+    body: str,
+    data: Optional[dict] = None,
+):
+    """
+    Persist a single notification row and silently swallow any DB errors
+    so that notification failures never break the calling business flow.
+
+    Returns the created Notification ORM object (with .id populated),
+    or None if the insert failed.
+    """
+    try:
+        from app.repositories.notification_repo import NotificationRepository
+        return NotificationRepository(db).create(
+            user_id=user_id, type=type, title=title, body=body, data=data
+        )
+    except Exception as exc:
+        logger.error("[Notification] create_notification failed: %s", exc)
+        return None
+
+
+def broadcast_to_role(
+    db: "Session",
+    target_role: str,
+    type: str,
+    title: str,
+    body: str,
+    data: Optional[dict] = None,
+) -> int:
+    """
+    Fan-out: create one notification row per active user whose role matches
+    `target_role`.  Pass target_role="all" to reach every active user.
+
+    Returns the number of rows created (0 on failure).
+    """
+    try:
+        from app.models.user import User
+        from app.repositories.notification_repo import NotificationRepository
+
+        q = db.query(User).filter(User.is_active == True)  # noqa: E712
+        if target_role != "all":
+            q = q.filter(User.role == target_role)
+        users = q.all()
+
+        records = [
+            {"user_id": u.id, "type": type, "title": title, "body": body, "data": data}
+            for u in users
+        ]
+        return NotificationRepository(db).bulk_create(records)
+    except Exception as exc:
+        logger.error("[Notification] broadcast_to_role failed: %s", exc)
+        return 0
+
 
 # ── Email config from environment ─────────────────────────────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "")

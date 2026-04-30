@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import './ExcuseDetailsModal.css';
+import { fetchExcuseDocumentUrl } from '../../services/excuseService';
 
 export const ExcuseDetailsModal = ({ excuse, onClose, onApprove, onReject }) => {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [docLoading, setDocLoading] = useState(false);
 
   const handleApprove = async () => {
     if (!onApprove) return;
@@ -103,7 +105,22 @@ export const ExcuseDetailsModal = ({ excuse, onClose, onApprove, onReject }) => 
                 <div key={index} className="excuse-document-item">
                   <span className="doc-icon">📄</span>
                   <span className="doc-name">{doc.name}</span>
-                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="doc-view-btn">Görüntüle</a>
+                  <button
+                    className="doc-view-btn"
+                    disabled={docLoading}
+                    onClick={async () => {
+                      setDocLoading(true);
+                      const result = await fetchExcuseDocumentUrl(doc.excuseId);
+                      setDocLoading(false);
+                      if (result.success) {
+                        window.open(result.signedUrl, '_blank', 'noopener,noreferrer');
+                      } else {
+                        alert('Belge açılamadı: ' + result.error);
+                      }
+                    }}
+                  >
+                    {docLoading ? 'Yükleniyor...' : 'Görüntüle'}
+                  </button>
                 </div>
               ))}
             </div>

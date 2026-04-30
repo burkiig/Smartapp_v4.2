@@ -33,7 +33,7 @@ class ExcuseRepository:
 
     def create(self, student_id: int, course_id: int, session_date: str,
                excuse_type: str = "other", description: Optional[str] = None,
-               document_url: Optional[str] = None, session_id: Optional[int] = None) -> Excuse:
+               storage_path: Optional[str] = None, session_id: Optional[int] = None) -> Excuse:
         excuse = Excuse(
             student_id=student_id,
             course_id=course_id,
@@ -41,9 +41,18 @@ class ExcuseRepository:
             session_date=session_date,
             excuse_type=excuse_type,
             description=description,
-            document_url=document_url,
+            storage_path=storage_path,
         )
         self.db.add(excuse)
+        self.db.commit()
+        self.db.refresh(excuse)
+        return excuse
+
+    def update_storage_path(self, excuse_id: int, storage_path: str) -> Excuse:
+        excuse = self.get_by_id(excuse_id)
+        if not excuse:
+            raise ValueError("Excuse not found.")
+        excuse.storage_path = storage_path
         self.db.commit()
         self.db.refresh(excuse)
         return excuse

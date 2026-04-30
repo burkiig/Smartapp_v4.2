@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, ForeignKey, LargeBinary, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database.connection import Base
+from app.database.types import EncryptedBinary
 
 
 class FaceReference(Base):
@@ -9,7 +10,7 @@ class FaceReference(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    embedding = Column(LargeBinary, nullable=False)
+    embedding = Column(EncryptedBinary, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

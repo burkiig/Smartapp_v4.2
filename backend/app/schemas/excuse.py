@@ -9,7 +9,7 @@ class ExcuseCreate(BaseModel):
     session_date: str
     excuse_type: str = "other"
     description: Optional[str] = None
-    document_url: Optional[str] = None
+    storage_path: Optional[str] = None
 
 
 class ExcuseReview(BaseModel):
@@ -25,7 +25,7 @@ class ExcuseResponse(BaseModel):
     session_date: str
     excuse_type: str
     description: Optional[str] = None
-    document_url: Optional[str] = None
+    storage_path: Optional[str] = None
     status: str
     instructor_notes: Optional[str] = None
     created_at: datetime
