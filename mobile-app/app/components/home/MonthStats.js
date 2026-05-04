@@ -1,7 +1,7 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Shadows } from '../../shared/config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 export default function MonthStats({ stats }) {
   const pct = Math.min(Math.max(stats.percentage || 0, 0), 100);

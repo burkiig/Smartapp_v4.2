@@ -1,7 +1,19 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Boolean, JSON, UniqueConstraint
-from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
+
 from app.database.connection import Base
+from app.database.types import CompatibleJSON  # PostgreSQL'de JSONB, SQLite'da JSON
 
 
 def _utcnow():
@@ -10,6 +22,7 @@ def _utcnow():
 
 class AttendanceAttempt(Base):
     """3-step pipeline state: QR → Face → Location"""
+
     __tablename__ = "attendance_attempts"
     __table_args__ = (
         UniqueConstraint("student_id", "session_id", name="uq_attempt_student_session"),
@@ -36,6 +49,7 @@ class AttendanceAttempt(Base):
 
 class FinalAttendanceRecord(Base):
     """Finalized attendance record after verification pipeline"""
+
     __tablename__ = "final_attendance_records"
     __table_args__ = (
         UniqueConstraint("student_id", "session_id", name="uq_final_student_session"),
@@ -52,7 +66,7 @@ class FinalAttendanceRecord(Base):
     flag_reason = Column(String, nullable=True)
 
     # Verification step details
-    verification_steps = Column(JSON, nullable=True)
+    verification_steps = Column(CompatibleJSON, nullable=True)
 
     marked_at = Column(DateTime(timezone=True), default=_utcnow)
 

@@ -16,8 +16,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # ⚠️  Port 5432 is only exposed for local development (e.g. pgAdmin).
+    # In production, remove or restrict this to avoid exposing the database.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   # ── FastAPI Backend ────────────────────────────────────────────────────────
   backend:

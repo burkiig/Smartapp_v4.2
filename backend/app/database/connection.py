@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
 from app.config.settings import settings
+
 
 def create_postgres_engine(url: str):
     use_pgbouncer = "pgbouncer=true" in url.lower()
@@ -10,17 +12,18 @@ def create_postgres_engine(url: str):
         "options": "-c statement_timeout=30000",
     }
     engine_kwargs = {
-        "pool_size": 5,       # 2 workers * (5 + 10) = 30 max connections, safe for Supabase free tier(60).
-        "max_overflow": 10,   # Short traffic bursts can borrow extra connections without permanent cost.
-        "pool_timeout": 30,   # Fail fast after 30s instead of waiting indefinitely for pool checkout.
-        "pool_recycle": 1800, # Recycle every 30 minutes to avoid stale/idle upstream connections.
-        "pool_pre_ping": True,# Validate pooled connections before use to avoid stale socket failures.
+        "pool_size": 5,  # 2 workers * (5 + 10) = 30 max connections, safe for Supabase free tier(60).
+        "max_overflow": 10,  # Short traffic bursts can borrow extra connections without permanent cost.
+        "pool_timeout": 30,  # Fail fast after 30s instead of waiting indefinitely for pool checkout.
+        "pool_recycle": 1800,  # Recycle every 30 minutes to avoid stale/idle upstream connections.
+        "pool_pre_ping": True,  # Validate pooled connections before use to avoid stale socket failures.
         "connect_args": connect_args,
     }
     if use_pgbouncer:
         # Supabase transaction-mode pooler does not support prepared statements.
         engine_kwargs["execution_options"] = {"no_parameters": True}
     return create_engine(url, **engine_kwargs)
+
 
 if "sqlite" in settings.DATABASE_URL.lower():
     engine = create_engine(
@@ -62,5 +65,18 @@ def get_db():
 
 
 def create_all_tables():
-    from app.models import user, course, room, session, attendance, face_reference, excuse, audit_log  # noqa: F401
+    from app.models import (  # noqa: F401
+        attendance,
+        audit_log,
+        course,
+        dispute,
+        excuse,
+        face_reference,
+        notification,
+        room,
+        session,
+        system_setting,  # önceden eksikti — Alembic bunları göremiyordu
+        user,
+    )
+
     Base.metadata.create_all(bind=engine)

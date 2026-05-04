@@ -12,8 +12,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database.connection import Base, get_db
-from app.api.auth import _login_attempts
 from app.security.password import hash_password
+from app.security.rate_limit import reset_for_testing
 from app.security.jwt import create_access_token
 from app.models.user import User
 from app.models.course import Course, Enrollment
@@ -38,8 +38,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    """Clear the in-memory login rate limiter before every test."""
-    _login_attempts.clear()
+    """Clear the in-memory rate limiter store before every test."""
+    reset_for_testing()
     yield
 
 

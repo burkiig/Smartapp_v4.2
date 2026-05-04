@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,8 @@ import {
   requestLocationPermission,
   hasLocationPermission,
   getCurrentLocation,
-} from './shared/services/locationService';
-import { attendance } from './shared/services/api';
+} from '@/services/locationService';
+import { attendance } from '@/services/api';
 
 /**
  * GPS Dogrulama Ekrani — 3'lu guvenlik zincirinin 3. ve son adimi.

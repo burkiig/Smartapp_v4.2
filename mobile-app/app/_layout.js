@@ -1,17 +1,22 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+﻿import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UserProvider, useUser } from './_context/UserContext';
-import { isAuthenticated } from './shared/services/authService';
-import InAppBanner from './shared/components/InAppBanner';
+import { UserProvider, useUser } from '@/context/UserContext';
+import { isAuthenticated } from '@/services/authService';
+import InAppBanner from '@/components/InAppBanner';
 import {
   setupPushNotifications,
   addNotificationListeners,
   removeNotificationListeners,
-} from './shared/services/notificationService';
+} from '@/services/notificationService';
+
+// Push notifications are not supported in Expo Go (SDK 53+).
+// Only enable in standalone/development builds.
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 function AuthGuard() {
   const { isLoggedIn, isLoading, user } = useUser();
@@ -81,7 +86,8 @@ function NotificationManager() {
   const [activeBanner, setActiveBanner] = useState(null);
   const role = user?.role;
   const insets = useSafeAreaInsets();
-  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  // useLastNotificationResponse is a no-op in Expo Go (returns undefined)
+  const lastNotificationResponse = IS_EXPO_GO ? undefined : Notifications.useLastNotificationResponse();
 
   const getNotificationDedupKey = useCallback((notificationLike) => {
     const identifier = notificationLike?.request?.identifier || notificationLike?.notification?.request?.identifier;
@@ -209,7 +215,7 @@ function NotificationManager() {
     const notifId = data?.notificationId;
     if (notifId) {
       try {
-        const { notifications: notifApi } = await import('./shared/services/api');
+        const { notifications: notifApi } = await import('@/services/api');
         await notifApi.markRead(notifId);
       } catch {
         // Non-critical — ignore silently
@@ -234,7 +240,10 @@ function NotificationManager() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    setupPushNotifications();
+    // Skip push notification setup in Expo Go — not supported since SDK 53
+    if (!IS_EXPO_GO) {
+      setupPushNotifications();
+    }
 
     listenersRef.current = addNotificationListeners(
       // Uygulama açıkken gelen bildirim — banner olarak göster

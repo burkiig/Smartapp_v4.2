@@ -2,12 +2,10 @@
  * Mobile Attendance Service — Updated for FastAPI 3-step pipeline
  * Pipeline: QR scan → Face verify → Location verify
  */
-import { attendance, sessions, face } from './api';
+import { attendance, sessions, face } from '@/services/api';
 
 /**
  * STEP 1: Scan QR code
- * @param {number} sessionId
- * @param {string} qrToken - token from QR payload
  */
 export const scanQR = async (sessionId, qrToken) => {
   try {
@@ -40,9 +38,6 @@ export const parseQRPayload = (payload) => {
 
 /**
  * STEP 2: Verify face
- * @param {number} sessionId
- * @param {string} imageBase64
- * @param {string|null} imageBase64_2 - second frame for liveness (optional)
  */
 export const verifyFace = async (sessionId, imageBase64, imageBase64_2 = null) => {
   try {
@@ -55,10 +50,6 @@ export const verifyFace = async (sessionId, imageBase64, imageBase64_2 = null) =
 
 /**
  * STEP 3: Verify location + finalize attendance
- * @param {number} sessionId
- * @param {number} latitude
- * @param {number} longitude
- * @param {number|null} accuracy - GPS accuracy in metres
  */
 export const verifyLocation = async (sessionId, latitude, longitude, accuracy = null) => {
   try {

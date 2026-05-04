@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
-import { face } from './shared/services/api';
-import { Colors, Shadows } from './shared/config/theme';
+import { face } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 const { width } = Dimensions.get('window');
 

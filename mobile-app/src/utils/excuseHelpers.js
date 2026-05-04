@@ -35,30 +35,30 @@ export const getExcuseDeadline = (classDate) => {
 export const getExcuseStatusColor = (status) => {
   switch (status) {
     case 'pending':
-      return { 
-        bg: '#FEF3C7', 
-        text: '#92400E', 
+      return {
+        bg: '#FEF3C7',
+        text: '#92400E',
         label: 'Mazeret Beklemede',
         icon: 'time'
       };
     case 'approved':
-      return { 
-        bg: '#D1FAE5', 
-        text: '#065F46', 
+      return {
+        bg: '#D1FAE5',
+        text: '#065F46',
         label: 'Mazeret Onaylandı',
         icon: 'checkmark-circle'
       };
     case 'rejected':
-      return { 
-        bg: '#FEE2E2', 
-        text: '#991B1B', 
+      return {
+        bg: '#FEE2E2',
+        text: '#991B1B',
         label: 'Mazeret Reddedildi',
         icon: 'close-circle'
       };
     default:
-      return { 
-        bg: '#F3F4F6', 
-        text: '#6B7280', 
+      return {
+        bg: '#F3F4F6',
+        text: '#6B7280',
         label: 'Mazeret Yok',
         icon: 'alert-circle'
       };
@@ -99,11 +99,10 @@ export const formatExcuseTime = (timestamp) => {
   if (diffMins < 60) return `${diffMins} dk önce`;
   if (diffHours < 24) return `${diffHours} saat önce`;
   if (diffDays < 7) return `${diffDays} gün önce`;
-  
+
   return date.toLocaleDateString('tr-TR', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
 };
-

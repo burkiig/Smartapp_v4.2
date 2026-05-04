@@ -3,8 +3,8 @@ import sys
 import warnings
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Add backend root to path so app imports resolve
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -14,7 +14,19 @@ from app.config.settings import settings  # noqa: E402
 
 # Import Base and all models so Alembic can detect schema changes
 from app.database.connection import Base  # noqa: E402
-from app.models import user, course, room, session, attendance, face_reference, excuse, audit_log  # noqa: F401,E402
+from app.models import (  # noqa: F401,E402
+    attendance,
+    audit_log,
+    course,
+    dispute,
+    excuse,
+    face_reference,
+    notification,
+    room,
+    session,
+    system_setting,
+    user,
+)
 
 config = context.config
 
@@ -28,6 +40,20 @@ target_metadata = Base.metadata
 warnings.filterwarnings("ignore", message=".*SQLite.*")
 
 
+def _include_object(obj, name, type_, reflected, compare_to):
+    """
+    Supabase PostgreSQL'de auth.*, storage.*, realtime.* gibi sistem
+    schemalarini Alembic karsilastirmasinin dismda tut.
+    Yalnizca public schema + uygulama tablolarimiz izlenir.
+    """
+    if type_ == "table":
+        # Sadece public schema (veya schema bilgisi olmayan) tablolari dahil et
+        schema = getattr(obj, "schema", None)
+        if schema and schema != "public":
+            return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations without a live DB connection (generates SQL only)."""
     url = config.get_main_option("sqlalchemy.url")
@@ -37,7 +63,8 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
-        include_schemas=True,
+        include_schemas=False,  # Supabase sistem schemalarini hariç tut
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -55,7 +82,8 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
-            include_schemas=True,
+            include_schemas=False,  # Supabase sistem schemalarini hariç tut
+            include_object=_include_object,
         )
         with context.begin_transaction():
             context.run_migrations()

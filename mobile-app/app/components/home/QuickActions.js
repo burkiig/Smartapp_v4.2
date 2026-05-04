@@ -1,8 +1,8 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Shadows } from '../../shared/config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 export default function QuickActions({ hasLiveSession, onStartAttendance, onExcuse, onHistory }) {
   return (

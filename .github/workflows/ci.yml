@@ -16,11 +16,6 @@ jobs:
   test-backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      # Required by docker-compose interpolation; safe dummy values for CI tests.
-      SECRET_KEY: ci-test-secret-key
-      ADMIN_PASSWORD: ci-admin-password
-      POSTGRES_PASSWORD: ci-postgres-password
 
     steps:
       - name: Checkout
@@ -29,6 +24,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Build the backend image once, using GitHub Actions layer cache.
+      # Subsequent pushes reuse cached layers — heavy packages (insightface,
+      # onnxruntime) are only re-downloaded when requirements.txt changes.
       - name: Build backend image (cache-enabled)
         uses: docker/build-push-action@v6
         with:
@@ -39,11 +37,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Run tests in backend container (no deps, SQLite)
+      # Run pytest directly in the pre-built image — no docker-compose rebuild.
+      # SQLite is used so no database service is needed.
+      - name: Run backend tests
         run: |
-          docker compose run --rm --no-deps \
+          docker run --rm \
             -e ENV=test \
             -e TESTING=true \
             -e DATABASE_URL=sqlite:///./test.db \
-            backend \
-            python -m pytest -v
+            -e SECRET_KEY=ci-test-secret-key-not-used-in-prod \
+            -e ADMIN_PASSWORD=ci-admin-password \
+            smart-attendance-backend:ci \
+            python -m pytest -v --tb=short

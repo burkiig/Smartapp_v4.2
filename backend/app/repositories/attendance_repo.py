@@ -42,14 +42,27 @@ class FinalAttendanceRepository:
         ).first()
 
     def get_by_session(self, session_id: int) -> List[FinalAttendanceRecord]:
-        return self.db.query(FinalAttendanceRecord).filter(
-            FinalAttendanceRecord.session_id == session_id
-        ).all()
+        return (
+            self.db.query(FinalAttendanceRecord)
+            .filter(FinalAttendanceRecord.session_id == session_id)
+            .options(
+                joinedload(FinalAttendanceRecord.student),
+                joinedload(FinalAttendanceRecord.course),
+            )
+            .all()
+        )
 
     def get_by_student(self, student_id: int) -> List[FinalAttendanceRecord]:
-        return self.db.query(FinalAttendanceRecord).filter(
-            FinalAttendanceRecord.student_id == student_id
-        ).order_by(FinalAttendanceRecord.marked_at.desc()).all()
+        return (
+            self.db.query(FinalAttendanceRecord)
+            .filter(FinalAttendanceRecord.student_id == student_id)
+            .options(
+                joinedload(FinalAttendanceRecord.student),
+                joinedload(FinalAttendanceRecord.course),
+            )
+            .order_by(FinalAttendanceRecord.marked_at.desc())
+            .all()
+        )
 
     def get_flagged(self) -> List[FinalAttendanceRecord]:
         return self.db.query(FinalAttendanceRecord).filter(
@@ -62,14 +75,22 @@ class FinalAttendanceRepository:
     def get_all(
         self,
         course_id: Optional[int] = None,
+        allowed_course_ids: Optional[List[int]] = None,
         date: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> dict:
-        """Returns paginated results with correct date range filtering."""
+        """Returns paginated results with correct date range filtering.
+
+        allowed_course_ids: when set, restricts results to this set of courses
+        (used for instructor-scoped queries so COUNT(*) is also correct).
+        Takes lower priority than an explicit course_id filter.
+        """
         q = self.db.query(FinalAttendanceRecord)
         if course_id:
             q = q.filter(FinalAttendanceRecord.course_id == course_id)
+        elif allowed_course_ids is not None:
+            q = q.filter(FinalAttendanceRecord.course_id.in_(allowed_course_ids))
         if date:
             try:
                 # Parse date and build exact day range

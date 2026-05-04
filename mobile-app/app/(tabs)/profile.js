@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Alert, ActivityIndicator,
@@ -7,10 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUser } from '../_context/UserContext';
-import InstructorProfile from '../_screens/InstructorProfile';
-import { auth, face } from '../shared/services/api';
-import { Colors, Shadows, Radius } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import InstructorProfile from '@/screens/InstructorProfile';
+import { auth, face } from '@/services/api';
+import { Colors, Shadows, Radius } from '@/config/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();

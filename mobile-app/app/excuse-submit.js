@@ -1,4 +1,4 @@
-/**
+﻿/**
  * excuse-submit.js
  *
  * Öğrencinin mazeret dilekçesi gönderdiği ekran.
@@ -25,8 +25,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { excuses } from './shared/services/api';
-import { Colors, Shadows } from './shared/config/theme';
+import { excuses } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 const EXCUSE_TYPES = [
   { key: 'medical',         label: 'Sağlık',          icon: '🏥', desc: 'Hastalık veya doktor raporu' },

@@ -1,10 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-/**
- * Error Boundary Component
- * Catches JavaScript errors anywhere in the child component tree
- */
 export class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);

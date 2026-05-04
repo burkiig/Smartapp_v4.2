@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+﻿import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, ActivityIndicator, RefreshControl, Dimensions, ScrollView,
@@ -6,11 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useUser } from '../_context/UserContext';
+import { useUser } from '@/context/UserContext';
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { courses, sessions } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { courses, sessions } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 import HistoryScreen from './history';
 
 const { width } = Dimensions.get('window');

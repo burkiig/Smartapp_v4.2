@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
@@ -8,9 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUser } from './_context/UserContext';
-import { face } from './shared/services/api';
-import { Colors, Shadows, Radius, Spacing } from './shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import { face } from '@/services/api';
+import { Colors, Shadows, Radius, Spacing } from '@/config/theme';
 
 export default function LoginScreen() {
   const router = useRouter();

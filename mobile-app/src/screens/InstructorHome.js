@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useUser } from '../_context/UserContext';
-import { dashboard, courses, sessions, attendance } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import { dashboard, courses, sessions, attendance } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 export default function InstructorHome() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function InstructorHome() {
   const [flagged,  setFlagged]  = useState(0);
   const [loading,  setLoading]  = useState(true);
   const [refresh,  setRefresh]  = useState(false);
-  const [starting, setStarting] = useState(null); // courseId being started
+  const [starting, setStarting] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -216,7 +216,6 @@ const styles = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: Colors.bg },
   centered:{ paddingVertical: 60, alignItems: 'center' },
 
-  // Header
   header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   greeting:   { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
   name:       { fontSize: 22, fontWeight: '800', color: Colors.text, letterSpacing: -0.3 },
@@ -224,21 +223,18 @@ const styles = StyleSheet.create({
   notifDot:   { position: 'absolute', top: 6, right: 6, backgroundColor: Colors.error, borderRadius: 9, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: Colors.card },
   notifCount: { fontSize: 9, fontWeight: '800', color: '#fff' },
 
-  // Stats
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 16, gap: 10 },
   statCard:  { flex: 1, minWidth: '47%', backgroundColor: Colors.card, borderRadius: 14, padding: 14, ...Shadows.xs },
   statIcon:  { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   statValue: { fontSize: 26, fontWeight: '800', color: Colors.text, letterSpacing: -0.5, marginBottom: 3 },
   statLabel: { fontSize: 12, color: Colors.textMuted, fontWeight: '500' },
 
-  // Alert
   alertCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 16, backgroundColor: Colors.warningMuted, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.warningLight },
   alertLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   alertIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.warningLight, alignItems: 'center', justifyContent: 'center' },
   alertTitle:{ fontSize: 14, fontWeight: '700', color: Colors.warning },
   alertSub:  { fontSize: 12, color: Colors.warning, opacity: 0.75, marginTop: 2 },
 
-  // Section
   section:     { paddingHorizontal: 16, marginBottom: 24 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   sectionTitle:{ fontSize: 17, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
@@ -247,7 +243,6 @@ const styles = StyleSheet.create({
   emptyBox:  { alignItems: 'center', paddingVertical: 28, gap: 8 },
   emptyText: { fontSize: 14, color: Colors.textMuted },
 
-  // Course cards
   courseCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 14, padding: 14, marginBottom: 10, ...Shadows.xs },
   courseLeft:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   courseIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primaryMuted, alignItems: 'center', justifyContent: 'center' },
@@ -260,7 +255,6 @@ const styles = StyleSheet.create({
   startBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginLeft: 8, minWidth: 64, justifyContent: 'center' },
   startBtnText:  { fontSize: 12, fontWeight: '700', color: '#fff' },
 
-  // Quick grid
   quickGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   quickCard:    { width: '47.5%', borderRadius: 16, overflow: 'hidden', ...Shadows.sm },
   quickGradient:{ padding: 20, alignItems: 'center', justifyContent: 'center', minHeight: 100, gap: 10 },

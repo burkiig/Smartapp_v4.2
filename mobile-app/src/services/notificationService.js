@@ -12,12 +12,13 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { auth } from './api';
+import { auth } from '@/services/api';
 
 // Uygulama ön plandayken bildirimlerin nasıl gösterileceğini ayarla
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -58,7 +59,6 @@ export async function registerForPushNotificationsAsync() {
       return null;
     }
 
-    // Android için bildirim kanalı oluştur
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Varsayılan',
@@ -110,7 +110,6 @@ export async function setupPushNotifications() {
     }
     return false;
   } catch (error) {
-    // Push notification kurulumu kritik değil, hata fırlatma
     console.warn('[Notifications] Push token kaydedilemedi:', error?.message || error);
     return false;
   }
@@ -118,14 +117,6 @@ export async function setupPushNotifications() {
 
 /**
  * Bildirim dinleyicilerini başlatır.
- * Uygulama açıkken gelen bildirimlere tepki verir.
- *
- * onResponseReceive: kullanıcı bildirime tıkladığında çağrılır.
- *   data.notificationId varsa otomatik olarak backend'de okundu işaretlenir.
- *
- * @param {Function} onNotification    - Bildirim alındığında çağrılır
- * @param {Function} onResponseReceive - Kullanıcı bildirime tıkladığında çağrılır
- * @returns {Object} Dinleyici referansları (unmount'ta temizlemek için)
  */
 export function addNotificationListeners(onNotification, onResponseReceive) {
   const notificationListener = Notifications.addNotificationReceivedListener(
@@ -136,15 +127,10 @@ export function addNotificationListeners(onNotification, onResponseReceive) {
 
   const responseListener = Notifications.addNotificationResponseReceivedListener(
     async (response) => {
-      // Auto mark-read on tap: if the push payload carries a notificationId
-      // (set by the backend's create_notification → send_expo_push call),
-      // call the API immediately so the DB row is marked read.
-      // Cold-start / killed-app taps are handled separately in _layout.js
-      // processResponse as a second line of defence.
       const notifId = response?.notification?.request?.content?.data?.notificationId;
       if (notifId) {
         try {
-          const { notifications } = await import('./api');
+          const { notifications } = await import('@/services/api');
           await notifications.markRead(notifId);
         } catch {
           // Non-critical — ignore silently
@@ -159,8 +145,6 @@ export function addNotificationListeners(onNotification, onResponseReceive) {
 
 /**
  * Bildirim dinleyicilerini temizler.
- *
- * @param {Object} listeners - addNotificationListeners'dan dönen referanslar
  */
 export function removeNotificationListeners(listeners) {
   if (listeners?.notificationListener) {

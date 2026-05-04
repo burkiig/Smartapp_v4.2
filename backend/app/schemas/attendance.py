@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, Any
 from datetime import datetime
 
@@ -9,6 +9,29 @@ def _check_image_size(v: str) -> str:
     if v and len(v) > _MAX_IMAGE_CHARS:
         raise ValueError("Görüntü çok büyük. Maksimum boyut 2MB.")
     return v
+
+
+# ── GPS coordinate validators (shared by both location request models) ────────
+
+def _validate_latitude(v: float) -> float:
+    if not -90.0 <= v <= 90.0:
+        raise ValueError(f"Geçersiz enlem '{v}': [-90, 90] aralığında olmalı.")
+    return v
+
+
+def _validate_longitude(v: float) -> float:
+    if not -180.0 <= v <= 180.0:
+        raise ValueError(f"Geçersiz boylam '{v}': [-180, 180] aralığında olmalı.")
+    return v
+
+
+def _validate_not_null_island(lat: float, lon: float) -> None:
+    """Null Island (0, 0) kontrolü — sahte GPS uygulamaları sıklıkla bu noktayı kullanır."""
+    if abs(lat) < 0.0001 and abs(lon) < 0.0001:
+        raise ValueError(
+            "Koordinat (0, 0) meşru bir GPS konumu değil (Null Island). "
+            "Gerçek konumunuzu gönderin."
+        )
 
 
 class ScanQRRequest(BaseModel):
@@ -35,6 +58,21 @@ class VerifyLocationRequest(BaseModel):
     longitude: float
     accuracy: Optional[float] = None
     is_mocked: Optional[bool] = None
+
+    @field_validator("latitude")
+    @classmethod
+    def validate_lat(cls, v: float) -> float:
+        return _validate_latitude(v)
+
+    @field_validator("longitude")
+    @classmethod
+    def validate_lon(cls, v: float) -> float:
+        return _validate_longitude(v)
+
+    @model_validator(mode="after")
+    def validate_not_null_island(self):
+        _validate_not_null_island(self.latitude, self.longitude)
+        return self
 
 
 class AttendanceAttemptResponse(BaseModel):
@@ -89,11 +127,27 @@ class WebAttendanceRequest(BaseModel):
     latitude: float
     longitude: float
     accuracy: Optional[float] = None
+    is_mocked: Optional[bool] = None
 
     @field_validator("image_base64", mode="before")
     @classmethod
     def validate_image_size(cls, v):
         return _check_image_size(v)
+
+    @field_validator("latitude")
+    @classmethod
+    def validate_lat(cls, v: float) -> float:
+        return _validate_latitude(v)
+
+    @field_validator("longitude")
+    @classmethod
+    def validate_lon(cls, v: float) -> float:
+        return _validate_longitude(v)
+
+    @model_validator(mode="after")
+    def validate_not_null_island(self):
+        _validate_not_null_island(self.latitude, self.longitude)
+        return self
 
 
 class WebAttendanceResponse(BaseModel):

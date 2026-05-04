@@ -1,0 +1,42 @@
+# Environment / secrets — NEVER bake into image
+.env*
+!.env.example
+
+# Python byte-cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Test artefacts
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+pytest.ini
+setup.cfg
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Build outputs
+dist/
+build/
+*.egg-info/

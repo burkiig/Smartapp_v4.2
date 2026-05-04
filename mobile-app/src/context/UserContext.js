@@ -11,31 +11,22 @@ import {
   logout as apiLogout,
   isAuthenticated,
   getStoredUser,
-} from '../shared/services/authService';
+} from '@/services/authService';
 
 /**
  * @typedef {Object} User
- * @property {number}  id              - Backend DB primary key
- * @property {string}  username        - Login identifier (email veya kullanıcı adı)
- * @property {string}  email           - E-posta adresi
- * @property {string}  name            - Tam ad ("Ad Soyad")
+ * @property {number}  id
+ * @property {string}  username
+ * @property {string}  email
+ * @property {string}  name
  * @property {('admin'|'instructor'|'student')} role
- * @property {string} [department]     - Bölüm (öğrenci/öğretim üyesi)
- * @property {string} [student_number] - Öğrenci numarası (sadece role=student)
+ * @property {string} [department]
+ * @property {string} [student_number]
  * @property {boolean} is_active
- * @property {string}  created_at      - ISO 8601 timestamp
- *
- * @typedef {Object} UserContextValue
- * @property {User|null} user                 - Tek doğruluk kaynağı; null = giriş yok
- * @property {boolean}   isLoggedIn
- * @property {boolean}   isLoading
- * @property {string}    authError            - Son login hatası
- * @property {(username: string, password: string, expectedRole?: string) => Promise<{success: boolean, user?: User, error?: string}>} login
- * @property {() => Promise<void>} logout
- * @property {() => Promise<void>} checkAuthStatus
+ * @property {string}  created_at
  */
 
-const UserContext = createContext(/** @type {UserContextValue|undefined} */ (undefined));
+const UserContext = createContext(undefined);
 
 const EMPTY_USER = null;
 
@@ -114,7 +105,6 @@ export function UserProvider({ children }) {
     }
   }, []);
 
-  /** @type {UserContextValue} — Single Source of Truth: sadece user objesi ve auth state */
   const value = useMemo(() => ({
     user,
     isLoggedIn,

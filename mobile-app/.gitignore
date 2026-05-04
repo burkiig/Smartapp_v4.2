@@ -2,8 +2,7 @@ node_modules/
 .expo/
 dist/
 .env
-.env.local
-.env.device
-.env.*.local
+.env.*
+!.env.example
 *.orig.*
 web-build/

@@ -1,8 +1,8 @@
-import { Tabs } from 'expo-router';
+﻿import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, View, StyleSheet } from 'react-native';
-import { useUser } from '../_context/UserContext';
-import { Colors } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import { Colors } from '@/config/theme';
 
 function TabIcon({ name, color, focused }) {
   return (

@@ -3,7 +3,7 @@
  * Supports login with email OR username
  */
 import * as SecureStore from 'expo-secure-store';
-import { auth } from './api';
+import { auth } from '@/services/api';
 
 async function saveTokens(accessToken, refreshToken) {
   try {
@@ -77,7 +77,6 @@ function decodeJwtExpiry(token) {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    // base64url → base64 → JSON
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const padding = '='.repeat((4 - (base64.length % 4)) % 4);
     const payload = JSON.parse(atob(base64 + padding));
@@ -94,7 +93,7 @@ async function tryRefresh() {
   try {
     const refreshToken = await SecureStore.getItemAsync('refresh_token');
     if (!refreshToken) return false;
-    const { API_URL } = await import('../config/env');
+    const { API_URL } = await import('@/config/env');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
@@ -131,7 +130,6 @@ export const isAuthenticated = async () => {
     if (exp !== null) {
       const nowSec = Math.floor(Date.now() / 1000);
       if (exp < nowSec) {
-        // Token expired — try silent refresh
         return await tryRefresh();
       }
     }

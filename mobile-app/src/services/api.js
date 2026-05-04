@@ -1,7 +1,7 @@
 /**
  * Merkezi API Servisi — Updated for FastAPI backend (/api/v1)
  */
-import apiAdapter from '../utils/apiAdapter';
+import apiAdapter from '@/utils/apiAdapter';
 
 // ==================== AUTH ====================
 
@@ -62,18 +62,14 @@ export const sessions = {
 // ==================== ATTENDANCE PIPELINE ====================
 
 export const attendance = {
-  /**
-   * STEP 1 — POST /api/v1/attendance/scan-qr
-   */
+  /** STEP 1 — POST /api/v1/attendance/scan-qr */
   scanQR: (sessionId, qrToken) =>
     apiAdapter.post('/attendance/scan-qr', {
       session_id: sessionId,
       qr_token: qrToken,
     }),
 
-  /**
-   * STEP 2 — POST /api/v1/attendance/verify-face
-   */
+  /** STEP 2 — POST /api/v1/attendance/verify-face */
   verifyFace: (sessionId, imageBase64, imageBase64_2 = null) =>
     apiAdapter.post('/attendance/verify-face', {
       session_id: sessionId,
@@ -81,9 +77,7 @@ export const attendance = {
       image_base64_2: imageBase64_2,
     }),
 
-  /**
-   * STEP 3 — POST /api/v1/attendance/verify-location
-   */
+  /** STEP 3 — POST /api/v1/attendance/verify-location */
   verifyLocation: (sessionId, latitude, longitude, accuracy = null, is_mocked = null) =>
     apiAdapter.post('/attendance/verify-location', {
       session_id: sessionId,

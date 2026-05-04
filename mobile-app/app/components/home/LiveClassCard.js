@@ -1,8 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Shadows } from '../../shared/config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 export default function LiveClassCard({ liveClass, onStartAttendance }) {
   const pulse = useRef(new Animated.Value(1)).current;

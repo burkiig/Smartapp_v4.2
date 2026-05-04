@@ -93,3 +93,15 @@ dump.rdb
 
 # MinIO/S3
 .minio/
+
+# Team reports (may contain architecture details)
+BACKEND_DEGISIKLIK_RAPORU.txt
+*_RAPORU.txt
+*_REPORT.txt
+
+# Docker secrets / overrides (never commit)
+docker-compose.override.yml
+*.prod.env
+.env.prod
+.env.staging
+.env.production

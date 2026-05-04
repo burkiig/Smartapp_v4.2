@@ -7,8 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { dashboard, sessions } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { dashboard, sessions } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 const SESSION_STATUS = {
   active:    { label: 'Aktif',       color: Colors.success, bg: Colors.successLight },
@@ -81,7 +81,6 @@ export default function InstructorHistory() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Ders Geçmişi</Text>
@@ -96,7 +95,6 @@ export default function InstructorHistory() {
         <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
         <>
-          {/* Summary card */}
           <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <SumStat label="Toplam Ders"   value={stats?.total_courses   ?? 0} />

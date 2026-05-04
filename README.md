@@ -2,7 +2,7 @@
 
 Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-**API Sürümü:** v3.0.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** SQLite (dev) / PostgreSQL (prod) &nbsp;|&nbsp; **Storage:** Supabase (opsiyonel)
+**API Sürümü:** v3.1.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** SQLite (dev) / PostgreSQL (prod) &nbsp;|&nbsp; **Storage:** Supabase (opsiyonel)
 
 ---
 
@@ -29,8 +29,9 @@ Smart_Attendance_System/
 │
 ├── backend/                        # FastAPI backend
 │   ├── main.py                     # Uygulama giriş noktası (v3.0.0)
-│   ├── requirements.txt            # Python bağımlılıkları
-│   ├── requirements-dev.txt        # Test/geliştirme bağımlılıkları
+│   ├── requirements.txt            # Python bağımlılıkları (tam — prod)
+│   ├── requirements-test.txt       # Hafif CI bağımlılıkları (ML paketleri hariç)
+│   ├── .dockerignore               # Docker build'dan çıkarılacak dosyalar
 │   ├── Dockerfile                  # Backend container tanımı
 │   ├── entrypoint.sh               # Docker başlangıç scripti (migration + server)
 │   ├── pytest.ini                  # Test konfigürasyonu
@@ -44,7 +45,9 @@ Smart_Attendance_System/
 │   │       ├── b373651be828_initial_schema.py
 │   │       ├── a1b2c3d4e5f6_new_features.py    # Bildirim, dispute, sistem ayarları
 │   │       ├── d9e8f7a6b5c4_postgres_hardening.py
-│   │       └── f1e2d3c4b5a6_notifications_table.py
+│   │       ├── f1e2d3c4b5a6_notifications_table.py
+│   │       ├── c1d2e3f4a5b6_add_performance_indexes.py   # YENİ: sorgu indeksleri
+│   │       └── d4e5f6a7b8c9_dispute_attendance_record_fk.py  # YENİ: dispute FK
 │   │
 │   ├── scripts/
 │   │   └── encrypt_existing_embeddings.py      # Eski embedding'leri şifreler
@@ -133,7 +136,8 @@ Smart_Attendance_System/
 │       │   ├── jwt.py              # Token oluşturma (access + refresh)
 │       │   ├── password.py         # bcrypt hash/verify
 │       │   ├── dependencies.py     # FastAPI bağımlılıkları (get_current_user vb.)
-│       │   └── crypto.py           # YENİ: Fernet tabanlı embedding şifreleme
+│       │   ├── crypto.py           # Fernet tabanlı embedding şifreleme
+│       │   └── rate_limit.py       # YENİ: IP bazlı sabit pencere hız sınırı (Redis/bellek)
 │       │
 │       ├── services/               # İş mantığı katmanı
 │       │   ├── auth_service.py
@@ -147,7 +151,7 @@ Smart_Attendance_System/
 │       │
 │       └── utils/
 │           ├── qr.py               # QR token üretme ve base64 görsel
-│           ├── location.py         # Haversine mesafe, geofence doğrulama
+│           ├── location.py         # Haversine mesafe, geofence, GPS plausibility kontrolü
 │           └── push.py             # Expo push notification gönderimi
 │
 ├── web-panel/                      # React admin/öğretmen paneli
@@ -359,25 +363,40 @@ Docker ile migration otomatik olarak `entrypoint.sh` tarafından çalıştırıl
 
 ---
 
-## Backend Test Standardı (Docker)
+## Backend Test Standardı
+
+### Docker ile (CI yöntemi — önerilen)
 
 ```bash
-docker compose run --rm --no-deps \
+# Önce image'ı build et:
+docker build -t smart-attendance-backend:ci backend/
+
+# Sonra testleri pre-built image üzerinde çalıştır:
+docker run --rm \
+  -e ENV=test \
   -e TESTING=true \
   -e DATABASE_URL=sqlite:///./test.db \
-  backend python -m pytest -v
+  -e SECRET_KEY=ci-test-secret-key \
+  smart-attendance-backend:ci \
+  python -m pytest -v --tb=short
 ```
 
-Yerel ortamda:
+### Yerel ortamda (hızlı geliştirme)
 
 ```bash
 cd backend
+
+# Hafif CI bağımlılıklarını kur (insightface/onnxruntime olmadan ~1 dk):
+pip install -r requirements-test.txt
+
+# Testleri çalıştır:
 TESTING=true DATABASE_URL=sqlite:///./test.db python -m pytest -v
 ```
 
 Notlar:
-- `--no-deps` ile `db` container'ı zorunlu değildir.
 - Test veritabanı SQLite'dır; production yapılandırması etkilenmez.
+- `insightface` kurulu değilse yüz tanıma testleri otomatik atlanır (graceful fallback).
+- Rate limiter her test öncesi sıfırlanır (`conftest.py` → `reset_for_testing()`).
 - Test dosyaları: `tests/test_auth.py`, `test_attendance.py`, `test_rbac.py` vb.
 
 ---
@@ -402,8 +421,10 @@ Notlar:
 | `FACE_LIVENESS_THRESHOLD` | `0.5` | Canlılık kontrolü eşiği |
 | `DEFAULT_GEOFENCE_RADIUS_M` | `50` | Sınıf yarıçapı (metre) |
 | `MAX_GPS_ACCURACY_M` | `30.0` | Maksimum GPS hata toleransı (metre) |
+| `GPS_ACCURACY_THRESHOLD` | `80.0` | Bu değerin altındaki accuracy (m) şüpheli sayılır |
 | `QR_TOKEN_TTL_SECONDS` | `60` | QR kodunun geçerlilik süresi (saniye) |
 | `LOGIN_RATE_LIMIT` | `10/minute` | Giriş denemesi hız sınırı |
+| `REDIS_URL` | — | Redis bağlantı URL'i (opsiyonel — yoksa in-memory rate limit kullanılır) |
 | `COOKIE_SECURE` | `false` | HTTPS zorunluluğu (production'da `true` yap) |
 | `COOKIE_SAMESITE` | `lax` | Cookie SameSite politikası |
 | `DEBUG` | `false` | Swagger UI ve detaylı hata mesajları |
@@ -465,14 +486,16 @@ Tüm endpoint'ler `/api/v1` prefix'i ile başlar. Swagger UI: `http://localhost:
 
 | Method | Path | Açıklama | Yetki |
 |---|---|---|---|
-| POST | `/scan-qr` | **ADIM 1** QR tara | Öğrenci |
-| POST | `/verify-face` | **ADIM 2** Yüz doğrula | Öğrenci |
-| POST | `/verify-location` | **ADIM 3** Konum doğrula | Öğrenci |
+| POST | `/scan-qr` | **ADIM 1** QR tara *(hız sınırlı)* | Öğrenci |
+| POST | `/verify-face` | **ADIM 2** Yüz doğrula *(hız sınırlı)* | Öğrenci |
+| POST | `/verify-location` | **ADIM 3** Konum doğrula *(hız sınırlı)* | Öğrenci |
+| POST | `/web-attend` | Web üzerinden tek adımda yoklama *(hız sınırlı)* | Öğrenci |
 | GET | `/my-history` | Öğrencinin kendi geçmişi | Öğrenci |
-| GET | `/records` | Tüm kayıtlar | Öğretmen/Admin |
+| GET | `/records` | Tüm kayıtlar (SQL sayfalama, rol filtreli) | Öğretmen/Admin |
 | GET | `/session/{id}` | Oturum yoklama listesi | Öğretmen/Admin |
 | GET | `/flagged` | İşaretli kayıtlar | Öğretmen/Admin |
 | POST | `/manual` | Manuel yoklama | Öğretmen/Admin |
+| GET | `/export` | Excel/PDF dışa aktarım (`X-Export-Truncated` header'lı, max 5.000 satır) | Öğretmen/Admin |
 
 ### Face (`/api/v1/face`)
 
@@ -564,11 +587,13 @@ final_attendance_records        → Tamamlanan yoklama kayıtları
 class_cancellations             → İptal edilen dersler
 face_references                 → Yüz embedding vektörleri (Fernet şifreli)
 excuses                         → Mazeretler
-attendance_disputes             → Yoklama itirazları          [YENİ]
-notifications                   → Kullanıcı bildirimleri       [YENİ]
-audit_logs                      → Denetim kayıtları            [YENİ]
-system_settings                 → Dinamik sistem ayarları      [YENİ]
+attendance_disputes             → Yoklama itirazları (→ final_attendance_records FK)
+notifications                   → Kullanıcı bildirimleri
+audit_logs                      → Denetim kayıtları
+system_settings                 → Dinamik sistem ayarları
 ```
+
+**Performans indeksleri:** `student_id`, `course_id`, `marked_at` (final_attendance_records), `student_id`, `session_id` (attendance_attempts), `student_id`, `course_id`, `status` (attendance_disputes) kolonlarına indeks eklidir.
 
 ---
 
@@ -601,13 +626,40 @@ python scripts/encrypt_existing_embeddings.py
 ### Bildirim Sistemi
 
 - Ders iptali → derse kayıtlı öğrencilere otomatik bildirim
+- Yoklama itirazı gönderilince → öğretmene DB + Push bildirim
+- İtiraz onaylanınca/reddedilince → öğrenciye DB + Push bildirim
 - Admin broadcast → rol bazlı sistem duyurusu
 - Web panel'de bildirim zili bileşeni (her 15–30 sn badge polling)
 - Mobil uygulamada Expo Push API entegrasyonu
+- Tüm bildirim çağrıları `try-except` ile sarılıdır; servis hatası ana işlemi kesmez
+
+### Hız Sınırlama (Rate Limiting)
+
+`app/security/rate_limit.py` modülü sabit pencere (fixed window) algoritmasıyla IP bazlı hız sınırı uygular.
+
+- Login, QR tarama, yüz ve konum doğrulama endpoint'leri korunur
+- Backend: in-memory dictionary (varsayılan) veya Redis (`REDIS_URL` tanımlıysa otomatik)
+- Redis bağlantısı kesilirse in-memory'e düşer (graceful fallback)
+- FastAPI `Depends()` factory olarak bağlanır: `Depends(rate_limit("30/minute"))`
+
+### GPS Güçlendirme
+
+Koordinat doğrulaması iki katmanda uygulanır:
+
+| Katman | Kontrol |
+|---|---|
+| Pydantic şema (`VerifyLocationRequest`, `WebAttendanceRequest`) | Koordinat aralığı (±90°/±180°), Null Island (0,0) reddi |
+| Servis katmanı (`check_gps_plausibility`) | Mock GPS tespiti, sub-metre şüpheli accuracy (< 0.5 m) |
+
+`is_mocked: true` gönderilirse veya accuracy şüpheliyse kayıt `is_flagged=true` olarak işaretlenir.
 
 ### Yoklama İtiraz Sistemi
 
 Öğrenciler eksik/hatalı yoklama kayıtları için itiraz gönderebilir. Öğretmen itirazı onaylarsa `FinalAttendanceRecord` otomatik güncellenir.
+
+- `attendance_record_id` FK ile itiraz doğrudan kayda bağlıdır (veri bütünlüğü)
+- Öğrenci itiraz sonucunu anlık Expo Push bildirimiyle öğrenir
+- Öğretmen yeni itiraz geldiğinde bildirim alır
 
 ### Denetim Kayıtları (Audit Log)
 
@@ -645,8 +697,12 @@ APScheduler ile her 5 dakikada bir aktif oturumlar kontrol edilir. Bitiş saati 
 5. `DEBUG=false` yap (Swagger UI otomatik devre dışı kalır)
 6. `COOKIE_SECURE=true` ve `COOKIE_DOMAIN=.yourdomain.com` ayarla
 7. Supabase kullanıyorsan `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` ekle
-8. Web panel için `npm run build` ile production build al
-9. Docker Compose ile başlat: `docker compose up -d`
+8. (Opsiyonel) Hız sınırlama için `REDIS_URL` ekle; yoksa in-memory kullanılır
+9. `docker-compose.yml`'deki PostgreSQL port satırını `127.0.0.1:5432:5432` olarak bırak (zaten ayarlı)
+10. Web panel için `npm run build` ile production build al
+11. Docker Compose ile başlat: `docker compose up -d`
+
+> **Güvenlik hatırlatması:** `.env.prod`, `mobile-app/.env` ve benzeri tüm ortam dosyaları `.gitignore` ile koruma altındadır. Bu dosyaları **asla** versiyona ekleme. CI/CD sırlarını GitHub Actions → Settings → Secrets bölümüne gir.
 
 Alternatif olarak gunicorn ile:
 ```bash
@@ -661,21 +717,28 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 
 Bu proje, eski Flask tabanlı monolitik `app.py` sisteminin yerine geçen tam yeniden yazımdır.
 
-| Eski Sistem | Yeni Sistem |
+| Eski Sistem | Yeni Sistem (v3.1.0) |
 |---|---|
 | Flask (monolitik `app.py`, 73KB) | FastAPI (modüler router/service/repo katmanları) |
 | JSON dosya tabanlı veri saklama | SQLAlchemy ORM (SQLite/PostgreSQL) + Alembic migration |
 | Mock/sahte data | Gerçek veritabanı kayıtları |
-| username bazlı JWT | E-posta veya kullanıcı adı ile JWT |
+| username bazlı JWT | E-posta veya kullanıcı adı ile JWT + Lazy TTL blacklist |
 | passlib (uyumsuz) | Doğrudan bcrypt kullanımı |
 | Tek aşamalı yoklama | 3 aşamalı pipeline (QR + Yüz + GPS) |
-| Bildirim yok | Expo Push API + in-app bildirim sistemi |
+| Bildirim yok | Expo Push API + in-app bildirim + dispute bildirimleri |
 | Scheduler yok | APScheduler (otomatik oturum kapatma) |
 | Şifreleme yok | Fernet tabanlı embedding şifreleme |
-| İtiraz sistemi yok | Yoklama itiraz & mazeret workflow |
+| İtiraz sistemi yok | Yoklama itiraz & mazeret workflow + direkt FK |
 | Denetim kaydı yok | Audit log sistemi |
-| Docker desteği yok | Dockerfile + Docker Compose |
-| Test yok | Tam pytest suite (RBAC, auth, attendance, vb.) |
+| Hız sınırı yok | IP bazlı rate limiting (in-memory / Redis) |
+| GPS doğrulama yok | Null Island reddi + mock GPS tespiti + accuracy kontrolü |
+| N+1 sorgu sorunu | `joinedload` ile tek JOIN sorgusu |
+| Sayfalama Python'da | SQL katmanında `WHERE IN` + `COUNT(*)` ile doğru sayfalama |
+| İndeks yok | 8 kritik kolona veritabanı indeksi |
+| Export sınırı yok | `_EXPORT_LIMIT=5000` + `X-Export-Truncated` header |
+| Docker desteği yok | Dockerfile + `.dockerignore` + Docker Compose |
+| Test yok | Tam pytest suite + GPS hardening test sınıfı |
+| CI yok | GitHub Actions CI (GHA layer cache ile hızlı build) |
 
 ### Web Panel Proxy Yapılandırması
 
@@ -688,3 +751,23 @@ Bu proje, eski Flask tabanlı monolitik `app.py` sisteminin yerine geçen tam ye
 ### Supabase Entegrasyonu
 
 Supabase tamamen opsiyoneldir. `SUPABASE_URL` ve `SUPABASE_ANON_KEY` tanımlı değilse sistem yerel modda çalışır ve storage kontrolleri atlanır. Tanımlıysa `/health/ready` endpoint'i Supabase storage erişilebilirliğini de kontrol eder.
+
+---
+
+## CI/CD (GitHub Actions)
+
+Her `push` ve `pull_request`'te `.github/workflows/ci.yml` çalışır:
+
+1. **Build** — Backend Docker image'ı GitHub Actions layer cache ile build edilir (`type=gha`). `requirements.txt` değişmediği sürece ağır ML paketleri (insightface, onnxruntime) yeniden indirilmez.
+2. **Test** — Pre-built image üzerinde `docker run` ile pytest çalıştırılır. SQLite kullanılır, ayrı bir database servisi gerekmez.
+
+```yaml
+# Yerel CI simülasyonu:
+docker build -t smart-attendance-backend:ci backend/
+docker run --rm -e ENV=test -e TESTING=true \
+  -e DATABASE_URL=sqlite:///./test.db \
+  -e SECRET_KEY=test-key \
+  smart-attendance-backend:ci python -m pytest -v
+```
+
+> **Önemli:** CI sırlarını (`SECRET_KEY`, `DATABASE_URL` vb.) GitHub repo'ya düz metin olarak ekleme. GitHub → Settings → Secrets and Variables → Actions bölümünden ekle.

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, Shadows } from '../config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 const BANNER_TYPES = {
   warning: {

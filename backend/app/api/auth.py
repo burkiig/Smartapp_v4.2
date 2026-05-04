@@ -1,47 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
-from jose import jwt, JWTError
 from typing import Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+
+from app.config.settings import settings
 from app.database.connection import get_db
-from app.schemas.user import LoginRequest, TokenResponse, UserResponse, PushTokenUpdate
-from app.services.auth_service import AuthService
+from app.models.user import User
+from app.repositories.user_repo import UserRepository
+from app.schemas.user import LoginRequest, PushTokenUpdate, TokenResponse, UserResponse
 from app.security.dependencies import get_current_user, get_current_user_from_refresh
 from app.security.jwt import revoke_token
-from app.repositories.user_repo import UserRepository
-from app.models.user import User
-from app.config.settings import settings
+from app.security.rate_limit import get_client_ip, rate_limit
 from app.services.audit_service import log_action
+from app.services.auth_service import AuthService
 
 router = APIRouter()
-
-# ── Simple in-memory rate limiter for login ────────────────────────────────
-import time
-from collections import defaultdict
-
-_login_attempts: dict = defaultdict(list)
-_MAX_ATTEMPTS = 10
-_WINDOW_SECONDS = 60
-
-
-def _check_login_rate(client_ip: str) -> None:
-    now = time.time()
-    attempts = _login_attempts[client_ip]
-    _login_attempts[client_ip] = [t for t in attempts if now - t < _WINDOW_SECONDS]
-    if len(_login_attempts[client_ip]) >= _MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Çok fazla başarısız giriş denemesi. {_WINDOW_SECONDS} saniye bekleyin.",
-            headers={"Retry-After": str(_WINDOW_SECONDS)},
-        )
-    _login_attempts[client_ip].append(now)
-
-
-def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
 
 
 def _cookie_kwargs(path: str, max_age: int) -> dict:
@@ -89,23 +63,30 @@ def login(
     data: LoginRequest,
     request: Request,
     response: Response,
+    _: None = Depends(rate_limit("10/minute", key_prefix="auth:login")),
     db: Session = Depends(get_db),
 ):
     """Login with email or username + password. Sets httpOnly auth cookies."""
-    ip = _get_client_ip(request)
-    _check_login_rate(ip)
+    ip = get_client_ip(request)
     service = AuthService(db)
     try:
         result = service.login(data.login, data.password)
     except HTTPException as exc:
-        log_action(db, "login_failed", detail={"login": data.login, "reason": exc.detail}, ip_address=ip)
+        log_action(
+            db,
+            "login_failed",
+            detail={"login": data.login, "reason": exc.detail},
+            ip_address=ip,
+        )
         raise
     user = UserRepository(db).get_by_login(data.login)
     log_action(
-        db, "login_success",
+        db,
+        "login_success",
         actor_id=user.id if user else None,
         actor_role=user.role if user else None,
-        resource="user", resource_id=user.id if user else None,
+        resource="user",
+        resource_id=user.id if user else None,
         ip_address=ip,
     )
     _set_auth_cookies(response, result["access_token"], result["refresh_token"])
@@ -131,10 +112,15 @@ def refresh_token(
 
     if old_token:
         try:
-            payload = jwt.decode(old_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            payload = jwt.decode(
+                old_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
             old_jti = payload.get("jti")
+            exp = payload.get(
+                "exp"
+            )  # unix timestamp — blacklist'te tam süresine kadar tutulur
             if old_jti:
-                revoke_token(old_jti)
+                revoke_token(old_jti, expire_unix_ts=exp)
         except JWTError:
             pass
 
@@ -142,6 +128,7 @@ def refresh_token(
     result = service.refresh(current_user)
     # Only refresh the access_token cookie; issue a new refresh token too
     from app.security.jwt import create_refresh_token
+
     new_refresh = create_refresh_token(current_user.id)
     result["refresh_token"] = new_refresh
     _set_auth_cookies(response, result["access_token"], new_refresh)
@@ -182,18 +169,26 @@ def logout(
 
     if token:
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
             jti = payload.get("jti")
+            exp = payload.get(
+                "exp"
+            )  # unix timestamp — blacklist'te tam süresine kadar tutulur
             if jti:
-                revoke_token(jti)
+                revoke_token(jti, expire_unix_ts=exp)
         except JWTError:
             pass
 
     _clear_auth_cookies(response)
     log_action(
-        db, "logout",
-        actor_id=current_user.id, actor_role=current_user.role,
-        resource="user", resource_id=current_user.id,
-        ip_address=_get_client_ip(request),
+        db,
+        "logout",
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        resource="user",
+        resource_id=current_user.id,
+        ip_address=get_client_ip(request),
     )
     return {"success": True, "message": "Çıkış başarılı, token iptal edildi"}

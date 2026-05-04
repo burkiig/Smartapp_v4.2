@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -14,11 +14,19 @@ from app.schemas.attendance import (
 from app.services.attendance_service import AttendancePipelineService
 from app.services.audit_service import log_action
 from app.repositories.attendance_repo import FinalAttendanceRepository
+from app.repositories.course_repo import CourseRepository
 from app.security.dependencies import get_current_user, require_student, require_instructor
+from app.security.rate_limit import rate_limit
 from app.models.user import User
 from app.models.attendance import FinalAttendanceRecord
 
 router = APIRouter()
+
+# Tek sorguda belleğe alınacak maksimum satır sayısı.
+# 5000 satır × ~500 byte/satır ≈ 2.5 MB — makul bir sunucu belleği kullanımı.
+# Bu limitin üzerinde kayıt varsa X-Export-Truncated: true header'ı döner;
+# kullanıcı daha dar bir filtre (course_id / date) ile tekrar isteyebilir.
+_EXPORT_LIMIT = 5_000
 
 
 # ── Student pipeline ──────────────────────────────────────────────────────────
@@ -26,6 +34,8 @@ router = APIRouter()
 @router.post("/scan-qr", response_model=AttendanceAttemptResponse)
 def scan_qr(
     data: ScanQRRequest,
+    request: Request,
+    _: None = Depends(rate_limit("30/minute")),
     student: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
@@ -37,6 +47,8 @@ def scan_qr(
 @router.post("/verify-face", response_model=AttendanceAttemptResponse)
 def verify_face(
     data: VerifyFaceRequest,
+    request: Request,
+    _: None = Depends(rate_limit("20/minute")),
     student: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
@@ -48,6 +60,8 @@ def verify_face(
 @router.post("/verify-location")
 def verify_location(
     data: VerifyLocationRequest,
+    request: Request,
+    _: None = Depends(rate_limit("30/minute")),
     student: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
@@ -77,6 +91,8 @@ def get_attempt(
 @router.post("/web-attend")
 def web_attend(
     data: WebAttendanceRequest,
+    request: Request,
+    _: None = Depends(rate_limit("20/minute")),
     student: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
@@ -89,6 +105,7 @@ def web_attend(
         latitude=data.latitude,
         longitude=data.longitude,
         accuracy=data.accuracy,
+        is_mocked=data.is_mocked,
     )
 
 
@@ -123,31 +140,38 @@ def get_records(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Paginated attendance records with student info enriched."""
+    """Paginated attendance records with student info enriched.
+
+    Instructors are restricted to their own courses at the SQL level so that
+    COUNT(*) and total_pages are always accurate.
+    """
     if current_user.role not in ("admin", "instructor"):
         raise HTTPException(status_code=403, detail="Yetki gerekli")
 
-    # Instructors can only see their own courses
     effective_course_id = course_id
-    if current_user.role == "instructor" and not course_id:
-        # No filtering by default — they'll get all but records are filtered below
-        pass
+    effective_allowed_ids: Optional[List[int]] = None
+
+    if current_user.role == "instructor":
+        my_course_ids = [c.id for c in CourseRepository(db).get_by_instructor(current_user.id)]
+        if course_id:
+            if course_id not in my_course_ids:
+                raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
+            # course_id filter alone is sufficient
+        else:
+            effective_course_id = None
+            effective_allowed_ids = my_course_ids
 
     repo = FinalAttendanceRepository(db)
-    result = repo.get_all(course_id=effective_course_id, date=date, page=page, page_size=page_size)
+    result = repo.get_all(
+        course_id=effective_course_id,
+        allowed_course_ids=effective_allowed_ids,
+        date=date,
+        page=page,
+        page_size=page_size,
+    )
 
-    # If instructor, filter to own courses
-    if current_user.role == "instructor":
-        from app.repositories.course_repo import CourseRepository
-        course_repo = CourseRepository(db)
-        my_course_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
-        result["records"] = [r for r in result["records"] if r.course_id in my_course_ids]
-        result["total"] = len(result["records"])
-
-    # Enrich with student and course info
-    enriched = []
-    for r in result["records"]:
-        item = {
+    enriched = [
+        {
             "id": r.id,
             "student_id": r.student_id,
             "session_id": r.session_id,
@@ -162,7 +186,8 @@ def get_records(
             "student_name": r.student.name if r.student else None,
             "student_number": r.student.student_number if r.student else None,
         }
-        enriched.append(item)
+        for r in result["records"]
+    ]
 
     return {
         "total": result["total"],
@@ -282,18 +307,44 @@ def export_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Export attendance records as Excel or PDF."""
+    """Export attendance records as Excel or PDF.
+
+    Instructor scope is enforced at SQL level (same as /records) so the query
+    never fetches rows that would be thrown away in Python.
+    """
     if current_user.role not in ("admin", "instructor"):
         raise HTTPException(status_code=403, detail="Yetki gerekli")
 
-    repo = FinalAttendanceRepository(db)
-    result = repo.get_all(course_id=course_id, date=date, page=1, page_size=10000)
-    records = result["records"]
+    effective_course_id = course_id
+    effective_allowed_ids: Optional[List[int]] = None
 
     if current_user.role == "instructor":
-        from app.repositories.course_repo import CourseRepository
-        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
-        records = [r for r in records if r.course_id in my_ids]
+        my_ids = [c.id for c in CourseRepository(db).get_by_instructor(current_user.id)]
+        if course_id:
+            if course_id not in my_ids:
+                raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
+        else:
+            effective_course_id = None
+            effective_allowed_ids = my_ids
+
+    repo = FinalAttendanceRepository(db)
+    result = repo.get_all(
+        course_id=effective_course_id,
+        allowed_course_ids=effective_allowed_ids,
+        date=date,
+        page=1,
+        page_size=_EXPORT_LIMIT,
+    )
+    records = result["records"]
+    total_available = result["total"]
+    truncated = total_available > _EXPORT_LIMIT
+
+    # Header'lar her iki format için de ortak kullanılır
+    _meta_headers = {
+        "X-Export-Truncated": "true" if truncated else "false",
+        "X-Total-Available": str(total_available),
+        "X-Export-Limit": str(_EXPORT_LIMIT),
+    }
 
     rows = [
         {
@@ -321,11 +372,14 @@ def export_attendance(
         output = io.BytesIO()
         wb.save(output)
         output.seek(0)
-        filename = f"yoklama_raporu.xlsx"
+        filename = "yoklama_raporu.xlsx"
         return StreamingResponse(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                **_meta_headers,
+            },
         )
 
     else:  # pdf
@@ -368,7 +422,10 @@ def export_attendance(
         return StreamingResponse(
             output,
             media_type="application/pdf",
-            headers={"Content-Disposition": "attachment; filename=yoklama_raporu.pdf"},
+            headers={
+                "Content-Disposition": "attachment; filename=yoklama_raporu.pdf",
+                **_meta_headers,
+            },
         )
 
 

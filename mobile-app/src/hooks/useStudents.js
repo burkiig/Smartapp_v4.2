@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { studentService } from '../services/studentService';
+import { studentService } from '@/services/studentService';
 
 /**
  * Custom hook for managing students
- * @returns {Object} Students data and methods
  */
 export const useStudents = () => {
     const [students, setStudents] = useState([]);
@@ -11,9 +10,6 @@ export const useStudents = () => {
     const [error, setError] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
 
-    /**
-     * Fetch students from API
-     */
     const fetchStudents = useCallback(async (isRefreshing = false) => {
         try {
             if (isRefreshing) {
@@ -34,20 +30,14 @@ export const useStudents = () => {
         }
     }, []);
 
-    /**
-     * Refresh students (for pull-to-refresh)
-     */
     const refresh = useCallback(() => {
         return fetchStudents(true);
     }, [fetchStudents]);
 
-    /**
-     * Add new student
-     */
     const addStudent = useCallback(async (studentData) => {
         try {
             const result = await studentService.registerStudent(studentData);
-            await fetchStudents(); // Refresh list
+            await fetchStudents();
             return result;
         } catch (err) {
             console.error('[useStudents] Add error:', err);
@@ -55,13 +45,9 @@ export const useStudents = () => {
         }
     }, [fetchStudents]);
 
-    /**
-     * Delete student
-     */
     const deleteStudent = useCallback(async (studentId) => {
         try {
             await studentService.deleteStudent(studentId);
-            // Update local state immediately
             setStudents(prev => prev.filter(s => s.student_id !== studentId));
         } catch (err) {
             console.error('[useStudents] Delete error:', err);
@@ -69,7 +55,6 @@ export const useStudents = () => {
         }
     }, []);
 
-    // Fetch on mount
     useEffect(() => {
         fetchStudents();
     }, [fetchStudents]);

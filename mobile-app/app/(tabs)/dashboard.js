@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, RefreshControl,
@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useUser } from '../_context/UserContext';
-import { dashboard, courses } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import { dashboard, courses } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 import HomeScreen from './home';
 
 export default function DashboardScreen() {

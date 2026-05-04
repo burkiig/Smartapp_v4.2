@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ScrollView, Alert, ActivityIndicator, RefreshControl,
@@ -6,9 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useUser } from '../_context/UserContext';
-import { attendance, excuses as excusesApi, disputes as disputesApi } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import { attendance, excuses as excusesApi, disputes as disputesApi } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 /* ─── Student placeholder ────────────────────────────────────────────────── */
 function StudentPlaceholder() {

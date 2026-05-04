@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, FlatList, TextInput, Modal, Alert, ActivityIndicator,
@@ -7,8 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { sessions, rooms as roomsApi, attendance as attendanceApi, courses as coursesApi } from './shared/services/api';
-import { Colors, Shadows } from './shared/config/theme';
+import { sessions, rooms as roomsApi, attendance as attendanceApi, courses as coursesApi } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 const STATUS_MAP = {
   present: { label: 'Mevcut',    color: Colors.success, bg: Colors.successLight },

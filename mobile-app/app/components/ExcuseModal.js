@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Colors, Shadows } from '../shared/config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 const EXCUSE_TYPES = [
   { value: 'medical',        label: 'Sağlık (Sağlık Raporu)',           icon: 'medical' },

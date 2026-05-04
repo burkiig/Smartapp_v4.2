@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useUser } from '../_context/UserContext';
-import InstructorHome from '../_screens/InstructorHome';
+import { useUser } from '@/context/UserContext';
+import InstructorHome from '@/screens/InstructorHome';
 import Header from '../components/home/Header';
 import LiveClassCard from '../components/home/LiveClassCard';
 import QuickActions from '../components/home/QuickActions';
 import MonthStats from '../components/home/MonthStats';
 import RecentActivity from '../components/home/RecentActivity';
-import { sessions, dashboard, courses } from '../shared/services/api';
+import { sessions, dashboard, courses } from '@/services/api';
 
 // ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
 function StudentHomeScreen() {

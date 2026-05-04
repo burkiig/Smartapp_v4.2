@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, FlatList, Alert, ActivityIndicator, RefreshControl,
@@ -7,10 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useUser } from '../_context/UserContext';
-import InstructorHistory from '../_screens/InstructorHistory';
-import { attendance, disputes } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import InstructorHistory from '@/screens/InstructorHistory';
+import { attendance, disputes } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 const STATUS = {
   present: { label: 'Mevcut',    icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },

@@ -266,3 +266,129 @@ class TestWebAttendInputValidation:
             # missing image_base64, latitude, longitude
         }, headers=student_headers)
         assert resp.status_code == 422
+
+
+class TestGpsHardening:
+    """PART 4 — GPS koordinat ve plausibility validator testleri."""
+
+    # ── Schema-level (Pydantic 422) ───────────────────────────────────────────
+
+    def test_null_island_verify_location_rejected(self, client, student_headers, active_session, enrollment):
+        """(0, 0) koordinatı verify-location'a ulaşmamalı — 422."""
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 0.0,
+            "longitude": 0.0,
+        }, headers=student_headers)
+        assert resp.status_code == 422
+
+    def test_null_island_web_attend_rejected(self, client, student_headers, active_session, enrollment):
+        """(0, 0) koordinatı web-attend'e ulaşmamalı — 422."""
+        resp = client.post("/api/v1/attendance/web-attend", json={
+            "session_id": active_session.id,
+            "image_base64": "dGVzdA==",
+            "latitude": 0.0,
+            "longitude": 0.0,
+        }, headers=student_headers)
+        assert resp.status_code == 422
+
+    def test_latitude_out_of_range_rejected(self, client, student_headers, active_session, enrollment):
+        """lat=95 aralık dışı — 422."""
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 95.0,
+            "longitude": 29.0,
+        }, headers=student_headers)
+        assert resp.status_code == 422
+
+    def test_longitude_out_of_range_rejected(self, client, student_headers, active_session, enrollment):
+        """lon=200 aralık dışı — 422."""
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 41.0,
+            "longitude": 200.0,
+        }, headers=student_headers)
+        assert resp.status_code == 422
+
+    def test_near_null_island_not_rejected(self, client, student_headers, active_session, enrollment):
+        """(0.001, 0.001) Null Island değil — 422 DEĞİL (auth/pipeline hatası olabilir ama GPS kabul edilmeli)."""
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 0.001,
+            "longitude": 0.001,
+        }, headers=student_headers)
+        # 422 olmamalı; pipeline hatası (400) veya başarı (200) beklenir
+        assert resp.status_code != 422
+
+    # ── Service-level flag (suspicious_accuracy) ──────────────────────────────
+
+    def test_suspicious_accuracy_flagged(
+        self, client, db, student_headers, active_session, enrollment, student_user
+    ):
+        """accuracy=0.001m → sub-metre hassasiyet → suspicious_accuracy flag."""
+        # Pipeline'ı STEP 3'e hazırla
+        active_session.latitude = None  # geofence'i atla
+        active_session.longitude = None
+        db.commit()
+
+        qr_resp = client.post("/api/v1/attendance/scan-qr", json={
+            "session_id": active_session.id,
+            "qr_token": active_session.qr_token,
+        }, headers=student_headers)
+        assert qr_resp.status_code == 200
+
+        from app.models.attendance import AttendanceAttempt
+        attempt = db.query(AttendanceAttempt).filter(
+            AttendanceAttempt.student_id == student_user.id,
+            AttendanceAttempt.session_id == active_session.id,
+        ).first()
+        attempt.face_status = "verified"
+        db.commit()
+
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 41.015137,
+            "longitude": 28.979530,
+            "accuracy": 0.001,   # sub-metre → fiziksel olarak imkansız
+            "is_mocked": False,
+        }, headers=student_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_flagged"] is True
+        assert data["flag_reason"] == "suspicious_accuracy"
+        assert data["status"] == "pending_review"
+
+    def test_is_mocked_beats_suspicious_accuracy(
+        self, client, db, student_headers, active_session, enrollment, student_user
+    ):
+        """is_mocked=True + accuracy=0.001 → fake_gps_detected (is_mocked öncelikli)."""
+        active_session.latitude = None
+        active_session.longitude = None
+        db.commit()
+
+        client.post("/api/v1/attendance/scan-qr", json={
+            "session_id": active_session.id,
+            "qr_token": active_session.qr_token,
+        }, headers=student_headers)
+
+        from app.models.attendance import AttendanceAttempt
+        attempt = db.query(AttendanceAttempt).filter(
+            AttendanceAttempt.student_id == student_user.id,
+            AttendanceAttempt.session_id == active_session.id,
+        ).first()
+        attempt.face_status = "verified"
+        db.commit()
+
+        resp = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 41.015137,
+            "longitude": 28.979530,
+            "accuracy": 0.001,
+            "is_mocked": True,
+        }, headers=student_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_flagged"] is True
+        assert data["flag_reason"] == "fake_gps_detected"  # is_mocked öncelikli

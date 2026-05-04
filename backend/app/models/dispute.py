@@ -21,6 +21,18 @@ class AttendanceDispute(Base):
     status = Column(String, default="pending", nullable=False)
     instructor_notes = Column(Text, nullable=True)
     reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Direkt FK — itiraz hangi yoklama kaydını hedefliyor?
+    # NULL: öğrencinin o oturum için yoklama kaydı henüz yoksa
+    #       (örn. hiç katılmadı, kayıt oluşmadı)
+    # SET NULL: yoklama kaydı silinirse itiraz kaybolmaz, FK sadece NULL olur
+    attendance_record_id = Column(
+        Integer,
+        ForeignKey("final_attendance_records.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
@@ -28,3 +40,7 @@ class AttendanceDispute(Base):
     reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])
     session = relationship("AttendanceSession")
     course = relationship("Course")
+    attendance_record = relationship(
+        "FinalAttendanceRecord",
+        foreign_keys=[attendance_record_id],
+    )

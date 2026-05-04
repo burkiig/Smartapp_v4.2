@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert,
 } from 'react-native';
@@ -6,9 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUser } from './_context/UserContext';
+import { useUser } from '@/context/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Shadows } from './shared/config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 const SETTINGS_KEY = '@smart_attendance_settings';
 

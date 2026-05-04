@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, Modal, Alert, ActivityIndicator,
@@ -6,8 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { courses, sessions } from './shared/services/api';
-import { Colors, Shadows } from './shared/config/theme';
+import { courses, sessions } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 const REASONS = [
   { id: 1, label: 'Hoca müsait değil',   icon: 'person-outline',     value: 'Hoca müsait değil' },

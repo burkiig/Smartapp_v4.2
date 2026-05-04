@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUser } from '../_context/UserContext';
-import { auth, dashboard } from '../shared/services/api';
-import { Colors, Shadows } from '../shared/config/theme';
+import { useUser } from '@/context/UserContext';
+import { auth, dashboard } from '@/services/api';
+import { Colors, Shadows } from '@/config/theme';
 
 export default function InstructorProfile() {
   const router = useRouter();
@@ -49,7 +49,6 @@ export default function InstructorProfile() {
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
-        {/* Hero */}
         <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.hero}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -64,7 +63,6 @@ export default function InstructorProfile() {
           <View style={styles.centered}><ActivityIndicator color={Colors.primary} /></View>
         ) : (
           <>
-            {/* Stats */}
             <View style={styles.statsGrid}>
               {STATS.map(s => (
                 <View key={s.label} style={styles.statCard}>
@@ -77,14 +75,12 @@ export default function InstructorProfile() {
               ))}
             </View>
 
-            {/* Info */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Kişisel Bilgiler</Text>
               <InfoRow icon="mail-outline"     color={Colors.primary} label="E-posta" value={email} />
               <InfoRow icon="business-outline" color="#7C3AED"        label="Bölüm"   value={dept} last />
             </View>
 
-            {/* Logout */}
             <View style={styles.section}>
               <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
                 <Ionicons name="log-out-outline" size={20} color={Colors.error} />

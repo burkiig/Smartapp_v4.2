@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { API_URL } from '../config/env';
+import { API_URL } from '@/config/env';
 
 const BASE_URL = `${API_URL}/api/v1`;
 const TIMEOUT_MS = 30000;         // 30s — base64 fotoğraf upload için yeterli
@@ -110,17 +110,11 @@ async function request(method, path, body = null, customToken = null) {
  * normalizeResponse — Backend'den gelen heterojen response/error formatlarını
  * mobil tarafın anlayacağı standart envelope'a dönüştürür.
  *
- * UI katmanı backend formatından (Pydantic response_model, {success, message},
- * {detail}, vb.) bağımsız hale gelir.
- *
  * @typedef {Object} NormalizedResponse
- * @property {boolean} success         - true: HTTP 2xx + parse OK, false: aksi
- * @property {*}       data            - success=true ise raw payload, aksi null
- * @property {string|null} message     - hata mesajı (success=false) veya null
- * @property {boolean} requiresLogin   - 401 sonrası refresh başarısızsa true
- *
- * @param {Function} promiseFn - request(...) çağrısı dönen promise
- * @returns {Promise<NormalizedResponse>}
+ * @property {boolean} success
+ * @property {*}       data
+ * @property {string|null} message
+ * @property {boolean} requiresLogin
  */
 async function normalizeResponse(promiseFn) {
   try {
@@ -137,7 +131,7 @@ async function normalizeResponse(promiseFn) {
 }
 
 const apiAdapter = {
-  // ── Raw API (mevcut tüketiciler — başarıda payload, hatada throw) ────────
+  // ── Raw API ──────────────────────────────────────────────────────────────
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
@@ -145,7 +139,7 @@ const apiAdapter = {
   delete: (path) => request('DELETE', path),
   postWithToken: (path, body, token) => request('POST', path, body, token),
 
-  // ── Normalized API (yeni kod için — her zaman envelope döner, throw yok) ──
+  // ── Normalized API ───────────────────────────────────────────────────────
   getNormalized:    (path)        => normalizeResponse(() => request('GET',    path)),
   postNormalized:   (path, body)  => normalizeResponse(() => request('POST',   path, body)),
   putNormalized:    (path, body)  => normalizeResponse(() => request('PUT',    path, body)),

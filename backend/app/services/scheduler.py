@@ -1,14 +1,26 @@
 """
 APScheduler — Automatic session open/close based on course schedules.
+
+Timezone notu:
+  Tüm "şu an saat kaç?" sorguları ZoneInfo("Europe/Istanbul") ile yapılır.
+  Önceki datetime.now() (sistem saati, timezone-naive) kullanımı yaz saati
+  geçişlerinde (DST) oturumların açılmamasına veya çift açılmasına yol açıyordu.
+  ZoneInfo stdlib modülü (Python 3.9+) — ek paket gerekmez.
 """
+
 import logging
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
+
+# Tek tanım — her fonksiyonda tekrar yazılmaz
+_ISTANBUL = ZoneInfo("Europe/Istanbul")
 
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
+
     SCHEDULER_AVAILABLE = True
 except ImportError:
     SCHEDULER_AVAILABLE = False
@@ -18,7 +30,7 @@ _scheduler = None
 
 
 def _parse_time(t: str) -> time | None:
-    """Safely parse HH:MM string to time object for proper comparison."""
+    """HH:MM string'ini time nesnesine dönüştür. Hatalı formatta None döner."""
     try:
         parts = t.strip().split(":")
         return time(int(parts[0]), int(parts[1]))
@@ -33,8 +45,9 @@ def _open_scheduled_sessions():
 
     db = SessionLocal()
     try:
-        now = datetime.now()
-        today_name = now.strftime("%A")   # "Monday", "Tuesday", etc.
+        # timezone-aware: DST geçişlerinde doğru saat
+        now = datetime.now(_ISTANBUL)
+        today_name = now.strftime("%A")  # "Monday", "Tuesday", ...
         today_date = now.strftime("%Y-%m-%d")
         current_time = now.time().replace(second=0, microsecond=0)
 
@@ -53,28 +66,38 @@ def _open_scheduled_sessions():
             if current_time != start_time:
                 continue
 
-            existing = db.query(AttendanceSession).filter(
-                AttendanceSession.course_id == course.id,
-                AttendanceSession.date == today_date,
-            ).first()
+            existing = (
+                db.query(AttendanceSession)
+                .filter(
+                    AttendanceSession.course_id == course.id,
+                    AttendanceSession.date == today_date,
+                )
+                .first()
+            )
             if existing:
                 continue
 
+            from datetime import timezone as _utc
+
             from app.utils.qr import generate_qr_token
-            from datetime import timezone as _tz
+
             session = AttendanceSession(
                 course_id=course.id,
                 date=today_date,
                 start_time=start_str,
                 end_time=schedule.get("end_time"),
                 qr_token=generate_qr_token(),
-                qr_token_issued_at=datetime.now(_tz.utc),
+                qr_token_issued_at=datetime.now(_utc.utc),  # DB'ye UTC kaydedilir
             )
             db.add(session)
             db.commit()
-            logger.info(f"[Scheduler] Auto-opened session for course {course.code} at {start_str}")
+            logger.info(
+                "[Scheduler] Auto-opened session for course %s at %s",
+                course.code,
+                start_str,
+            )
     except Exception as e:
-        logger.error(f"[Scheduler] _open_scheduled_sessions error: {e}")
+        logger.error("[Scheduler] _open_scheduled_sessions error: %s", e)
         db.rollback()
     finally:
         db.close()
@@ -87,14 +110,19 @@ def _close_expired_sessions():
 
     db = SessionLocal()
     try:
-        now = datetime.now()
+        # timezone-aware: DST geçişlerinde doğru saat
+        now = datetime.now(_ISTANBUL)
         today_date = now.strftime("%Y-%m-%d")
         current_time = now.time().replace(second=0, microsecond=0)
 
-        active_sessions = db.query(AttendanceSession).filter(
-            AttendanceSession.status == "active",
-            AttendanceSession.date == today_date,
-        ).all()
+        active_sessions = (
+            db.query(AttendanceSession)
+            .filter(
+                AttendanceSession.status == "active",
+                AttendanceSession.date == today_date,
+            )
+            .all()
+        )
 
         for session in active_sessions:
             if not session.end_time:
@@ -105,11 +133,15 @@ def _close_expired_sessions():
             if current_time >= end_time:
                 session.status = "closed"
                 db.commit()
-                # Keep student history consistent: create absent rows for non-attendees.
+                # Devamsız öğrenciler için "absent" kayıt oluştur
                 SessionService(db).auto_mark_absent_students(session.id)
-                logger.info(f"[Scheduler] Auto-closed session {session.id} (end_time={session.end_time})")
+                logger.info(
+                    "[Scheduler] Auto-closed session %s (end_time=%s)",
+                    session.id,
+                    session.end_time,
+                )
     except Exception as e:
-        logger.error(f"[Scheduler] _close_expired_sessions error: {e}")
+        logger.error("[Scheduler] _close_expired_sessions error: %s", e)
         db.rollback()
     finally:
         db.close()
@@ -120,15 +152,15 @@ def start_scheduler():
     if not SCHEDULER_AVAILABLE:
         return None
 
-    _scheduler = BackgroundScheduler(timezone="Europe/Istanbul")
-    # Run every minute at second=0 to check for sessions to open
+    # Scheduler'a da ZoneInfo nesnesi geç — string değil
+    _scheduler = BackgroundScheduler(timezone=_ISTANBUL)
+
     _scheduler.add_job(
         _open_scheduled_sessions,
         trigger=CronTrigger(minute="*", second=0),
         id="open_sessions",
         replace_existing=True,
     )
-    # Run every minute at second=15 to close expired sessions
     _scheduler.add_job(
         _close_expired_sessions,
         trigger=CronTrigger(minute="*", second=15),
@@ -136,25 +168,29 @@ def start_scheduler():
         replace_existing=True,
     )
     _scheduler.start()
-    logger.info("[Scheduler] APScheduler started (Europe/Istanbul timezone)")
+    logger.info("[Scheduler] APScheduler started (timezone: Europe/Istanbul)")
 
-    # Feature 6: session reminder push notifications (5 min before class)
+    # Ders başlamadan 5 dakika önce push bildirimi
     try:
-        from app.services.notification_service import schedule_session_reminder_jobs
         from app.database.connection import SessionLocal
+        from app.services.notification_service import schedule_session_reminder_jobs
+
         schedule_session_reminder_jobs(_scheduler, SessionLocal)
     except Exception as e:
-        logger.warning(f"[Scheduler] Could not register session reminder job: {e}")
+        logger.warning("[Scheduler] Could not register session reminder job: %s", e)
 
-    # Retention: delete read notifications older than 30 days — runs at 03:00 daily
+    # Okunmuş eski bildirimleri temizle — her gün 03:00'da (Istanbul saatiyle)
     def _cleanup_notifications():
         from app.database.connection import SessionLocal
         from app.repositories.notification_repo import NotificationRepository
+
         db = SessionLocal()
         try:
             deleted = NotificationRepository.cleanup_old_notifications(db)
             if deleted:
-                logger.info("[Scheduler] Notification cleanup: deleted %d old rows", deleted)
+                logger.info(
+                    "[Scheduler] Notification cleanup: deleted %d old rows", deleted
+                )
         except Exception as exc:
             logger.error("[Scheduler] Notification cleanup failed: %s", exc)
         finally:
@@ -166,7 +202,7 @@ def start_scheduler():
         id="notification_cleanup",
         replace_existing=True,
     )
-    logger.info("[Scheduler] Notification cleanup job scheduled (daily 03:00)")
+    logger.info("[Scheduler] Notification cleanup job scheduled (daily 03:00 Istanbul)")
 
     return _scheduler
 

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, saveToken, removeToken } from '../utils/tokenStorage';
 import { router } from 'expo-router';
-import { config } from '../../app/shared/config/env';
+import { config } from '../../app/_shared/config/env';
 
 /**
  * Get API Base URL from environment

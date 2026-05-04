@@ -1,7 +1,7 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Shadows } from '../../shared/config/theme';
+import { Colors, Shadows } from '@/config/theme';
 
 const STATUS_MAP = {
   'Katıldı':   { icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
