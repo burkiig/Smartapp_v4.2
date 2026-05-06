@@ -126,6 +126,10 @@ export const face = {
   /** GET /api/v1/face/my-status */
   myStatus: () =>
     apiAdapter.get('/face/my-status'),
+
+  /** POST /api/v1/face/verify — standalone login 2FA face check */
+  verify: (imageBase64, imageBase64_2 = null) =>
+    apiAdapter.post('/face/verify', { image_base64: imageBase64, image_base64_2: imageBase64_2 }),
 };
 
 // ==================== USERS ====================

@@ -83,7 +83,7 @@ export default function QRScanScreen() {
       if (isVerified) {
         setScanState('success');
         setTimeout(() => {
-          router.replace({ pathname: '/face-scan', params: { session_id: resolvedSessionId } });
+          router.replace({ pathname: '/gps-verify', params: { session_id: resolvedSessionId } });
         }, 800);
       } else {
         setScanState('error');
@@ -168,12 +168,11 @@ export default function QRScanScreen() {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>QR Kod Okuyucu</Text>
-            <Text style={styles.headerSubtitle}>Adım 1 / 3 — QR Doğrulama</Text>
+            <Text style={styles.headerSubtitle}>Adım 1 / 2 — QR Doğrulama</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
             <View style={[styles.stepDot, styles.stepDotActive]} />
-            <View style={styles.stepDot} />
             <View style={styles.stepDot} />
           </View>
         </View>
@@ -232,7 +231,7 @@ export default function QRScanScreen() {
             <Text style={styles.statusSubtitle}>
               {scanState === 'scanning'  ? 'QR kodu otomatik olarak okunacak'      :
                scanState === 'verifying' ? 'Lütfen bekleyin...'                    :
-               scanState === 'success'   ? 'Yüz taramasına yönlendiriliyorsunuz...' :
+               scanState === 'success'   ? 'GPS doğrulamasına yönlendiriliyorsunuz...' :
                scanState === 'error'     ? errorMessage                            : ''}
             </Text>
           </View>
@@ -253,11 +252,6 @@ export default function QRScanScreen() {
           <View style={styles.chainStep}>
             <Ionicons name="qr-code" size={16} color="#fff" />
             <Text style={[styles.chainLabel, styles.chainLabelActive]}>QR Kod</Text>
-          </View>
-          <View style={styles.chainArrow} />
-          <View style={styles.chainStep}>
-            <Ionicons name="happy-outline" size={16} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.chainLabel}>Yüz</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>

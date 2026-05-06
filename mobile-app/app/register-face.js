@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { face } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 
@@ -28,8 +29,11 @@ const STEPS = [
 
 export default function RegisterFaceScreen() {
   const router  = useRouter();
-  const { onboarding } = useLocalSearchParams();
-  const isOnboarding = onboarding === 'true';
+  const { onboarding, login_flow } = useLocalSearchParams();
+  // login_flow: came from login screen → must complete face registration then verify
+  // onboarding: legacy param, treated same as login_flow for back-compat
+  const isLoginFlow  = login_flow === 'true';
+  const isOnboarding = isLoginFlow || onboarding === 'true';
   const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep]             = useState(1);
   const [processing, setProcessing] = useState(false);
@@ -104,13 +108,19 @@ export default function RegisterFaceScreen() {
     setProcessing(true);
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.7 });
-      if (!photo?.base64) {
+      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
+      if (!photo?.uri) {
         Alert.alert('Hata', 'Fotoğraf çekilemedi. Tekrar deneyin.');
         return;
       }
 
-      const newPhotos = [...photos, photo.base64];
+      const resized = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 640 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      const newPhotos = [...photos, resized.base64];
       setPhotos(newPhotos);
 
       if (step < 3) {
@@ -126,12 +136,14 @@ export default function RegisterFaceScreen() {
         if (enrollOk) {
           Alert.alert(
             'Kayıt Başarılı',
-            'Yüzünüz başarıyla sisteme kaydedildi.',
+            'Yüzünüz sisteme kaydedildi. Şimdi kimliğinizi doğrulayın.',
             [{
-              text: 'Tamam',
-              onPress: () => isOnboarding
-                ? router.replace('/(tabs)/home')
-                : router.back(),
+              text: 'Devam Et',
+              onPress: () => isLoginFlow
+                ? router.replace('/login-face-verify')
+                : isOnboarding
+                  ? router.replace('/(tabs)/home')
+                  : router.back(),
             }]
           );
         } else {
@@ -191,7 +203,9 @@ export default function RegisterFaceScreen() {
           <View style={styles.onboardingBanner}>
             <Ionicons name="information-circle-outline" size={18} color="rgba(255,255,255,0.9)" />
             <Text style={styles.onboardingText}>
-              Yoklama alabilmek için yüzünüzü bir kez kaydetmeniz gerekiyor.
+              {isLoginFlow
+                ? 'Uygulamaya giriş yapabilmek için yüzünüzü bir kez kaydetmeniz gerekiyor.'
+                : 'Yoklama alabilmek için yüzünüzü bir kez kaydetmeniz gerekiyor.'}
             </Text>
           </View>
         )}
@@ -281,8 +295,8 @@ export default function RegisterFaceScreen() {
           <Text style={styles.tipsText}>• Yüzünüzü çerçeve içinde tutun</Text>
         </View>
 
-        {/* Onboarding skip */}
-        {isOnboarding && (
+        {/* Skip only available for non-login onboarding */}
+        {isOnboarding && !isLoginFlow && (
           <TouchableOpacity
             style={styles.skipBtn}
             onPress={() => router.replace('/(tabs)/home')}

@@ -298,11 +298,10 @@ export default function GPSVerifyScreen() {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>GPS Doğrulama</Text>
-            <Text style={styles.headerSubtitle}>Adım 3 / 3 — Konum Kontrolü</Text>
+            <Text style={styles.headerSubtitle}>Adım 2 / 2 — Konum Kontrolü</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
-            <View style={styles.stepDot} />
             <View style={styles.stepDot} />
             <View style={[styles.stepDot, styles.stepDotActive]} />
           </View>
@@ -318,11 +317,6 @@ export default function GPSVerifyScreen() {
           <View style={styles.chainStep}>
             <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
             <Text style={styles.chainLabel}>QR Kod</Text>
-          </View>
-          <View style={styles.chainArrow} />
-          <View style={styles.chainStep}>
-            <Ionicons name="happy-outline" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.chainLabel}>Yüz</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>

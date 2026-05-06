@@ -93,3 +93,30 @@ def my_face_status(
 ):
     service = FaceService(db)
     return {"user_id": current_user.id, "is_enrolled": service.is_enrolled(current_user.id)}
+
+
+class VerifyRequest(BaseModel):
+    image_base64: str
+    image_base64_2: Optional[str] = None
+
+
+@router.post("/verify")
+def verify_face(
+    data: VerifyRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Standalone face verification — used for login 2FA after password auth."""
+    _validate_image(data.image_base64)
+    if data.image_base64_2:
+        _validate_image(data.image_base64_2)
+    service = FaceService(db)
+    verified, confidence = service.verify(
+        current_user.id,
+        data.image_base64,
+        data.image_base64_2,
+        accessed_by="/api/v1/face/verify",
+        ip_address=request.client.host if request.client else None,
+    )
+    return {"verified": verified, "confidence": round(confidence, 4)}

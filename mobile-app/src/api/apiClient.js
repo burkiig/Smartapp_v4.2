@@ -9,7 +9,7 @@ import { config } from '../../app/_shared/config/env';
 const getApiBaseUrl = () => {
   // Use env.js configuration
   const baseURL = config.API_URL + '/api';
-  console.log('[apiClient] Base URL:', baseURL);
+  if (__DEV__) console.log('[apiClient] Base URL:', baseURL);
   return baseURL;
 };
 

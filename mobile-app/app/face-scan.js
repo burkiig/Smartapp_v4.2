@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { attendance } from '@/services/api';
 
 const { width } = Dimensions.get('window');
@@ -31,34 +32,40 @@ export default function FaceScanScreen() {
     setIsScanning(true);
 
     try {
-      // Take first frame
-      const photo1 = await cameraRef.current.takePictureAsync({
-        base64: true,
-        quality: 0.7,
-      });
+      // Take first frame (full quality, will be resized below)
+      const photo1 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
 
-      if (!photo1?.base64) {
+      if (!photo1?.uri) {
         Alert.alert('Hata', 'Fotoğraf çekilemedi. Lütfen tekrar deneyin.');
         return;
       }
+
+      // Resize to 640px — sufficient for face recognition, reduces payload ~10x
+      const resized1 = await ImageManipulator.manipulateAsync(
+        photo1.uri,
+        [{ resize: { width: 640 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
 
       // Wait briefly and take second frame for liveness detection
       await new Promise(resolve => setTimeout(resolve, 500));
 
       let photo2Base64 = null;
       try {
-        const photo2 = await cameraRef.current.takePictureAsync({
-          base64: true,
-          quality: 0.7,
-        });
-        photo2Base64 = photo2?.base64 || null;
+        const photo2 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
+        const resized2 = await ImageManipulator.manipulateAsync(
+          photo2.uri,
+          [{ resize: { width: 640 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        photo2Base64 = resized2.base64;
       } catch {
         // Second frame optional — liveness will be skipped on backend
       }
 
       const result = await attendance.verifyFace(
         parseInt(session_id),
-        photo1.base64,
+        resized1.base64,
         photo2Base64,
       );
 

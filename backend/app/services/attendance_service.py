@@ -147,9 +147,9 @@ class AttendancePipelineService:
         is_mocked: Optional[bool] = None,
     ) -> dict:
         attempt = self.attempt_repo.get_by_student_session(student.id, session_id)
-        if not attempt or attempt.face_status != "verified":
+        if not attempt or attempt.qr_status != "verified":
             raise HTTPException(
-                status_code=400, detail="Önce yüz doğrulamasını tamamlayın"
+                status_code=400, detail="Önce QR kodu taratın"
             )
 
         session = self.session_repo.get_by_id(session_id)

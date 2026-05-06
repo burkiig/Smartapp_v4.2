@@ -19,12 +19,11 @@ import {
 const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 function AuthGuard() {
-  const { isLoggedIn, isLoading, user } = useUser();
+  const { isLoggedIn, isLoading, isFaceVerified, user } = useUser();
   const router = useRouter();
   const segments = useSegments();
   const role = user?.role;
 
-  // Sadece kritik grup değiştiğinde yeniden hesapla
   const routeGroup = useMemo(() => {
     if (segments.length === 0 || segments[0] === 'index') return 'login';
     if (segments[0] === '(tabs)') return 'tabs';
@@ -34,16 +33,34 @@ function AuthGuard() {
   useEffect(() => {
     if (isLoading) return;
 
-    if (isLoggedIn && routeGroup === 'login') {
-      const destination = (role === 'instructor' || role === 'admin')
-        ? '/(tabs)/dashboard'
-        : '/(tabs)/home';
-      router.replace(destination);
-    } else if (!isLoggedIn && routeGroup === 'tabs') {
-      router.replace('/');
+    if (isLoggedIn) {
+      // ── Authenticated ──────────────────────────────────────────────────────
+      if (!isFaceVerified) {
+        // Face not yet verified this session.
+        // Block access to tabs — user must verify first.
+        // If they're still on the login screen, leave them there so they can
+        // enter credentials (handles cold-start / "friend's phone" scenario).
+        if (routeGroup === 'tabs') {
+          router.replace('/login-face-verify');
+        }
+        // routeGroup === 'login'  → stay on login panel, do nothing
+        // routeGroup === 'other'  → login-face-verify / register-face, do nothing
+        return;
+      }
+
+      // Face verified — if still on login screen, send to correct dashboard
+      if (routeGroup === 'login') {
+        router.replace(
+          role === 'instructor' || role === 'admin'
+            ? '/(tabs)/dashboard'
+            : '/(tabs)/home',
+        );
+      }
+    } else {
+      // Not authenticated — push back to login if inside the app
+      if (routeGroup === 'tabs') router.replace('/');
     }
-    // Other screens (qr-scan, face-scan, gps-verify, etc.) — leave as-is
-  }, [isLoggedIn, isLoading, routeGroup, role]);
+  }, [isLoggedIn, isLoading, isFaceVerified, routeGroup, role]);
 
   return null;
 }

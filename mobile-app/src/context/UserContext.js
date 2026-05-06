@@ -35,6 +35,9 @@ export function UserProvider({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  // In-memory only — intentionally NOT persisted to SecureStore.
+  // Cleared on every cold start, forcing face re-verification each new session.
+  const [isFaceVerified, setIsFaceVerified] = useState(false);
 
   const checkAuthStatus = useCallback(async () => {
     try {
@@ -101,6 +104,7 @@ export function UserProvider({ children }) {
     } finally {
       setUser(EMPTY_USER);
       setIsLoggedIn(false);
+      setIsFaceVerified(false);
       setAuthError('');
     }
   }, []);
@@ -110,10 +114,12 @@ export function UserProvider({ children }) {
     isLoggedIn,
     isLoading,
     authError,
+    isFaceVerified,
+    setFaceVerified: setIsFaceVerified,
     login,
     logout,
     checkAuthStatus,
-  }), [user, isLoggedIn, isLoading, authError, login, logout, checkAuthStatus]);
+  }), [user, isLoggedIn, isLoading, authError, isFaceVerified, login, logout, checkAuthStatus]);
 
   return (
     <UserContext.Provider value={value}>

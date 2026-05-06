@@ -6,6 +6,41 @@
   padding: 0;
 }
 
+/* ── Tab Bar ────────────────────────────────────────────────── */
+.audit-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border, #e2e8f0);
+  padding-bottom: 0;
+}
+
+.audit-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  border-radius: 0;
+}
+
+.audit-tab:hover {
+  color: var(--primary, #2563eb);
+}
+
+.audit-tab-active {
+  color: var(--primary, #2563eb);
+  border-bottom-color: var(--primary, #2563eb);
+}
+
 /* ── Header ────────────────────────────────────────────────── */
 .audit-header {
   display: flex;
@@ -243,4 +278,213 @@
   color: var(--text-secondary, #64748b);
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+/* ============================================================
+   Face Failures Panel
+   ============================================================ */
+
+.face-failures-panel {
+  margin-top: 4px;
+}
+
+/* ── Filters ────────────────────────────────────────────────── */
+.ff-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.ff-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ff-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ff-select {
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  color: var(--text, #0f172a);
+  background: var(--card, #ffffff);
+  outline: none;
+  cursor: pointer;
+  min-width: 110px;
+}
+
+.ff-select:focus {
+  border-color: var(--primary, #2563eb);
+}
+
+/* ── Empty / Summary ────────────────────────────────────────── */
+.ff-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.95rem;
+}
+
+.ff-summary {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #64748b);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* ── Cards Grid ─────────────────────────────────────────────── */
+.ff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.ff-card {
+  background: var(--card, #ffffff);
+  border-radius: 14px;
+  padding: 18px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.06));
+  transition: box-shadow 0.15s ease;
+}
+
+.ff-card:hover {
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.1));
+}
+
+.ff-card.risk-high  { border-color: #fca5a5; background: #fff5f5; }
+.ff-card.risk-mid   { border-color: #fde68a; background: #fffbeb; }
+.ff-card.risk-low   { border-color: #bbf7d0; background: #f0fdf4; }
+
+/* ── Card Header ────────────────────────────────────────────── */
+.ff-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ff-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--primary, #2563eb);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.risk-high .ff-avatar { background: #dc2626; }
+.risk-mid  .ff-avatar { background: #d97706; }
+.risk-low  .ff-avatar { background: #059669; }
+
+.ff-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ff-name {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ff-sub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+.ff-risk-badge {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.ff-risk-badge.risk-high { background: #fee2e2; color: #991b1b; }
+.ff-risk-badge.risk-mid  { background: #fef3c7; color: #92400e; }
+.ff-risk-badge.risk-low  { background: #dcfce7; color: #166534; }
+
+/* ── Stats Row ──────────────────────────────────────────────── */
+.ff-stats {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.ff-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ff-stat-val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+}
+
+.ff-stat-lbl {
+  font-size: 0.7rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 600;
+  text-align: center;
+}
+
+.ff-stat-fail { color: #dc2626; }
+.ff-stat-ok   { color: #059669; }
+
+/* ── Card Footer ────────────────────────────────────────────── */
+.ff-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.ff-footer-item {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #64748b);
+  display: flex;
+  align-items: center;
+}
+
+.ff-action-hint {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+  cursor: default;
 }

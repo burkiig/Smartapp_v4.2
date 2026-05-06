@@ -2,7 +2,7 @@
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
-  Animated, ActivityIndicator,
+  Animated, ActivityIndicator, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -21,6 +21,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]           = useState(false);
   const [focusedField, setFocusedField] = useState(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
@@ -44,35 +45,41 @@ export default function LoginScreen() {
     try {
       const result = await login(username.trim(), password);
       if (result.success) {
-        const isStudent = result.user.role === 'student';
-        if (isStudent) {
-          // Check face enrollment — first-time students prompted to register
-          // Use a 5s timeout so a slow network never blocks the login flow
-          try {
-            const faceStatus = await Promise.race([
-              face.myStatus(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('skip')), 5000)),
-            ]);
-            if (!faceStatus?.is_enrolled) {
-              router.replace({ pathname: '/register-face', params: { onboarding: 'true' } });
-              return;
-            }
-          } catch {
-            // If check fails or times out, continue to home normally
-          }
-          router.replace('/(tabs)/home');
-        } else {
-          router.replace('/(tabs)/dashboard');
+        // Cover the form immediately — prevents flicker while navigation resolves
+        setIsRedirecting(true);
+
+        // All roles must pass face verification — no bypass
+        let isEnrolled = false;
+        try {
+          const faceStatus = await face.myStatus();
+          isEnrolled = faceStatus?.is_enrolled === true;
+        } catch {
+          setIsRedirecting(false);
+          shake();
+          Alert.alert('Bağlantı Hatası', 'Yüz durumu kontrol edilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+          return;
         }
+
+        // Wait one frame so the Modal renders before navigation starts
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        if (!isEnrolled) {
+          router.replace({ pathname: '/register-face', params: { login_flow: 'true' } });
+        } else {
+          router.replace('/login-face-verify');
+        }
+
       } else {
         shake();
         Alert.alert('Giriş Başarısız', result.error || 'Kullanıcı adı veya şifre hatalı.');
       }
     } catch (err) {
+      setIsRedirecting(false);
       shake();
       Alert.alert('Bağlantı Hatası', err.message || 'Sunucuya bağlanılamadı.');
     } finally {
-      setLoading(false);
+      // Don't clear loading spinner while redirecting — overlay takes over
+      if (!isRedirecting) setLoading(false);
     }
   };
 
@@ -184,6 +191,33 @@ export default function LoginScreen() {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal overlay — native layer, sits above navigation transitions */}
+      <Modal
+        visible={isRedirecting}
+        transparent={false}
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <LinearGradient
+          colors={['#1E3A8A', '#2563EB']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.redirectOverlay}
+        >
+          <View style={styles.redirectContent}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+              style={styles.redirectIconBg}
+            >
+              <Ionicons name="shield-checkmark" size={36} color="#fff" />
+            </LinearGradient>
+            <ActivityIndicator color="#fff" size="large" style={{ marginTop: 24 }} />
+            <Text style={styles.redirectText}>Kimlik Doğrulandı</Text>
+            <Text style={styles.redirectSub}>Hazırlanıyor...</Text>
+          </View>
+        </LinearGradient>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -222,4 +256,26 @@ const styles = StyleSheet.create({
   signupRow:  { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
   signupText: { fontSize: 14, color: Colors.textMuted },
   signupLink: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+
+  // Redirect overlay (inside Modal — fills entire screen)
+  redirectOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  redirectContent: {
+    alignItems: 'center',
+  },
+  redirectIconBg: {
+    width: 80, height: 80, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  redirectText: {
+    marginTop: 16, fontSize: 20, fontWeight: '700',
+    color: '#fff', letterSpacing: -0.3,
+  },
+  redirectSub: {
+    marginTop: 6, fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+  },
 });
