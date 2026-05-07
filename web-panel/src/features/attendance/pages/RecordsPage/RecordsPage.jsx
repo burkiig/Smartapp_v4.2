@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   MdSchool, MdPercent, MdListAlt, MdFlag, MdRefresh, MdExpandMore, MdExpandLess,
   MdDownload, MdCheckCircle, MdCancel, MdAssignment,
@@ -7,20 +8,8 @@ import apiClient from '../../../../shared/services/apiClient';
 import { SkeletonStatCard, SkeletonTable } from '../../../../shared/components/Skeleton';
 import './RecordsPage.css';
 
-const STATUS_LABELS = {
-  present:        'Katıldı',
-  absent:         'Katılmadı',
-  excused:        'Mazeretli',
-  pending_review: 'İncelemede',
-};
-
-const OVERRIDE_BTNS = [
-  { status: 'present',  label: 'Katıldı',    cls: 'override-btn-present'  },
-  { status: 'excused',  label: 'Mazeretli',  cls: 'override-btn-excused'  },
-  { status: 'absent',   label: 'Katılmadı',  cls: 'override-btn-absent'   },
-];
-
 export const RecordsPage = () => {
+  const { t } = useTranslation();
   const [performance, setPerformance] = useState([]);
   const [records, setRecords] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -94,7 +83,7 @@ export const RecordsPage = () => {
         `/api/v1/attendance/export?${params.toString()}`,
         { method: 'GET', credentials: 'include' }
       );
-      if (!response.ok) throw new Error('Export başarısız');
+      if (!response.ok) throw new Error(t('records.exportError'));
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -103,7 +92,7 @@ export const RecordsPage = () => {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.message || 'Export hatası');
+      alert(err.message || t('records.exportError'));
     } finally {
       setExporting(false);
     }
@@ -115,14 +104,14 @@ export const RecordsPage = () => {
     try {
       await apiClient.patch(`/attendance/${record.id}/override`, {
         status: newStatus,
-        note: 'Öğretmen tarafından web panelinden güncellendi',
+        note: t('records.overrideNote'),
       });
       // Optimistic update in local state
       setRecords(prev => prev.map(r =>
         r.id === record.id ? { ...r, status: newStatus, is_flagged: false, flag_reason: null } : r
       ));
     } catch (err) {
-      alert(err?.response?.data?.detail || err?.message || 'Güncelleme başarısız');
+      alert(err?.response?.data?.detail || err?.message || t('records.overrideError'));
     } finally {
       setOverriding(prev => { const n = new Set(prev); n.delete(record.id); return n; });
     }
@@ -137,17 +126,17 @@ export const RecordsPage = () => {
     <div className="records-page-container">
       <div className="records-header">
         <div>
-          <h1 className="page-title">Raporlar & Analitik</h1>
-          <p className="page-subtitle">Yoklama verileri ve kurs performansı</p>
+          <h1 className="page-title">{t('records.title')}</h1>
+          <p className="page-subtitle">{t('records.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="refresh-btn" onClick={loadData} title="Yenile">
-            <MdRefresh size={18} style={{ marginRight: 6 }} />Yenile
+          <button className="refresh-btn" onClick={loadData} title={t('common.refresh')}>
+            <MdRefresh size={18} style={{ marginRight: 6 }} />{t('common.refresh')}
           </button>
-          <button className="refresh-btn" onClick={() => handleExport('excel')} disabled={exporting} title="Excel olarak indir">
+          <button className="refresh-btn" onClick={() => handleExport('excel')} disabled={exporting} title={t('records.exportExcel')}>
             <MdDownload size={18} style={{ marginRight: 6 }} />Excel
           </button>
-          <button className="refresh-btn" onClick={() => handleExport('pdf')} disabled={exporting} title="PDF olarak indir">
+          <button className="refresh-btn" onClick={() => handleExport('pdf')} disabled={exporting} title={t('records.exportPdf')}>
             <MdDownload size={18} style={{ marginRight: 6 }} />PDF
           </button>
         </div>
@@ -170,47 +159,47 @@ export const RecordsPage = () => {
               <div className="stat-icon"><MdSchool size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{performance.length}</div>
-                <div className="stat-label">Toplam Ders</div>
+                <div className="stat-label">{t('records.totalCourses')}</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon"><MdPercent size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{avgAttendance}%</div>
-                <div className="stat-label">Ort. Devam</div>
+                <div className="stat-label">{t('records.avgAttendance')}</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon"><MdListAlt size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{records.length}</div>
-                <div className="stat-label">Toplam Kayıt</div>
+                <div className="stat-label">{t('records.totalRecords')}</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon"><MdFlag size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{flaggedCount}</div>
-                <div className="stat-label">Şüpheli</div>
+                <div className="stat-label">{t('records.suspicious')}</div>
               </div>
             </div>
           </div>
 
           <div className="content-grid">
             <div className="content-section">
-              <h2 className="section-title">Kurs Performansı</h2>
+              <h2 className="section-title">{t('records.coursePerformance')}</h2>
               {performance.length === 0 ? (
                 <div className="empty-state">
-                  <p>Henüz veri yok</p>
+                  <p>{t('common.noData')}</p>
                 </div>
               ) : (
                 <table className="records-table">
                   <thead>
                     <tr>
-                      <th>Kod</th>
-                      <th>Ders Adı</th>
-                      <th>Öğrenci</th>
-                      <th>Devam Oranı</th>
+                      <th>{t('records.code')}</th>
+                      <th>{t('records.courseName')}</th>
+                      <th>{t('records.students')}</th>
+                      <th>{t('records.attendanceRate')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -235,14 +224,14 @@ export const RecordsPage = () => {
             </div>
 
             <div className="content-section">
-              <h2 className="section-title">Yoklama Kayıtları</h2>
+              <h2 className="section-title">{t('records.attendanceRecords')}</h2>
               <div className="filter-row">
                 <select
                   className="filter-select"
                   value={courseFilter}
                   onChange={e => { setCourseFilter(e.target.value); setExpandedSessions(new Set()); }}
                 >
-                  <option value="">Tüm Dersler</option>
+                  <option value="">{t('records.allCourses')}</option>
                   {courses.map(c => (
                     <option key={c.id} value={String(c.id)}>{c.code} — {c.name}</option>
                   ))}
@@ -250,7 +239,7 @@ export const RecordsPage = () => {
               </div>
 
               {filteredRecords.length === 0 ? (
-                <div className="empty-state"><p>Kayıt bulunamadı</p></div>
+                <div className="empty-state"><p>{t('records.notFound')}</p></div>
               ) : sessionGroups ? (
                 /* Session-grouped view when a course is selected */
                 <div className="session-groups">
@@ -263,7 +252,7 @@ export const RecordsPage = () => {
                       <div key={sid} className="session-group">
                         <div className="session-group-header" onClick={() => toggleSession(sid)}>
                           <div className="session-group-info">
-                            <span className="session-label">Oturum #{sid}</span>
+                            <span className="session-label">{t('records.sessionNo', { id: sid })}</span>
                             <span className="session-date">{firstDate}</span>
                             <span className="session-stats">
                               <span className="stat-present">{presentCount} mevcut</span>
@@ -279,11 +268,11 @@ export const RecordsPage = () => {
                           <table className="records-table session-records-table">
                             <thead>
                               <tr>
-                                <th>Öğrenci</th>
-                                <th>Öğrenci No</th>
-                                <th>Tarih / Saat</th>
-                                <th>Durum</th>
-                                <th>İşlem</th>
+                              <th>{t('records.student')}</th>
+                              <th>{t('records.studentNo')}</th>
+                              <th>{t('records.dateTime')}</th>
+                              <th>{t('records.status')}</th>
+                              <th>{t('records.action')}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -291,18 +280,22 @@ export const RecordsPage = () => {
                                 const isSaving = overriding.has(r.id);
                                 return (
                                   <tr key={r.id}>
-                                    <td>{r.student_name || ('Öğrenci #' + r.student_id)}</td>
+                                    <td>{r.student_name || (t('records.studentHash', { id: r.student_id }))}</td>
                                     <td>{r.student_number || '—'}</td>
                                     <td>{r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}</td>
                                     <td>
                                       <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
-                                        {STATUS_LABELS[r.status] || r.status || 'Katıldı'}
+                                        {t(`records.statuses.${r.status || 'present'}`, r.status || t('records.statuses.present'))}
                                         {r.is_flagged && ' ⚑'}
                                       </span>
                                     </td>
                                     <td>
                                       <div className="override-btns">
-                                        {OVERRIDE_BTNS.map(btn => (
+                                        {[
+                                          { status: 'present', label: t('records.statuses.present'), cls: 'override-btn-present' },
+                                          { status: 'excused', label: t('records.statuses.excused'), cls: 'override-btn-excused' },
+                                          { status: 'absent',  label: t('records.statuses.absent'),  cls: 'override-btn-absent'  },
+                                        ].map(btn => (
                                           <button
                                             key={btn.status}
                                             className={`override-btn ${btn.cls} ${r.status === btn.status ? 'active' : ''}`}
@@ -330,11 +323,11 @@ export const RecordsPage = () => {
                 <table className="records-table">
                   <thead>
                     <tr>
-                      <th>Öğrenci</th>
-                      <th>Öğrenci No</th>
-                      <th>Ders</th>
-                      <th>Tarih</th>
-                      <th>Durum</th>
+                      <th>{t('records.student')}</th>
+                      <th>{t('records.studentNo')}</th>
+                      <th>{t('records.course')}</th>
+                      <th>{t('records.date')}</th>
+                      <th>{t('records.status')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -342,7 +335,7 @@ export const RecordsPage = () => {
                       const course = courseMap[String(r.course_id)];
                       return (
                         <tr key={r.id}>
-                          <td>{r.student_name || ('Öğrenci #' + r.student_id)}</td>
+                          <td>{r.student_name || t('records.studentHash', { id: r.student_id })}</td>
                           <td>{r.student_number || '—'}</td>
                           <td>
                             {course ? (
@@ -352,12 +345,8 @@ export const RecordsPage = () => {
                           <td>{r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}</td>
                           <td>
                             <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
-                              {r.status === 'present' ? 'Mevcut'
-                                : r.status === 'absent' ? 'Devamsız'
-                                : r.status === 'excused' ? 'Mazeretli'
-                                : r.status === 'pending_review' ? 'İncelemede'
-                                : r.status || 'Mevcut'}
-                              {r.is_flagged && ' [Şüpheli]'}
+                              {t(`records.statuses.${r.status || 'present'}`, r.status || t('records.statuses.present'))}
+                              {r.is_flagged && ` [${t('records.suspicious')}]`}
                             </span>
                           </td>
                         </tr>

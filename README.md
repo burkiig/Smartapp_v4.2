@@ -2,7 +2,7 @@
 
 Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-**API Sürümü:** v3.1.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** SQLite (dev) / PostgreSQL (prod) &nbsp;|&nbsp; **Storage:** Supabase (opsiyonel)
+**API Sürümü:** v3.0.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** SQLite (dev) / PostgreSQL (prod) &nbsp;|&nbsp; **Storage:** Supabase (opsiyonel)
 
 ---
 
@@ -42,12 +42,16 @@ Smart_Attendance_System/
 │   │   ├── env.py
 │   │   └── versions/
 │   │       ├── 0000_baseline.py
+│   │       ├── 7f45f11dd6c4_initial_schema.py
 │   │       ├── b373651be828_initial_schema.py
-│   │       ├── a1b2c3d4e5f6_new_features.py    # Bildirim, dispute, sistem ayarları
+│   │       ├── a1b2c3d4e5f6_new_features.py
 │   │       ├── d9e8f7a6b5c4_postgres_hardening.py
 │   │       ├── f1e2d3c4b5a6_notifications_table.py
-│   │       ├── c1d2e3f4a5b6_add_performance_indexes.py   # YENİ: sorgu indeksleri
-│   │       └── d4e5f6a7b8c9_dispute_attendance_record_fk.py  # YENİ: dispute FK
+│   │       ├── e1f2a3b4c5d6_excuse_unique_constraint.py
+│   │       ├── c1d2e3f4a5b6_add_performance_indexes.py
+│   │       ├── d4e5f6a7b8c9_dispute_attendance_record_fk.py
+│   │       ├── g3h4i5j6k7l8_course_instructors_table.py
+│   │       └── f2a3b4c5d6e7_course_shared_class_id.py
 │   │
 │   ├── scripts/
 │   │   └── encrypt_existing_embeddings.py      # Eski embedding'leri şifreler
@@ -85,7 +89,7 @@ Smart_Attendance_System/
 │       │   └── admin_settings.py   # YENİ: dinamik sistem ayarları
 │       │
 │       ├── config/
-│       │   └── settings.py         # Pydantic Settings (tüm env değişkenleri)
+│       │   └── settings.py         # Ortam değişkenleri (python-dotenv + os.getenv)
 │       │
 │       ├── core/
 │       │   └── startup.py          # DB başlatma, admin seed, scheduler başlatma
@@ -161,63 +165,72 @@ Smart_Attendance_System/
 │   ├── public/
 │   └── src/
 │       ├── App.js
-│       ├── setupProxy.js           # CRA proxy: /api → localhost:8000
+│       ├── index.js                # i18n bootstrap
+│       ├── i18n/                   # react-i18next — Türkçe / İngilizce
+│       │   ├── index.js
+│       │   └── locales/
+│       │       ├── tr/common.json
+│       │       └── en/common.json
+│       ├── setupProxy.js           # CRA geliştirme: /api → backend
 │       ├── features/
-│       │   ├── auth/               # Giriş, JWT context
-│       │   ├── attendance/         # Yoklama kayıtları, mazeretler
+│       │   ├── auth/               # Giriş; oturum httpOnly çerezlerle
+│       │   ├── attendance/         # Yoklama, mazeretler, QR / yüz tarama
 │       │   │   ├── components/
-│       │   │   │   └── ExcuseDetailsModal/  # YENİ: mazeret detay modalı
+│       │   │   │   └── ExcuseDetailsModal/
 │       │   │   └── services/
-│       │   │       └── excuseService.js     # YENİ: mazeret API servisi
-│       │   ├── dashboard/          # Admin/öğretmen/öğrenci dashboard
-│       │   ├── schedule/           # Haftalık ders programı
-│       │   ├── settings/           # Ayarlar sayfası
-│       │   └── students/           # Öğrenci kayıt formu
+│       │   │       └── excuseService.js
+│       │   ├── dashboard/
+│       │   ├── schedule/
+│       │   ├── settings/
+│       │   ├── students/
+│       │   ├── disputes/
+│       │   └── audit/
 │       ├── pages/
 │       └── shared/
 │           ├── services/
-│           │   └── apiClient.js    # Axios, JWT refresh interceptor
+│           │   └── apiClient.js    # fetch + credentials; sessiz token yenileme
 │           └── components/
-│               └── NotificationBell/   # YENİ: bildirim zili bileşeni
+│               ├── layout/Sidebar/
+│               ├── LanguageSwitcher/
+│               └── NotificationBell/
 │
-└── mobile-app/                     # React Native Expo mobil uygulama
+└── mobile-app/                     # React Native (Expo Router) mobil uygulama
     ├── package.json
     ├── app.config.js
     ├── babel.config.js
     ├── tailwind.config.js
-    └── app/
-        ├── _layout.js              # Expo Router kök layout
-        ├── index.js                # Giriş / yönlendirme
-        ├── qr-scan.js              # ADIM 1: QR tarama
-        ├── face-scan.js            # ADIM 2: Yüz doğrulama
-        ├── gps-verify.js           # ADIM 3: Konum doğrulama
-        ├── register-face.js        # İlk yüz kaydı
-        ├── cancel-class.js         # YENİ: ders iptali
-        ├── excuse-submit.js        # YENİ: mazeret gönderme ekranı
-        ├── class-details.js        # YENİ: ders detayları
-        ├── settings.js             # YENİ: uygulama ayarları
-        ├── (tabs)/                 # Ana sekme navigasyonu
-        │   ├── home.js
-        │   ├── attendance.js
-        │   ├── history.js
-        │   ├── schedule.js
-        │   ├── profile.js
-        │   ├── dashboard.js        # YENİ
-        │   ├── reports.js          # YENİ
-        │   └── more.js             # YENİ
-        ├── components/
-        │   └── ExcuseModal.js      # YENİ: mazeret modal bileşeni
-        ├── _screens/               # Öğretmen ekranları
-        │   ├── InstructorHome.js
-        │   ├── InstructorHistory.js
-        │   └── InstructorProfile.js
-        └── shared/
-            ├── services/
-            │   ├── api.js
-            │   ├── authService.js
-            │   ├── attendanceService.js
-            │   └── notificationService.js  # YENİ: bildirim servisi
-            └── utils/apiAdapter.js         # SecureStore token yönetimi
+    ├── app/                        # Expo Router ekranları
+    │   ├── _layout.js
+    │   ├── index.js
+    │   ├── login-face-verify.js  # İsteğe bağlı: giriş sonrası yüz doğrulama
+    │   ├── qr-scan.js
+    │   ├── face-scan.js
+    │   ├── gps-verify.js
+    │   ├── register-face.js
+    │   ├── cancel-class.js
+    │   ├── excuse-submit.js
+    │   ├── class-details.js
+    │   ├── course-detail.js
+    │   ├── settings.js
+    │   ├── (tabs)/               # Ana sekmeler
+    │   │   ├── home.js
+    │   │   ├── attendance.js
+    │   │   ├── history.js
+    │   │   ├── schedule.js
+    │   │   ├── profile.js
+    │   │   ├── dashboard.js
+    │   │   ├── reports.js
+    │   │   └── more.js
+    │   └── components/
+    │       ├── ExcuseModal.js
+    │       └── home/             # Ana sayfa bileşenleri
+    └── src/
+        ├── config/env.js         # EXPO_PUBLIC_API_URL vb.
+        ├── context/UserContext.js
+        ├── services/             # api, auth, attendance, bildirim…
+        ├── utils/apiAdapter.js   # SecureStore + istekler
+        ├── screens/              # Öğretmen ekranları (Instructor*)
+        └── components/
 ```
 
 ---
@@ -254,11 +267,11 @@ Smart_Attendance_System/
 ### Veri Akışı
 
 ```
-Mobile / Web Panel
-      │
-      │  HTTP + Bearer Token (JWT)
-      ▼
-FastAPI /api/v1/*
+Mobil uygulama                    Web panel
+      │                               │
+      │  HTTP + Authorization: Bearer  │  HTTP + çerez (httpOnly access/refresh)
+      ▼                               ▼
+              FastAPI /api/v1/*
       │
       ├─ SanitizationMiddleware (body boyutu, içerik tipi, XSS tarama)
       ├─ Security: JWT decode → get_current_user
@@ -329,6 +342,8 @@ npm start
 
 Panel `http://localhost:3000` adresinde açılır.
 
+**Üretim / ayrı backend host:** Kök URL’yi `web-panel/.env` veya derleme ortamında `REACT_APP_API_URL` ile ver (ör. `https://api.ornek.com`). Çerez tabanlı oturum için backend’in `CORS_ORIGINS` ve `COOKIE_*` ayarlarının panel origin’i ile uyumlu olması gerekir.
+
 #### 3. Mobile App
 
 ```bash
@@ -338,6 +353,8 @@ npx expo start
 ```
 
 Expo Go uygulaması veya emülatör ile bağlan.
+
+**API adresi:** Proje kökünde veya `mobile-app` içinde `.env` ile `EXPO_PUBLIC_API_URL` ayarla (`mobile-app/.env.example` şablonuna bak). EAS build için sırları EAS Secrets üzerinden ver.
 
 ---
 
@@ -411,7 +428,7 @@ Notlar:
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Access token geçerlilik süresi |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh token geçerlilik süresi |
 | `CORS_ORIGINS` | `localhost:3000,5173,8081` | İzin verilen frontend origin'leri |
-| `ADMIN_EMAIL` | `admin@smartapp.local` | İlk admin e-postası |
+| `ADMIN_EMAIL` | `admin@attendance.com` | İlk admin e-postası |
 | `ADMIN_USERNAME` | `admin` | İlk admin kullanıcı adı |
 | `ADMIN_PASSWORD` | — | İlk admin şifresi — **güçlü bir şifre kullan!** |
 | `SUPABASE_URL` | — | Supabase proje URL'i (opsiyonel) |
@@ -420,7 +437,7 @@ Notlar:
 | `FACE_SIMILARITY_THRESHOLD` | `0.4` | Yüz eşleşme eşiği (0–1, düşük = daha katı) |
 | `FACE_LIVENESS_THRESHOLD` | `0.5` | Canlılık kontrolü eşiği |
 | `DEFAULT_GEOFENCE_RADIUS_M` | `50` | Sınıf yarıçapı (metre) |
-| `MAX_GPS_ACCURACY_M` | `30.0` | Maksimum GPS hata toleransı (metre) |
+| `MAX_GPS_ACCURACY_M` | `80.0` | Maksimum GPS hata toleransı (metre) |
 | `GPS_ACCURACY_THRESHOLD` | `80.0` | Bu değerin altındaki accuracy (m) şüpheli sayılır |
 | `QR_TOKEN_TTL_SECONDS` | `60` | QR kodunun geçerlilik süresi (saniye) |
 | `LOGIN_RATE_LIMIT` | `10/minute` | Giriş denemesi hız sınırı |
@@ -446,7 +463,7 @@ Tüm endpoint'ler `/api/v1` prefix'i ile başlar. Swagger UI: `http://localhost:
 
 | Method | Path | Açıklama | Yetki |
 |---|---|---|---|
-| POST | `/login` | E-posta veya kullanıcı adı ile giriş | Herkese açık |
+| POST | `/login` | E-posta veya kullanıcı adı ile giriş; tarayıcıda httpOnly çerez olarak token | Herkese açık |
 | POST | `/refresh` | Yeni access token al | Refresh token |
 | GET | `/me` | Mevcut kullanıcı bilgisi | Giriş yapılmış |
 | POST | `/push-token` | Expo push token kaydet | Giriş yapılmış |
@@ -717,12 +734,12 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 
 Bu proje, eski Flask tabanlı monolitik `app.py` sisteminin yerine geçen tam yeniden yazımdır.
 
-| Eski Sistem | Yeni Sistem (v3.1.0) |
+| Eski Sistem | Yeni Sistem (v3.0.0) |
 |---|---|
 | Flask (monolitik `app.py`, 73KB) | FastAPI (modüler router/service/repo katmanları) |
 | JSON dosya tabanlı veri saklama | SQLAlchemy ORM (SQLite/PostgreSQL) + Alembic migration |
 | Mock/sahte data | Gerçek veritabanı kayıtları |
-| username bazlı JWT | E-posta veya kullanıcı adı ile JWT + Lazy TTL blacklist |
+| username bazlı JWT | Web panel: httpOnly çerez; mobil: Bearer JWT + SecureStore |
 | passlib (uyumsuz) | Doğrudan bcrypt kullanımı |
 | Tek aşamalı yoklama | 3 aşamalı pipeline (QR + Yüz + GPS) |
 | Bildirim yok | Expo Push API + in-app bildirim + dispute bildirimleri |
@@ -740,9 +757,13 @@ Bu proje, eski Flask tabanlı monolitik `app.py` sisteminin yerine geçen tam ye
 | Test yok | Tam pytest suite + GPS hardening test sınıfı |
 | CI yok | GitHub Actions CI (GHA layer cache ile hızlı build) |
 
+### Çok dilli arayüz (Web panel)
+
+`react-i18next` ile **Türkçe** (varsayılan) ve **İngilizce**; dil tercihi `localStorage` (`i18nextLng`) ile saklanır. Üst menüde **LanguageSwitcher** bileşeni kullanılır.
+
 ### Web Panel Proxy Yapılandırması
 
-`web-panel/src/setupProxy.js` dosyası, yalnızca `/api` ile başlayan istekleri `http://localhost:8000`'e yönlendirir. Statik dosyalar proxy'den geçmez.
+`web-panel/src/setupProxy.js` dosyası, geliştirme sırasında yalnızca `/api` ile başlayan istekleri backend’e (varsayılan `http://localhost:8000`) yönlendirir. Statik dosyalar proxy'den geçmez. Üretim derlemesinde istekler doğrudan `REACT_APP_API_URL` üzerinden gider.
 
 ### Mobile Uygulama Token Yönetimi
 

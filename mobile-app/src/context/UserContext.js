@@ -63,9 +63,10 @@ export function UserProvider({ children }) {
     checkAuthStatus();
   }, [checkAuthStatus]);
 
+  // Do not toggle global `isLoading` here — that unmounts the entire Stack in AppShell
+  // and wipes LoginScreen state (modal, etc.). Bootstrap-only loading stays in checkAuthStatus.
   const login = useCallback(async (username, password, expectedRole = null) => {
     setAuthError('');
-    setIsLoading(true);
 
     try {
       const result = await apiLogin(username, password);
@@ -91,8 +92,6 @@ export function UserProvider({ children }) {
       const message = err?.message || 'Beklenmeyen bir hata oluştu';
       setAuthError(message);
       return { success: false, error: message };
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

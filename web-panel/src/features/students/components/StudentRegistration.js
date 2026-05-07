@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../../shared/services/apiClient';
 import './StudentRegistration.css';
 
 function StudentRegistration() {
+    const { t } = useTranslation();
     const [form, setForm] = useState({
         username: '',
         email: '',
@@ -19,7 +21,7 @@ function StudentRegistration() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.username || !form.email || !form.password || !form.name) {
-            setMessage({ text: 'Lütfen zorunlu alanları doldurun', type: 'error' });
+            setMessage({ text: t('register.requiredFields'), type: 'error' });
             return;
         }
 
@@ -36,10 +38,10 @@ function StudentRegistration() {
                 department: form.department || undefined,
             });
 
-            setMessage({ text: `✓ ${form.name} başarıyla kaydedildi!`, type: 'success' });
+            setMessage({ text: `✓ ${t('register.success', { name: form.name })}`, type: 'success' });
             setForm({ username: '', email: '', password: '', name: '', student_number: '', department: '' });
         } catch (error) {
-            setMessage({ text: error.message || 'Kayıt sırasında hata oluştu', type: 'error' });
+            setMessage({ text: error.message || t('register.error'), type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -48,8 +50,8 @@ function StudentRegistration() {
     return (
         <div className="register-container">
             <div className="register-header">
-                <h2>Yeni Öğrenci Kaydı</h2>
-                <p>Sisteme yeni öğrenci eklemek için formu doldurun</p>
+                <h2>{t('register.title')}</h2>
+                <p>{t('register.subtitle')}</p>
             </div>
 
             {message.text && (
@@ -61,7 +63,7 @@ function StudentRegistration() {
             <form onSubmit={handleSubmit} className="register-form">
                 <div className="form-row-reg">
                     <div className="form-group-reg">
-                        <label>Kullanıcı Adı *</label>
+                        <label>{t('register.usernameLabel')} *</label>
                         <input
                             type="text"
                             value={form.username}
@@ -71,7 +73,7 @@ function StudentRegistration() {
                         />
                     </div>
                     <div className="form-group-reg">
-                        <label>E-posta *</label>
+                        <label>{t('register.emailLabel')} *</label>
                         <input
                             type="email"
                             value={form.email}
@@ -84,7 +86,7 @@ function StudentRegistration() {
 
                 <div className="form-row-reg">
                     <div className="form-group-reg">
-                        <label>Ad Soyad *</label>
+                        <label>{t('register.fullNameLabel')} *</label>
                         <input
                             type="text"
                             value={form.name}
@@ -94,12 +96,12 @@ function StudentRegistration() {
                         />
                     </div>
                     <div className="form-group-reg">
-                        <label>Şifre *</label>
+                        <label>{t('register.passwordLabel')} *</label>
                         <input
                             type="password"
                             value={form.password}
                             onChange={e => set('password', e.target.value)}
-                            placeholder="Güçlü bir şifre girin"
+                            placeholder={t('register.passwordPlaceholder')}
                             required
                         />
                     </div>
@@ -107,7 +109,7 @@ function StudentRegistration() {
 
                 <div className="form-row-reg">
                     <div className="form-group-reg">
-                        <label>Öğrenci Numarası</label>
+                        <label>{t('register.studentNoLabel')}</label>
                         <input
                             type="text"
                             value={form.student_number}
@@ -116,23 +118,23 @@ function StudentRegistration() {
                         />
                     </div>
                     <div className="form-group-reg">
-                        <label>Bölüm</label>
+                        <label>{t('register.departmentLabel')}</label>
                         <input
                             type="text"
                             value={form.department}
                             onChange={e => set('department', e.target.value)}
-                            placeholder="Bilgisayar Mühendisliği"
+                            placeholder={t('register.departmentPlaceholder')}
                         />
                     </div>
                 </div>
 
                 <div className="register-note">
-                    <span>Not:</span>
-                    <span>Öğrenci kaydedildikten sonra mobil uygulamadan giriş yaparak yüz kaydını tamamlamalıdır.</span>
+                    <span>{t('register.noteLabel')}:</span>
+                    <span>{t('register.noteText')}</span>
                 </div>
 
                 <button type="submit" className="register-btn" disabled={loading}>
-                    {loading ? 'Kaydediliyor...' : '+ Öğrenciyi Kaydet'}
+                    {loading ? t('common.saving') : `+ ${t('register.submitBtn')}`}
                 </button>
             </form>
         </div>

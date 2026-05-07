@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Table } from '../../../../shared/components/ui/Table';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import './FlaggedAttendanceList.css';
@@ -20,11 +21,13 @@ export const FlaggedAttendanceList = ({
   loading = false,
   focusedRecordId = null,
 }) => {
+  const { t } = useTranslation();
+
   if (loading) {
     return (
       <div className="flagged-list-loading">
         <div className="spinner"></div>
-        <p>Kayıtlar yükleniyor...</p>
+        <p>{t('flaggedList.loading')}</p>
       </div>
     );
   }
@@ -32,7 +35,7 @@ export const FlaggedAttendanceList = ({
   const columns = [
     {
       key: 'student',
-      label: 'Öğrenci',
+      label: t('flaggedList.student'),
       render: (value, record) => (
         <div
           className="student-cell"
@@ -52,7 +55,7 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'courseTitle',
-      label: 'Ders',
+      label: t('flaggedList.course'),
       render: (value, record) => (
         <div className="course-cell">
           <div className="course-code">{record.courseTitle}</div>
@@ -61,12 +64,12 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'timestamp',
-      label: 'Tarih / Saat',
+      label: t('flaggedList.dateTime'),
       render: (value) => <div className="timestamp">{value}</div>,
     },
     {
       key: 'reason',
-      label: 'Sebep',
+      label: t('flaggedList.reason'),
       render: (value, record) => (
         <Badge
           variant={record.reasonType === 'error' ? 'error' : 'warning'}
@@ -77,12 +80,12 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'method',
-      label: 'Yöntem',
+      label: t('flaggedList.method'),
       render: (value) => <Badge variant="info">{value}</Badge>,
     },
     {
       key: 'location',
-      label: 'Konum',
+      label: t('flaggedList.location'),
       render: (value) => (
         <div className="location-cell">
           {value}
@@ -91,43 +94,37 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'status',
-      label: 'Durum',
+      label: t('flaggedList.status'),
       render: (value, record) => {
         if (record.isFlagged) {
-          return <Badge variant="warning">Bayraklı</Badge>;
+          return <Badge variant="warning">{t('flaggedList.flagged')}</Badge>;
         }
-        const statusLabels = {
-          present: 'Mevcut',
-          absent: 'Devamsız',
-          excused: 'Mazeretli',
-          pending_review: 'İncelemede',
-        };
         const variant = value === 'present' ? 'approved' : value === 'pending_review' ? 'warning' : 'rejected';
-        return <Badge variant={variant}>{statusLabels[value] || value}</Badge>;
+        return <Badge variant={variant}>{t(`records.statuses.${value}`, value)}</Badge>;
       },
     },
     {
       key: 'actions',
-      label: 'İşlemler',
+      label: t('flaggedList.actions'),
       render: (value, record) => (
         <div className="action-buttons">
           {record.isFlagged ? (
             <>
-              <button className="action-btn approve-btn" onClick={() => onApprove(record.id)} title="Onayla">
-                Onayla
+              <button className="action-btn approve-btn" onClick={() => onApprove(record.id)} title={t('common.approve')}>
+                {t('common.approve')}
               </button>
-              <button className="action-btn reject-btn" onClick={() => onReject(record.id)} title="Reddet">
-                Reddet
+              <button className="action-btn reject-btn" onClick={() => onReject(record.id)} title={t('common.reject')}>
+                {t('common.reject')}
               </button>
             </>
           ) : (
-            <button className="action-btn undo-btn" onClick={() => onUndo(record.id)} title="Geri Al">
-              Geri Al
+            <button className="action-btn undo-btn" onClick={() => onUndo(record.id)} title={t('common.undo')}>
+              {t('common.undo')}
             </button>
           )}
           {onViewDetails && (
-            <button className="action-btn details-btn" onClick={() => onViewDetails(record)} title="Detay">
-              Detay
+            <button className="action-btn details-btn" onClick={() => onViewDetails(record)} title={t('common.detail')}>
+              {t('common.detail')}
             </button>
           )}
         </div>
@@ -139,7 +136,7 @@ export const FlaggedAttendanceList = ({
     <Table
       columns={columns}
       data={records}
-      emptyMessage="Bayraklı kayıt bulunamadı"
+      emptyMessage={t('flaggedList.empty')}
     />
   );
 };

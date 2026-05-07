@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import './Sidebar.css';
 
 export const Sidebar = ({ 
@@ -10,6 +11,7 @@ export const Sidebar = ({
   user,
   onLogout
 }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export const Sidebar = ({
               </div>
               {onLogout && (
                 <button className="logout-btn" onClick={onLogout}>
-                  Cikis Yap
+                  {t('nav.logoutBtn')}
                 </button>
               )}
             </div>

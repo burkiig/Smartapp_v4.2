@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { face } from '@/services/api';
 import { useUser } from '@/context/UserContext';
-import { Colors, Shadows } from '@/config/theme';
+import { Shadows } from '@/config/theme';
 
 const { width } = Dimensions.get('window');
 const MAX_RETRIES = 3;
@@ -31,7 +31,19 @@ export default function LoginFaceVerifyScreen() {
   const [isScanning, setIsScanning]     = useState(false);
   const [retryCount, setRetryCount]     = useState(0);
   const [statusText, setStatusText]     = useState('Taramaya Hazır');
+  /** False until expo CameraView reports ready — avoids empty/black preview gap after login. */
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const cameraRef = useRef(null);
+
+  useEffect(() => {
+    if (permission?.granted) setIsCameraReady(false);
+  }, [permission?.granted]);
+
+  useEffect(() => {
+    if (!permission?.granted || isCameraReady) return;
+    const id = setTimeout(() => setIsCameraReady(true), 12000);
+    return () => clearTimeout(id);
+  }, [permission?.granted, isCameraReady]);
 
   // Subtle pulse animation on the camera frame border
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -47,7 +59,7 @@ export default function LoginFaceVerifyScreen() {
   }, []);
 
   const handleScan = async () => {
-    if (!cameraRef.current || isScanning) return;
+    if (!isCameraReady || !cameraRef.current || isScanning) return;
     setIsScanning(true);
     setStatusText('Taranıyor...');
 
@@ -216,6 +228,7 @@ export default function LoginFaceVerifyScreen() {
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
               facing="front"
+              onCameraReady={() => setIsCameraReady(true)}
             />
 
             {/* Corner guides */}
@@ -282,6 +295,30 @@ export default function LoginFaceVerifyScreen() {
           <Text style={styles.tipsText}>• Kameraya doğrudan bakın ve hareketsiz durun</Text>
         </View>
       </LinearGradient>
+
+      {/* Match login redirect modal — seamless until camera preview is live */}
+      {!isCameraReady && (
+        <View style={styles.cameraWarmupLayer} pointerEvents="auto">
+          <LinearGradient
+            colors={['#1E3A8A', '#2563EB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cameraWarmupGradient}
+          >
+            <View style={styles.cameraWarmupContent}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                style={styles.cameraWarmupIconBg}
+              >
+                <Ionicons name="shield-checkmark" size={36} color="#fff" />
+              </LinearGradient>
+              <ActivityIndicator color="#fff" size="large" style={{ marginTop: 24 }} />
+              <Text style={styles.cameraWarmupTitle}>Kimlik Doğrulandı</Text>
+              <Text style={styles.cameraWarmupSub}>Yüz tarama sistemi başlatılıyor...</Text>
+            </View>
+          </LinearGradient>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -289,6 +326,38 @@ export default function LoginFaceVerifyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   gradient:  { flex: 1 },
+
+  cameraWarmupLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+  },
+  cameraWarmupGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraWarmupContent: {
+    alignItems: 'center',
+  },
+  cameraWarmupIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraWarmupTitle: {
+    marginTop: 16,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: -0.3,
+  },
+  cameraWarmupSub: {
+    marginTop: 6,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+  },
 
   // Header
   header: {

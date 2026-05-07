@@ -22,6 +22,8 @@ export default function LoginScreen() {
   const [loading, setLoading]           = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  /** Same-meaning as `isRedirecting` but readable inside async `finally` (state would be stale). */
+  const isRedirectingRef = useRef(false);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
@@ -42,10 +44,12 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
+    isRedirectingRef.current = false;
     try {
       const result = await login(username.trim(), password);
       if (result.success) {
         // Cover the form immediately — prevents flicker while navigation resolves
+        isRedirectingRef.current = true;
         setIsRedirecting(true);
 
         // All roles must pass face verification — no bypass
@@ -54,6 +58,7 @@ export default function LoginScreen() {
           const faceStatus = await face.myStatus();
           isEnrolled = faceStatus?.is_enrolled === true;
         } catch {
+          isRedirectingRef.current = false;
           setIsRedirecting(false);
           shake();
           Alert.alert('Bağlantı Hatası', 'Yüz durumu kontrol edilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
@@ -74,12 +79,12 @@ export default function LoginScreen() {
         Alert.alert('Giriş Başarısız', result.error || 'Kullanıcı adı veya şifre hatalı.');
       }
     } catch (err) {
+      isRedirectingRef.current = false;
       setIsRedirecting(false);
       shake();
       Alert.alert('Bağlantı Hatası', err.message || 'Sunucuya bağlanılamadı.');
     } finally {
-      // Don't clear loading spinner while redirecting — overlay takes over
-      if (!isRedirecting) setLoading(false);
+      if (!isRedirectingRef.current) setLoading(false);
     }
   };
 

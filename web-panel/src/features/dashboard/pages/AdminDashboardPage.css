@@ -9,6 +9,31 @@
   background: var(--bg, #f1f5f9);
 }
 
+/* ── Main wrapper (right of sidebar) ────────────────────────── */
+.admin-main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Top Bar ─────────────────────────────────────────────────── */
+.admin-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--card, #ffffff);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.top-bar-spacer { flex: 1; }
+
 /* ── Scrollable Content ──────────────────────────────────────── */
 .main-content {
   flex: 1;

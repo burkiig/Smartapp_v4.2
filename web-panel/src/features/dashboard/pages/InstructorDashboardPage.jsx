@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
+import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import DashboardView from '../components/DashboardView';
 import StudentRegistration from '../../students/components/StudentRegistration';
 import { AttendancePage } from '../../attendance/pages';
@@ -13,20 +15,6 @@ import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
 import { FaceScan } from '../../attendance/components/FaceScan';
 import { QRScan } from '../../attendance/components/QRScan';
 import './InstructorDashboardPage.css';
-
-const INSTRUCTOR_MENU_ITEMS = [
-  { id: 'dashboard',  label: 'Ana Sayfa'         },
-  { id: 'schedule',   label: 'Haftalık Program'   },
-  { id: 'qr-scan',    label: 'Oturum & QR'       },
-  { id: 'face-scan',  label: 'Manuel Yoklama'    },
-  { id: 'attendance', label: 'Şüpheli Kayıtlar'  },
-  { id: 'excuses',    label: 'Mazeretler'        },
-  { id: 'disputes',   label: 'İtirazlar'         },
-  { id: 'reports',    label: 'Raporlar'           },
-  { id: 'register',   label: 'Öğrenci Ekle'      },
-  { id: 'students',   label: 'Öğrenciler'        },
-  { id: 'settings',   label: 'Ayarlar'           },
-];
 
 /**
  * Reads URL parameters and returns flagged triage context if present.
@@ -42,9 +30,24 @@ const readTriageContextFromUrl = () => {
 };
 
 export const InstructorDashboardPage = ({ user, onLogout }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [preselectedStudent, setPreselectedStudent] = useState(null);
   const triageContext = useMemo(() => readTriageContextFromUrl(), []);
+
+  const INSTRUCTOR_MENU_ITEMS = [
+    { id: 'dashboard',  label: t('nav.instructor.dashboard')  },
+    { id: 'schedule',   label: t('nav.instructor.schedule')   },
+    { id: 'qr-scan',    label: t('nav.instructor.qrScan')     },
+    { id: 'face-scan',  label: t('nav.instructor.faceScan')   },
+    { id: 'attendance', label: t('nav.instructor.attendance') },
+    { id: 'excuses',    label: t('nav.instructor.excuses')    },
+    { id: 'disputes',   label: t('nav.instructor.disputes')   },
+    { id: 'reports',    label: t('nav.instructor.reports')    },
+    { id: 'register',   label: t('nav.instructor.register')   },
+    { id: 'students',   label: t('nav.instructor.students')   },
+    { id: 'settings',   label: t('nav.instructor.settings')   },
+  ];
 
   useEffect(() => {
     if (!triageContext) return;
@@ -101,8 +104,8 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
   return (
     <div className="instructor-dashboard-container">
       <Sidebar
-        title="Yoklama Sistemi"
-        subtitle="Öğretmen Paneli"
+        title={t('nav.systemTitle')}
+        subtitle={t('nav.instructorPanel')}
         menuItems={INSTRUCTOR_MENU_ITEMS}
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -113,6 +116,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
       <div className="instructor-main-wrapper">
         <div className="instructor-top-bar">
           <div className="top-bar-spacer" />
+          <LanguageSwitcher compact />
           <NotificationBell />
         </div>
         <main className="main-content">

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../../../shared/services/apiClient';
 import './WeeklySchedulePage.css';
 
-const DAYS_TR = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
 const DAYS_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 // JS getDay(): 0=Sun,1=Mon,...,6=Sat → Mon=1 → index 0
 const TODAY_INDEX = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
@@ -10,6 +10,11 @@ const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 export const WeeklySchedulePage = () => {
+  const { t } = useTranslation();
+  const DAYS_TR = [
+    t('schedule.monday'), t('schedule.tuesday'), t('schedule.wednesday'),
+    t('schedule.thursday'), t('schedule.friday'),
+  ];
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,18 +60,18 @@ export const WeeklySchedulePage = () => {
     <div className="weekly-schedule">
       <div className="schedule-header">
         <div className="header-left">
-          <h1 className="page-title">Haftalık Program</h1>
-          <p className="page-subtitle">Ders Takvimi — Tekrarlayan Program</p>
+          <h1 className="page-title">{t('schedule.title')}</h1>
+          <p className="page-subtitle">{t('schedule.subtitle')}</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="schedule-loading">Yükleniyor...</div>
+        <div className="schedule-loading">{t('common.loading')}</div>
       ) : courses.length === 0 ? (
         <div className="schedule-empty">
           <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>
-            <h3>Henüz ders programı yok</h3>
-            <p>Ders eklendiğinde burada görünecek</p>
+            <h3>{t('schedule.noSchedule')}</h3>
+            <p>{t('schedule.noScheduleHint')}</p>
           </div>
         </div>
       ) : (
@@ -84,7 +89,7 @@ export const WeeklySchedulePage = () => {
                 <div key={day} className="day-column">
                   <div className={`day-header ${isToday ? 'today' : ''}`}>
                     <div className="day-name">{DAYS_TR[dayIndex]}</div>
-                    {isToday && <div className="today-badge">Bugün</div>}
+                    {isToday && <div className="today-badge">{t('schedule.today')}</div>}
                   </div>
                   <div className="day-slots">
                     {TIME_SLOTS.map(time => {
@@ -116,7 +121,7 @@ export const WeeklySchedulePage = () => {
       )}
 
       <div className="schedule-legend">
-        <div className="legend-item"><div className="legend-color" style={{ background: '#3B82F6' }}></div><span>Planlandı</span></div>
+        <div className="legend-item"><div className="legend-color" style={{ background: '#3B82F6' }}></div><span>{t('schedule.scheduled')}</span></div>
       </div>
     </div>
   );

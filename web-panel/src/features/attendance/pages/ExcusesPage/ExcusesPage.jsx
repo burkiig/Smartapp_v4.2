@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MdCheckCircle, MdCancel, MdRefresh, MdSelectAll, MdDescription } from 'react-icons/md';
 import {
   fetchExcuseRecords,
@@ -9,14 +10,10 @@ import { ExcuseDetailsModal } from '../../components/ExcuseDetailsModal/ExcuseDe
 import apiClient from '../../../../shared/services/apiClient';
 import './ExcusesPage.css';
 
-const STATUS_TR  = { pending: 'Bekliyor', approved: 'Onaylandı', rejected: 'Reddedildi' };
 const STATUS_CLS = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' };
-const TYPE_TR    = {
-  medical: 'Sağlık', family: 'Aile', school_activity: 'Okul Etkinliği',
-  transportation: 'Ulaşım', other: 'Diğer',
-};
 
 export const ExcusesPage = () => {
+  const { t } = useTranslation();
   const [excuses,      setExcuses]      = useState([]);
   const [courses,      setCourses]      = useState([]);
   const [courseFilter, setCourseFilter] = useState('');
@@ -70,7 +67,7 @@ export const ExcusesPage = () => {
   };
 
   const bulkAction = async (status) => {
-    if (selected.size === 0) { setMessage('Önce mazeret seçin'); return; }
+    if (selected.size === 0) { setMessage(t('excuses.selectFirst')); return; }
     setBulkLoading(true); setMessage('');
     try {
       const res = await apiClient.post('/excuses/bulk-review', {
@@ -78,13 +75,13 @@ export const ExcusesPage = () => {
         status,
       });
       setMessage(
-        `${res.updated} mazeret ${status === 'approved' ? 'onaylandı' : 'reddedildi'}.` +
-        (res.skipped > 0 ? ` ${res.skipped} atlandı.` : '')
+        t(status === 'approved' ? 'excuses.bulkApproved' : 'excuses.bulkRejected', { count: res.updated }) +
+        (res.skipped > 0 ? ` ${t('excuses.skipped', { count: res.skipped })}` : '')
       );
       setSelected(new Set());
       loadData();
     } catch (err) {
-      setMessage(err.message || 'İşlem başarısız');
+      setMessage(err.message || t('common.actionFailed'));
     } finally {
       setBulkLoading(false);
     }
@@ -95,7 +92,7 @@ export const ExcusesPage = () => {
       await apiClient.patch(`/excuses/${id}`, { status });
       setExcuses(prev => prev.map(e => e.id === id ? { ...e, status } : e));
     } catch (err) {
-      setMessage(err.message || 'İşlem başarısız');
+      setMessage(err.message || t('common.actionFailed'));
     }
   };
 
@@ -121,11 +118,11 @@ export const ExcusesPage = () => {
     <div className="excuses-page">
       <div className="excuses-header">
         <div>
-          <h1 className="page-title">Mazeret Yönetimi</h1>
-          <p className="page-subtitle">Öğrenci mazeretlerini onaylayın veya reddedin</p>
+          <h1 className="page-title">{t('excuses.title')}</h1>
+          <p className="page-subtitle">{t('excuses.subtitle')}</p>
         </div>
         <button className="refresh-btn" onClick={loadData}>
-          <MdRefresh size={16} style={{ marginRight: 5 }} />Yenile
+          <MdRefresh size={16} style={{ marginRight: 5 }} />{t('common.refresh')}
         </button>
       </div>
 
@@ -134,16 +131,16 @@ export const ExcusesPage = () => {
       {/* Filters */}
       <div className="excuses-filters">
         <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className="filter-select">
-          <option value="">Tüm Dersler</option>
+          <option value="">{t('excuses.allCourses')}</option>
           {courses.map(c => (
             <option key={c.id} value={String(c.id)}>{c.code} — {c.name}</option>
           ))}
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="filter-select">
-          <option value="">Tüm Durumlar</option>
-          <option value="pending">Bekliyor</option>
-          <option value="approved">Onaylandı</option>
-          <option value="rejected">Reddedildi</option>
+          <option value="">{t('excuses.allStatuses')}</option>
+          <option value="pending">{t('excuses.statusPending')}</option>
+          <option value="approved">{t('excuses.statusApproved')}</option>
+          <option value="rejected">{t('excuses.statusRejected')}</option>
         </select>
       </div>
 
@@ -152,16 +149,16 @@ export const ExcusesPage = () => {
         <div className="bulk-actions">
           <button className="bulk-btn select-all" onClick={toggleSelectAll}>
             <MdSelectAll size={16} style={{ marginRight: 4 }} />
-            {selected.size === filtered.length ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+            {selected.size === filtered.length ? t('excuses.deselectAll') : t('excuses.selectAll')}
           </button>
           {selected.size > 0 && (
             <>
-              <span className="selected-count">{selected.size} seçili</span>
+              <span className="selected-count">{t('excuses.selectedCount', { count: selected.size })}</span>
               <button className="bulk-btn approve" onClick={() => bulkAction('approved')} disabled={bulkLoading}>
-                <MdCheckCircle size={16} style={{ marginRight: 4 }} />Toplu Onayla
+                <MdCheckCircle size={16} style={{ marginRight: 4 }} />{t('excuses.bulkApproveBtn')}
               </button>
               <button className="bulk-btn reject" onClick={() => bulkAction('rejected')} disabled={bulkLoading}>
-                <MdCancel size={16} style={{ marginRight: 4 }} />Toplu Reddet
+                <MdCancel size={16} style={{ marginRight: 4 }} />{t('excuses.bulkRejectBtn')}
               </button>
             </>
           )}
@@ -169,9 +166,9 @@ export const ExcusesPage = () => {
       )}
 
       {loading ? (
-        <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Yükleniyor...</div>
+        <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Mazeret bulunamadı</div>
+        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>{t('excuses.notFound')}</div>
       ) : (
         <div className="excuses-table-wrapper">
           <table className="excuses-table">
@@ -184,14 +181,14 @@ export const ExcusesPage = () => {
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th>Öğrenci</th>
-                <th>Ders</th>
-                <th>Tarih</th>
-                <th>Tür</th>
-                <th>Açıklama</th>
-                <th>Belge</th>
-                <th>Durum</th>
-                <th>İşlem</th>
+                <th>{t('excuses.student')}</th>
+                <th>{t('excuses.course')}</th>
+                <th>{t('excuses.date')}</th>
+                <th>{t('excuses.type')}</th>
+                <th>{t('excuses.description')}</th>
+                <th>{t('excuses.document')}</th>
+                <th>{t('excuses.status')}</th>
+                <th>{t('excuses.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -211,7 +208,7 @@ export const ExcusesPage = () => {
                     <div className="student-cell">
                       <span className="student-name">{e.studentName}</span>
                       {e.student_number && (
-                        <span className="student-number">No: {e.student_number}</span>
+                        <span className="student-number">{t('excuses.studentNoLabel')}: {e.student_number}</span>
                       )}
                     </div>
                   </td>
@@ -219,17 +216,17 @@ export const ExcusesPage = () => {
                     <span className="course-code">{e.courseTitle}</span>
                   </td>
                   <td>{e.classDate}</td>
-                  <td>{TYPE_TR[e.excuseType] || e.excuseType}</td>
+                  <td>{t(`excuses.types.${e.excuseType}`, e.excuseType)}</td>
                   <td className="desc-cell">{e.description || '—'}</td>
                   <td>
                     {e.hasDocument ? (
                       <button
                         className="doc-icon-btn"
-                        title="Belgeyi görüntüle"
+                        title={t('excuses.viewDocument')}
                         onClick={() => setSelectedExcuse(e)}
                       >
                         <MdDescription size={18} />
-                        <span>Belge Var</span>
+                        <span>{t('excuses.hasDocument')}</span>
                       </button>
                     ) : (
                       <span className="no-doc">—</span>
@@ -237,7 +234,7 @@ export const ExcusesPage = () => {
                   </td>
                   <td>
                     <span className={`excuse-badge ${STATUS_CLS[e.status] || ''}`}>
-                      {STATUS_TR[e.status] || e.status}
+                      {t(`excuses.status${e.status.charAt(0).toUpperCase() + e.status.slice(1)}`, e.status)}
                     </span>
                   </td>
                   <td>
@@ -245,17 +242,17 @@ export const ExcusesPage = () => {
                       <button
                         className="act-btn detail"
                         onClick={() => setSelectedExcuse(e)}
-                        title="Detayları gör"
+                        title={t('excuses.viewDetails')}
                       >
-                        Detay
+                        {t('common.detail')}
                       </button>
                       {e.status === 'pending' && (
                         <>
                           <button className="act-btn approve" onClick={() => singleAction(e.id, 'approved')}>
-                            Onayla
+                            {t('common.approve')}
                           </button>
                           <button className="act-btn reject" onClick={() => singleAction(e.id, 'rejected')}>
-                            Reddet
+                            {t('common.reject')}
                           </button>
                         </>
                       )}

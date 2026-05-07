@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   MdSchool, MdPeople, MdPlayCircle, MdWarning, MdRefresh,
   MdCheckCircle, MdSchedule,
@@ -67,6 +68,7 @@ function isOngoing(start_time, end_time) {
 }
 
 function DashboardView({ onNavigate }) {
+    const { t } = useTranslation();
     const [stats, setStats] = useState(null);
     const [activeSessions, setActiveSessions] = useState([]);
     const [recentSessions, setRecentSessions] = useState([]);
@@ -153,7 +155,7 @@ function DashboardView({ onNavigate }) {
                         {new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                 </div>
-                <button className="refresh-btn" onClick={fetchAll} title="Yenile"><MdRefresh size={18} style={{marginRight:5}}/>Yenile</button>
+                <button className="refresh-btn" onClick={fetchAll} title={t('common.refresh')}><MdRefresh size={18} style={{marginRight:5}}/>{t('common.refresh')}</button>
             </div>
 
             {/* Stats Cards */}
@@ -162,28 +164,28 @@ function DashboardView({ onNavigate }) {
                     <div className="stat-icon blue"><MdSchool size={22} /></div>
                     <div className="stat-content">
                         <div className="stat-value">{stats?.total_courses ?? 0}</div>
-                        <div className="stat-label">Toplam Ders</div>
+                        <div className="stat-label">{t('dashboard.totalCourses')}</div>
                     </div>
                 </div>
                 <div className="stat-card-small">
                     <div className="stat-icon green"><MdPeople size={22} /></div>
                     <div className="stat-content">
                         <div className="stat-value">{stats?.total_enrolled ?? 0}</div>
-                        <div className="stat-label">Kayıtlı Öğrenci</div>
+                        <div className="stat-label">{t('dashboard.enrolledStudents')}</div>
                     </div>
                 </div>
                 <div className="stat-card-small">
                     <div className="stat-icon orange"><MdPlayCircle size={22} /></div>
                     <div className="stat-content">
                         <div className="stat-value">{activeSessions.length}</div>
-                        <div className="stat-label">Aktif Oturum</div>
+                        <div className="stat-label">{t('dashboard.activeSessions')}</div>
                     </div>
                 </div>
                 <div className="stat-card-small">
                     <div className="stat-icon yellow"><MdWarning size={22} /></div>
                     <div className="stat-content">
                         <div className="stat-value">{stats?.flagged_records ?? pendingFlagged.length}</div>
-                        <div className="stat-label">İnceleme Bekleyen</div>
+                        <div className="stat-label">{t('dashboard.pendingReview')}</div>
                     </div>
                 </div>
             </div>
@@ -191,7 +193,7 @@ function DashboardView({ onNavigate }) {
             {/* Today's Classes */}
             {todayCourses.length > 0 && (
                 <div className="dashboard-section todays-classes">
-                    <h2 className="section-title">Bugünün Dersleri</h2>
+                    <h2 className="section-title">{t('dashboard.todaysCourses')}</h2>
                     <div className="today-course-list">
                         {todayCourses.map(c => {
                             const approaching = isApproaching(c.start_time);
@@ -207,10 +209,10 @@ function DashboardView({ onNavigate }) {
                                             <span className="today-course-time">{c.start_time} – {c.end_time}</span>
                                         )}
                                         {approaching && (
-                                            <span className="approaching-badge">1 saat içinde</span>
+                                            <span className="approaching-badge">{t('dashboard.approaching')}</span>
                                         )}
                                         {ongoing && (
-                                            <span className="ongoing-badge">Devam ediyor</span>
+                                            <span className="ongoing-badge">{t('dashboard.ongoing')}</span>
                                         )}
                                     </div>
                                 </div>
@@ -224,7 +226,7 @@ function DashboardView({ onNavigate }) {
             <div className="dashboard-grid">
                 {/* Active Sessions */}
                 <div className="dashboard-section schedule-section">
-                    <h2 className="section-title">Aktif Oturumlar</h2>
+                    <h2 className="section-title">{t('dashboard.activeSessions')}</h2>
                     {activeSessions.length > 0 ? (
                         <div className="schedule-list">
                             {activeSessions.map(session => (
@@ -239,11 +241,11 @@ function DashboardView({ onNavigate }) {
                                     </div>
                                     <div className="schedule-details">
                                         <div className="schedule-course">
-                                            Oturum #{session.id} — Ders #{session.course_id}
+                                            {t('dashboard.sessionNo', { id: session.id })} — {t('dashboard.courseNo', { id: session.course_id })}
                                         </div>
                                         <div className="schedule-meta">
                                             <span className="schedule-room">{session.date}</span>
-                                            <span className="auto-badge">Aktif</span>
+                                            <span className="auto-badge">{t('dashboard.active')}</span>
                                         </div>
                                     </div>
                                     <div className="schedule-status">
@@ -251,7 +253,7 @@ function DashboardView({ onNavigate }) {
                                             className="end-session-btn"
                                             onClick={e => { e.stopPropagation(); handleEndSession(session.id); }}
                                         >
-                                            Bitir
+                                            {t('dashboard.endSession')}
                                         </button>
                                     </div>
                                 </div>
@@ -259,15 +261,15 @@ function DashboardView({ onNavigate }) {
                         </div>
                     ) : (
                         <div className="empty-sessions">
-                            <p>Aktif oturum yok</p>
-                            <p className="hint">QR Scan sekmesinden yeni oturum başlatabilirsiniz</p>
+                            <p>{t('dashboard.noActiveSessions')}</p>
+                            <p className="hint">{t('dashboard.startSessionHint')}</p>
                         </div>
                     )}
 
                     {/* Recent closed sessions */}
                     {recentSessions.length > 0 && (
                         <div style={{ marginTop: 20 }}>
-                            <h2 className="section-title">Son Oturumlar</h2>
+                            <h2 className="section-title">{t('dashboard.recentSessions')}</h2>
                             <div className="schedule-list">
                                 {recentSessions.map(session => (
                                     <div
@@ -281,15 +283,15 @@ function DashboardView({ onNavigate }) {
                                         </div>
                                         <div className="schedule-details">
                                             <div className="schedule-course">
-                                                Oturum #{session.id} — Ders #{session.course_id}
+                                                {t('dashboard.sessionNo', { id: session.id })} — {t('dashboard.courseNo', { id: session.course_id })}
                                             </div>
                                             <div className="schedule-meta">
                                                 <span className="schedule-room">{session.date}</span>
-                                                <span style={{ fontSize: 11, color: '#6b7280', padding: '2px 8px', background: '#f3f4f6', borderRadius: 8 }}>Tamamlandı</span>
+                                                <span style={{ fontSize: 11, color: '#6b7280', padding: '2px 8px', background: '#f3f4f6', borderRadius: 8 }}>{t('dashboard.completed')}</span>
                                             </div>
                                         </div>
                                         <div className="schedule-status" style={{ fontSize: 12, color: '#6b7280' }}>
-                                            Detay →
+                                            {t('dashboard.details')} →
                                         </div>
                                     </div>
                                 ))}
@@ -303,7 +305,7 @@ function DashboardView({ onNavigate }) {
                     {/* Pending Flagged Records */}
                     <div className="dashboard-section pending-reviews">
                         <div className="section-header-with-badge">
-                            <h2 className="section-title">İnceleme Bekleyen</h2>
+                            <h2 className="section-title">{t('dashboard.pendingReview')}</h2>
                             <span className="count-badge">{pendingFlagged.length}</span>
                         </div>
                         {pendingFlagged.length > 0 ? (
@@ -311,14 +313,14 @@ function DashboardView({ onNavigate }) {
                                 {pendingFlagged.slice(0, 5).map(record => (
                                     <div key={record.id} className="review-item">
                                         <div className="review-student">
-                                            {record.student_name || ('Öğrenci #' + record.student_id)}
+                                            {record.student_name || (t('admin.reports.student') + ' #' + record.student_id)}
                                             {record.student_number && (
                                                 <span className="review-student-num"> — {record.student_number}</span>
                                             )}
                                         </div>
                                         <div className="review-details">
                                             <span className="review-course">
-                                                {record.course_code || record.course_name || ('Ders #' + record.course_id)}
+                                                {record.course_code || record.course_name || (t('dashboard.courseNo', { id: record.course_id }))}
                                             </span>
                                             <span className="review-time">
                                                 {record.marked_at
@@ -326,7 +328,7 @@ function DashboardView({ onNavigate }) {
                                                     : '—'}
                                             </span>
                                         </div>
-                                        <div className="review-reason">{record.flag_reason || 'Şüpheli kayıt'}</div>
+                                        <div className="review-reason">{record.flag_reason || t('dashboard.suspiciousRecord')}</div>
                                     </div>
                                 ))}
                                 {pendingFlagged.length > 5 && (
@@ -334,25 +336,25 @@ function DashboardView({ onNavigate }) {
                                         className="see-all-btn"
                                         onClick={() => onNavigate && onNavigate('attendance')}
                                     >
-                                        Tamamını göster ({pendingFlagged.length})
+                                        {t('dashboard.showAll', { count: pendingFlagged.length })}
                                     </button>
                                 )}
                             </div>
                         ) : (
-                            <p className="empty-text">İnceleme bekleyen kayıt yok</p>
+                            <p className="empty-text">{t('dashboard.noPendingReviews')}</p>
                         )}
                     </div>
 
                     {/* Course Performance Chart */}
                     <div className="dashboard-section quick-actions">
-                        <h2 className="section-title">Ders Devam Oranları</h2>
+                        <h2 className="section-title">{t('dashboard.courseAttendanceRates')}</h2>
                         {coursePerformance.length > 0 ? (
                             <div style={{ maxHeight: 260 }}>
                                 <Bar
                                     data={{
                                         labels: coursePerformance.map(c => c.course),
                                         datasets: [{
-                                            label: 'Devam (%)',
+                                            label: t('dashboard.attendancePct'),
                                             data: coursePerformance.map(c => c.attendance),
                                             backgroundColor: coursePerformance.map(c =>
                                                 c.attendance >= 70 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'
@@ -378,7 +380,7 @@ function DashboardView({ onNavigate }) {
                                 />
                             </div>
                         ) : (
-                            <p className="empty-text">Henüz veri yok</p>
+                            <p className="empty-text">{t('common.noData')}</p>
                         )}
                     </div>
                 </div>

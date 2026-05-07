@@ -1,5 +1,6 @@
 import React from 'react';
 import './App.css';
+import { useTranslation } from 'react-i18next';
 import { LoginPage } from './pages/LoginPage';
 import { useAuth } from './features/auth/hooks';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
@@ -11,12 +12,13 @@ import {
 
 function App() {
   const { user, isLoading, logout } = useAuth();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Yükleniyor...</p>
+        <p>{t('app.loading')}</p>
       </div>
     );
   }
@@ -40,9 +42,9 @@ function App() {
       default:
         return (
           <div className="error-container">
-            <h2>Geçersiz kullanıcı rolü</h2>
-            <p>Hesabınızda tanımsız bir rol var. Sistem yöneticisiyle iletişime geçin.</p>
-            <button onClick={logout}>Çıkış Yap</button>
+            <h2>{t('app.invalidRole')}</h2>
+            <p>{t('app.invalidRoleDesc')}</p>
+            <button onClick={logout}>{t('app.logout')}</button>
           </div>
         );
     }

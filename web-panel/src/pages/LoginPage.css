@@ -9,6 +9,15 @@
   justify-content: center;
   background: #eef0f5;
   padding: 24px;
+  position: relative;
+}
+
+/* ── Top-right language switch ─────────────────────────────── */
+.login-lang-switch {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 5;
 }
 
 /* ── Split Card ──────────────────────────────────────────── */

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import './LoginForm.css';
 import './PasswordToggle.css';
 
@@ -35,6 +36,7 @@ const EyeIcon = ({ open }) =>
 
 /* ── Component ─────────────────────────────────────────────── */
 export const LoginForm = ({ onLogin, loading, error }) => {
+  const { t } = useTranslation();
   const [loginId, setLoginId]         = useState('');
   const [password, setPassword]       = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -50,8 +52,8 @@ export const LoginForm = ({ onLogin, loading, error }) => {
 
       {/* Header */}
       <div className="lf-header">
-        <h1 className="lf-title">Giriş Yap</h1>
-        <p className="lf-subtitle">Hesabınıza erişmek için bilgilerinizi girin.</p>
+        <h1 className="lf-title">{t('auth.title')}</h1>
+        <p className="lf-subtitle">{t('auth.subtitle')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="lf-form" noValidate>
@@ -71,7 +73,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
         {/* ── E-posta ─────────────────────────────────────────── */}
         <div className="lf-field">
           <label className="lf-label" htmlFor="lf-email">
-            E-posta adresi
+            {t('auth.emailLabel')}
           </label>
           <div className="lf-input-wrap">
             <span className="lf-input-icon"><EmailIcon /></span>
@@ -92,8 +94,8 @@ export const LoginForm = ({ onLogin, loading, error }) => {
         {/* ── Şifre ───────────────────────────────────────────── */}
         <div className="lf-field">
           <div className="lf-label-row">
-            <label className="lf-label" htmlFor="lf-password">Şifre</label>
-            <button type="button" className="lf-forgot">Şifremi unuttum?</button>
+            <label className="lf-label" htmlFor="lf-password">{t('auth.passwordLabel')}</label>
+            <button type="button" className="lf-forgot">{t('auth.forgotPassword')}</button>
           </div>
           <div className="lf-input-wrap">
             <span className="lf-input-icon"><LockIcon /></span>
@@ -112,7 +114,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
               type="button"
               className="lf-eye-btn"
               onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
             >
               <EyeIcon open={showPassword} />
             </button>
@@ -127,7 +129,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
             onChange={(e) => setRememberMe(e.target.checked)}
             disabled={loading}
           />
-          <span>30 gün boyunca hatırla</span>
+          <span>{t('auth.rememberMe')}</span>
         </label>
 
         {/* ── Giriş Butonu ────────────────────────────────────── */}
@@ -139,10 +141,10 @@ export const LoginForm = ({ onLogin, loading, error }) => {
           {loading ? (
             <>
               <span className="lf-spinner" aria-hidden="true" />
-              Giriş yapılıyor…
+              {t('auth.loggingIn')}
             </>
           ) : (
-            'Giriş Yap'
+            t('auth.loginButton')
           )}
         </button>
 

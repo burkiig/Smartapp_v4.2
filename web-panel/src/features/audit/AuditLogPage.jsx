@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MdRefresh, MdSearch, MdFace, MdList, MdWarning, MdCheckCircle } from 'react-icons/md';
 import apiClient from '../../shared/services/apiClient';
 import './AuditLogPage.css';
@@ -6,6 +7,7 @@ import './AuditLogPage.css';
 // ─── Face Failures Sub-Panel ────────────────────────────────────────────────
 
 function FaceFailuresPanel() {
+  const { t } = useTranslation();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays]       = useState(30);
@@ -36,9 +38,9 @@ function FaceFailuresPanel() {
   };
 
   const riskLabel = (failRate) => {
-    if (failRate >= 75) return 'Yüksek Risk';
-    if (failRate >= 40) return 'Orta Risk';
-    return 'Düşük Risk';
+    if (failRate >= 75) return t('audit.riskHigh');
+    if (failRate >= 40) return t('audit.riskMid');
+    return t('audit.riskLow');
   };
 
   return (
@@ -46,20 +48,20 @@ function FaceFailuresPanel() {
       {/* Filters */}
       <div className="ff-filters">
         <div className="ff-filter-group">
-          <label className="ff-label">Son</label>
+          <label className="ff-label">{t('audit.last')}</label>
           <select
             className="ff-select"
             value={days}
             onChange={e => setDays(Number(e.target.value))}
           >
-            <option value={7}>7 gün</option>
-            <option value={14}>14 gün</option>
-            <option value={30}>30 gün</option>
-            <option value={90}>90 gün</option>
+            <option value={7}>{t('audit.days', { count: 7 })}</option>
+            <option value={14}>{t('audit.days', { count: 14 })}</option>
+            <option value={30}>{t('audit.days', { count: 30 })}</option>
+            <option value={90}>{t('audit.days', { count: 90 })}</option>
           </select>
         </div>
         <div className="ff-filter-group">
-          <label className="ff-label">Min. başarısız</label>
+          <label className="ff-label">{t('audit.minFail')}</label>
           <select
             className="ff-select"
             value={minFail}
@@ -72,27 +74,24 @@ function FaceFailuresPanel() {
           </select>
         </div>
         <button className="audit-search-btn" style={{ alignSelf: 'flex-end' }} onClick={handleApply}>
-          <MdSearch size={16} style={{ marginRight: 4 }} />Uygula
+          <MdSearch size={16} style={{ marginRight: 4 }} />{t('common.apply')}
         </button>
         <button className="audit-refresh-btn" style={{ alignSelf: 'flex-end' }} onClick={handleApply}>
-          <MdRefresh size={16} style={{ marginRight: 4 }} />Yenile
+          <MdRefresh size={16} style={{ marginRight: 4 }} />{t('common.refresh')}
         </button>
       </div>
 
       {loading ? (
-        <div className="audit-loading">Yükleniyor...</div>
+        <div className="audit-loading">{t('common.loading')}</div>
       ) : !data || data.total === 0 ? (
         <div className="ff-empty">
           <MdCheckCircle size={40} color="#10b981" />
-          <p>Son {data?.days ?? days} günde sorunlu yüz kaydı tespit edilmedi.</p>
+          <p>{t('audit.noFaceIssues', { days: data?.days ?? days })}</p>
         </div>
       ) : (
         <>
           <p className="ff-summary">
-            Son <strong>{data.days} gün</strong> içinde{' '}
-            <strong>{data.total} öğrenci</strong> yüz doğrulamasında
-            {' '}{minFail}+ başarısız deneme yaşadı.
-            Kayıt fotoğrafı yenilenmesi önerilir.
+            {t('audit.faceFailSummary', { days: data.days, total: data.total, minFail })}
           </p>
 
           <div className="ff-grid">
@@ -116,34 +115,34 @@ function FaceFailuresPanel() {
                 <div className="ff-stats">
                   <div className="ff-stat">
                     <span className="ff-stat-val ff-stat-fail">{u.fail_count}</span>
-                    <span className="ff-stat-lbl">Başarısız</span>
+                    <span className="ff-stat-lbl">{t('audit.failed')}</span>
                   </div>
                   <div className="ff-stat">
                     <span className="ff-stat-val ff-stat-ok">{u.success_count}</span>
-                    <span className="ff-stat-lbl">Başarılı</span>
+                    <span className="ff-stat-lbl">{t('audit.succeeded')}</span>
                   </div>
                   <div className="ff-stat">
                     <span className="ff-stat-val">{u.fail_rate}%</span>
-                    <span className="ff-stat-lbl">Hata Oranı</span>
+                    <span className="ff-stat-lbl">{t('audit.errorRate')}</span>
                   </div>
                   <div className="ff-stat">
                     <span className="ff-stat-val">
                       {u.avg_confidence != null ? u.avg_confidence.toFixed(3) : '—'}
                     </span>
-                    <span className="ff-stat-lbl">Ort. Benzerlik</span>
+                    <span className="ff-stat-lbl">{t('audit.avgSimilarity')}</span>
                   </div>
                 </div>
 
                 <div className="ff-footer">
                   <span className="ff-footer-item">
                     <MdWarning size={13} style={{ color: '#f59e0b', marginRight: 3 }} />
-                    Son hata:{' '}
+                    {t('audit.lastFail')}:{' '}
                     {u.last_fail_at
                       ? new Date(u.last_fail_at).toLocaleString('tr-TR')
                       : '—'}
                   </span>
                   <span className="ff-action-hint">
-                    → Yüz kaydını yenile
+                    → {t('audit.renewFaceHint')}
                   </span>
                 </div>
               </div>
@@ -158,6 +157,7 @@ function FaceFailuresPanel() {
 // ─── Main AuditLogPage ───────────────────────────────────────────────────────
 
 export const AuditLogPage = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' | 'face-failures'
 
   // ── Log list state ──────────────────────────────────────────────────────
@@ -206,14 +206,14 @@ export const AuditLogPage = () => {
           onClick={() => setActiveTab('logs')}
         >
           <MdList size={16} style={{ marginRight: 6 }} />
-          Sistem Kayıtları
+          {t('audit.systemLogs')}
         </button>
         <button
           className={`audit-tab ${activeTab === 'face-failures' ? 'audit-tab-active' : ''}`}
           onClick={() => setActiveTab('face-failures')}
         >
           <MdFace size={16} style={{ marginRight: 6 }} />
-          Yüz Sorunları
+          {t('audit.faceIssues')}
         </button>
       </div>
 
@@ -222,18 +222,18 @@ export const AuditLogPage = () => {
         <>
           <div className="audit-header">
             <div>
-              <h1 className="page-title">Sistem Kayıtları (Audit Log)</h1>
-              <p className="page-subtitle">Kim, ne zaman, ne yaptı — toplam {total} kayıt</p>
+              <h1 className="page-title">{t('audit.systemLogsTitle')}</h1>
+              <p className="page-subtitle">{t('audit.systemLogsSubtitle', { total })}</p>
             </div>
             <button className="audit-refresh-btn" onClick={() => loadLogs(page, actionFilter)}>
-              <MdRefresh size={16} style={{ marginRight: 5 }} />Yenile
+              <MdRefresh size={16} style={{ marginRight: 5 }} />{t('common.refresh')}
             </button>
           </div>
 
           <form className="audit-search" onSubmit={handleSearch}>
             <input
               type="text"
-              placeholder="İşlem adı filtrele (örn: login, attendance)"
+              placeholder={t('audit.filterPlaceholder')}
               value={actionFilter}
               onChange={e => setActionFilter(e.target.value)}
               className="audit-search-input"
@@ -244,9 +244,9 @@ export const AuditLogPage = () => {
           </form>
 
           {loading ? (
-            <div className="audit-loading">Yükleniyor...</div>
+            <div className="audit-loading">{t('common.loading')}</div>
           ) : logs.length === 0 ? (
-            <div className="audit-empty">Kayıt bulunamadı</div>
+            <div className="audit-empty">{t('audit.notFound')}</div>
           ) : (
             <>
               <div className="audit-table-wrapper">
@@ -254,14 +254,14 @@ export const AuditLogPage = () => {
                   <thead>
                     <tr>
                       <th>ID</th>
-                      <th>Tarih / Saat</th>
-                      <th>İşlem</th>
-                      <th>Aktör ID</th>
-                      <th>Rol</th>
-                      <th>Kaynak</th>
-                      <th>Kaynak ID</th>
+                      <th>{t('audit.dateTime')}</th>
+                      <th>{t('audit.action')}</th>
+                      <th>{t('audit.actorId')}</th>
+                      <th>{t('audit.role')}</th>
+                      <th>{t('audit.resource')}</th>
+                      <th>{t('audit.resourceId')}</th>
                       <th>IP</th>
-                      <th>Detay</th>
+                      <th>{t('audit.detail')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -284,7 +284,7 @@ export const AuditLogPage = () => {
                         <td className="log-detail">
                           {log.detail ? (
                             <details>
-                              <summary>Göster</summary>
+                              <summary>{t('common.show')}</summary>
                               <pre>{JSON.stringify(log.detail, null, 2)}</pre>
                             </details>
                           ) : '—'}
@@ -302,7 +302,7 @@ export const AuditLogPage = () => {
                     onClick={() => setPage(p => p - 1)}
                     className="page-btn"
                   >
-                    ‹ Önceki
+                    ‹ {t('common.prev')}
                   </button>
                   <span className="page-info">{page} / {totalPages}</span>
                   <button
@@ -310,7 +310,7 @@ export const AuditLogPage = () => {
                     onClick={() => setPage(p => p + 1)}
                     className="page-btn"
                   >
-                    Sonraki ›
+                    {t('common.next')} ›
                   </button>
                 </div>
               )}
@@ -324,10 +324,8 @@ export const AuditLogPage = () => {
         <>
           <div className="audit-header">
             <div>
-              <h1 className="page-title">Yüz Doğrulama Sorunları</h1>
-              <p className="page-subtitle">
-                Yüz tanımada sürekli başarısız olan öğrenciler — kayıt fotoğrafı yenilenebilir
-              </p>
+              <h1 className="page-title">{t('audit.faceIssuesTitle')}</h1>
+              <p className="page-subtitle">{t('audit.faceIssuesSubtitle')}</p>
             </div>
           </div>
           <FaceFailuresPanel />

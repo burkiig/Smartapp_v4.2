@@ -1,6 +1,7 @@
 import React from 'react';
 import { LoginForm } from '../features/auth/components/LoginForm';
 import { useAuth } from '../features/auth/hooks';
+import { LanguageSwitcher } from '../shared/components/LanguageSwitcher/LanguageSwitcher';
 import './LoginPage.css';
 
 export const LoginPage = () => {
@@ -12,6 +13,9 @@ export const LoginPage = () => {
 
   return (
     <div className="login-page">
+      <div className="login-lang-switch">
+        <LanguageSwitcher compact />
+      </div>
       <div className="login-split-card">
 
         {/* ── Sol Panel: Branding ────────────────────────────── */}

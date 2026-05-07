@@ -1,14 +1,16 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStudents } from '../../hooks/useStudents';
 import './StudentsPage.css';
 
 export const StudentsPage = ({ onManualAttendance }) => {
+  const { t } = useTranslation();
   const { students, loading, error, loadStudents, deleteStudent } = useStudents();
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
 
   const handleDelete = async (userId) => {
-    if (!window.confirm('Bu öğrenciyi silmek istediğinizden emin misiniz?')) return;
+    if (!window.confirm(t('students.deleteConfirm'))) return;
     await deleteStudent(userId);
   };
 
@@ -34,8 +36,8 @@ export const StudentsPage = ({ onManualAttendance }) => {
   if (loading) {
     return (
       <div className="students-page-container">
-        <h2>Öğrenciler</h2>
-        <div className="loading">Yükleniyor...</div>
+        <h2>{t('students.title')}</h2>
+        <div className="loading">{t('common.loading')}</div>
       </div>
     );
   }
@@ -43,9 +45,9 @@ export const StudentsPage = ({ onManualAttendance }) => {
   if (error) {
     return (
       <div className="students-page-container">
-        <h2>Öğrenciler</h2>
-        <div className="error-message">Hata: {error}</div>
-        <button className="btn btn-primary" onClick={loadStudents}>Tekrar Dene</button>
+        <h2>{t('students.title')}</h2>
+        <div className="error-message">{t('common.error')}: {error}</div>
+        <button className="btn btn-primary" onClick={loadStudents}>{t('common.retry')}</button>
       </div>
     );
   }
@@ -54,16 +56,16 @@ export const StudentsPage = ({ onManualAttendance }) => {
     <div className="students-page-container">
       <div className="header-with-button">
         <div>
-          <h2>Öğrenciler</h2>
-          <p className="subtitle">Toplam {students.length} öğrenci</p>
+          <h2>{t('students.title')}</h2>
+          <p className="subtitle">{t('students.subtitle', { count: students.length })}</p>
         </div>
-        <button className="btn btn-primary" onClick={loadStudents}>Yenile</button>
+        <button className="btn btn-primary" onClick={loadStudents}>{t('common.refresh')}</button>
       </div>
 
       <div className="search-box" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <input
           type="text"
-          placeholder="Ad, kullanıcı adı, e-posta, numara veya bölüm..."
+          placeholder={t('students.searchPlaceholder')}
           className="search-input"
           style={{ flex: 1, minWidth: 200 }}
           value={searchTerm}
@@ -76,7 +78,7 @@ export const StudentsPage = ({ onManualAttendance }) => {
             value={departmentFilter}
             onChange={e => setDepartmentFilter(e.target.value)}
           >
-            <option value="">Tüm Bölümler</option>
+            <option value="">{t('students.allDepartments')}</option>
             {departments.map(d => (
               <option key={d} value={d}>{d}</option>
             ))}
@@ -86,20 +88,20 @@ export const StudentsPage = ({ onManualAttendance }) => {
 
       {filteredStudents.length === 0 ? (
         <div className="empty-state">
-          <p>{searchTerm ? 'Arama sonucu bulunamadı' : 'Henüz kayıtlı öğrenci yok'}</p>
+          <p>{searchTerm ? t('students.noSearchResults') : t('students.noStudents')}</p>
         </div>
       ) : (
         <div className="table-wrapper">
           <table className="students-table">
             <thead>
               <tr>
-                <th>Ad Soyad</th>
-                <th>Kullanıcı Adı</th>
-                <th>E-posta</th>
-                <th>Öğrenci No</th>
-                <th>Bölüm</th>
-                <th>Durum</th>
-                <th>İşlem</th>
+                <th>{t('students.fullName')}</th>
+                <th>{t('students.username')}</th>
+                <th>{t('students.email')}</th>
+                <th>{t('students.studentNo')}</th>
+                <th>{t('students.department')}</th>
+                <th>{t('students.status')}</th>
+                <th>{t('students.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -119,7 +121,7 @@ export const StudentsPage = ({ onManualAttendance }) => {
                   <td>{student.department || '—'}</td>
                   <td>
                     <span className={`status-badge ${student.is_active ? 'active' : 'inactive'}`}>
-                      {student.is_active ? 'Aktif' : 'Pasif'}
+                      {student.is_active ? t('students.active') : t('students.inactive')}
                     </span>
                   </td>
                   <td>
@@ -129,14 +131,14 @@ export const StudentsPage = ({ onManualAttendance }) => {
                         style={{ marginRight: '6px' }}
                         onClick={() => onManualAttendance(student)}
                       >
-                        Manuel Yoklama
+                        {t('students.manualAttendance')}
                       </button>
                     )}
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleDelete(student.id)}
                     >
-                      Sil
+                      {t('common.delete')}
                     </button>
                   </td>
                 </tr>

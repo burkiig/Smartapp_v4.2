@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import Webcam from 'react-webcam';
 import { MdSchool, MdCheckCircle, MdWarning, MdHistory, MdRefresh, MdReportProblem } from 'react-icons/md';
 import { Bar } from 'react-chartjs-2';
@@ -6,25 +7,18 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 } from 'chart.js';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
+import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
 import './StudentDashboardPage.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const STUDENT_MENU_ITEMS = [
-  { id: 'dashboard',  label: 'Ana Sayfa'        },
-  { id: 'schedule',   label: 'Ders Programı'    },
-  { id: 'attendance', label: 'Yoklama Geçmişi'  },
-  { id: 'take',       label: 'Yoklama Al'       },
-  { id: 'disputes',   label: 'İtirazlarım'      },
-];
-
-const DAYS_TR = { Monday: 'Pzt', Tuesday: 'Sal', Wednesday: 'Çar', Thursday: 'Per', Friday: 'Cum' };
-const DAYS_FULL = { Monday: 'Pazartesi', Tuesday: 'Salı', Wednesday: 'Çarşamba', Thursday: 'Perşembe', Friday: 'Cuma' };
+const DAYS_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 // ── Disputes Panel ───────────────────────────────────────────────────────────
 function DisputesPanel({ disputes, courses, onRefresh }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ session_id: '', course_id: '', reason: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +27,7 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.session_id || !form.course_id || !form.reason.trim()) {
-      setError('Tüm alanları doldurun');
+      setError(t('studentDashboard.disputes.errorRequired'));
       return;
     }
     setSubmitting(true); setError(''); setSuccess('');
@@ -43,73 +37,72 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
         course_id: Number(form.course_id),
         reason: form.reason,
       });
-      setSuccess('İtirazınız gönderildi. Öğretmeniniz inceleyecektir.');
+      setSuccess(t('studentDashboard.disputes.successSubmit'));
       setForm({ session_id: '', course_id: '', reason: '' });
       onRefresh();
     } catch (err) {
-      setError(err.message || 'İtiraz gönderilemedi');
+      setError(err.message || t('studentDashboard.disputes.errorSubmit'));
     } finally {
       setSubmitting(false); }
   };
 
-  const statusTR = { pending: 'Bekliyor', approved: 'Onaylandı', rejected: 'Reddedildi' };
   const statusCls = { pending: 'status-badge pending_review', approved: 'status-badge present', rejected: 'status-badge absent' };
 
   return (
     <div className="student-disputes">
       <div className="page-header">
-        <h1>İtirazlarım</h1>
-        <button className="refresh-btn" onClick={onRefresh}>Yenile</button>
+        <h1>{t('studentDashboard.disputes.title')}</h1>
+        <button className="refresh-btn" onClick={onRefresh}>{t('common.refresh')}</button>
       </div>
       <div className="dispute-form-card">
-        <h2>Yeni İtiraz Gönder</h2>
-        <p className="dispute-hint">Yoklamada görünmediğinizi düşünüyorsanız buradan itiraz edebilirsiniz.</p>
+        <h2>{t('studentDashboard.disputes.newDispute')}</h2>
+        <p className="dispute-hint">{t('studentDashboard.disputes.hint')}</p>
         {error && <div className="dispute-error">{error}</div>}
         {success && <div className="dispute-success">{success}</div>}
         <form onSubmit={handleSubmit} className="dispute-form">
           <div className="form-row">
-            <label>Ders</label>
+            <label>{t('studentDashboard.disputes.courseLabel')}</label>
             <select value={form.course_id} onChange={e => setForm(f => ({ ...f, course_id: e.target.value }))}>
-              <option value="">Ders seçin</option>
+              <option value="">{t('studentDashboard.disputes.coursePlaceholder')}</option>
               {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
             </select>
           </div>
           <div className="form-row">
-            <label>Oturum ID</label>
+            <label>{t('studentDashboard.disputes.sessionLabel')}</label>
             <input
               type="number"
-              placeholder="Oturum numarasını girin"
+              placeholder={t('studentDashboard.disputes.sessionPlaceholder')}
               value={form.session_id}
               onChange={e => setForm(f => ({ ...f, session_id: e.target.value }))}
             />
           </div>
           <div className="form-row">
-            <label>Açıklama</label>
+            <label>{t('studentDashboard.disputes.reasonLabel')}</label>
             <textarea
               rows={3}
-              placeholder="Neden yoklamada görünmediğinizi açıklayın..."
+              placeholder={t('studentDashboard.disputes.reasonPlaceholder')}
               value={form.reason}
               onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
             />
           </div>
           <button type="submit" className="refresh-btn" disabled={submitting}>
-            {submitting ? 'Gönderiliyor...' : 'İtiraz Gönder'}
+            {submitting ? t('studentDashboard.disputes.submittingBtn') : t('studentDashboard.disputes.submitBtn')}
           </button>
         </form>
       </div>
-      <h2 style={{ marginTop: 28, marginBottom: 12 }}>Geçmiş İtirazlar</h2>
+      <h2 style={{ marginTop: 28, marginBottom: 12 }}>{t('studentDashboard.disputes.past')}</h2>
       {disputes.length === 0 ? (
-        <p className="empty-text">Henüz itiraz göndermediniz.</p>
+        <p className="empty-text">{t('studentDashboard.disputes.empty')}</p>
       ) : (
         <table className="attendance-table">
           <thead>
             <tr>
-              <th>Ders</th>
-              <th>Oturum</th>
-              <th>Açıklama</th>
-              <th>Durum</th>
-              <th>Not</th>
-              <th>Tarih</th>
+              <th>{t('studentDashboard.disputes.tableHeaders.course')}</th>
+              <th>{t('studentDashboard.disputes.tableHeaders.session')}</th>
+              <th>{t('studentDashboard.disputes.tableHeaders.reason')}</th>
+              <th>{t('studentDashboard.disputes.tableHeaders.status')}</th>
+              <th>{t('studentDashboard.disputes.tableHeaders.note')}</th>
+              <th>{t('studentDashboard.disputes.tableHeaders.date')}</th>
             </tr>
           </thead>
           <tbody>
@@ -118,7 +111,7 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
                 <td>{d.course_code || `#${d.course_id}`}</td>
                 <td>#{d.session_id}</td>
                 <td>{d.reason}</td>
-                <td><span className={statusCls[d.status] || 'status-badge'}>{statusTR[d.status] || d.status}</span></td>
+                <td><span className={statusCls[d.status] || 'status-badge'}>{t(`studentDashboard.disputes.statuses.${d.status}`, d.status)}</span></td>
                 <td>{d.instructor_notes || '—'}</td>
                 <td>{d.created_at ? new Date(d.created_at).toLocaleDateString('tr-TR') : '—'}</td>
               </tr>
@@ -132,6 +125,7 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
 
 // ── Web Attendance Component ─────────────────────────────────────────────────
 function WebAttendance() {
+  const { t } = useTranslation();
   const webcamRef = useRef(null);
   const [step, setStep] = useState('session');   // session | face | location | done | error
   const [sessions, setSessions] = useState([]);
@@ -151,7 +145,7 @@ function WebAttendance() {
         const data = await apiClient.get('/sessions/active');
         setSessions(data || []);
       } catch (e) {
-        setError('Aktif oturum yüklenemedi');
+        setError(t('studentDashboard.takeAttendance.errorLoadSessions'));
       } finally {
         setLoadingSessions(false);
       }
@@ -168,7 +162,7 @@ function WebAttendance() {
   }, [step]);
 
   const handleSelectSession = () => {
-    if (!selectedSession) { setError('Lütfen bir oturum seçin'); return; }
+    if (!selectedSession) { setError(t('studentDashboard.takeAttendance.errorSelectSession')); return; }
     setError('');
     setStep('face');
   };
@@ -176,7 +170,7 @@ function WebAttendance() {
   const handleCapture = () => {
     if (!webcamRef.current) return;
     const img = webcamRef.current.getScreenshot();
-    if (!img) { setError('Görüntü alınamadı'); return; }
+    if (!img) { setError(t('studentDashboard.takeAttendance.errorCapture')); return; }
     setCapturedImage(img);
   };
 
@@ -193,15 +187,15 @@ function WebAttendance() {
       },
       () => {
         setGpsStatus('error');
-        setError('Konum alınamadı. Tarayıcı konum iznini kontrol edin.');
+        setError(t('studentDashboard.takeAttendance.errorGps'));
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
   };
 
   const handleSubmit = async () => {
-    if (!capturedImage) { setError('Önce kameranızdan fotoğraf çekin'); return; }
-    if (!gpsData) { setError('Önce konum bilginizi alın'); return; }
+    if (!capturedImage) { setError(t('studentDashboard.takeAttendance.errorNeedPhoto')); return; }
+    if (!gpsData) { setError(t('studentDashboard.takeAttendance.errorNeedGps')); return; }
     setSubmitting(true);
     setError('');
     try {
@@ -215,7 +209,7 @@ function WebAttendance() {
       setResult(res);
       setStep('done');
     } catch (e) {
-      setError(e.message || 'Yoklama gönderilemedi');
+      setError(e.message || t('studentDashboard.takeAttendance.errorSubmit'));
     } finally {
       setSubmitting(false);
     }
@@ -231,34 +225,41 @@ function WebAttendance() {
     setError('');
   };
 
+  const WA_STEPS = [
+    { key: 'session',  label: t('studentDashboard.takeAttendance.steps.session')  },
+    { key: 'face',     label: t('studentDashboard.takeAttendance.steps.face')     },
+    { key: 'location', label: t('studentDashboard.takeAttendance.steps.location') },
+    { key: 'submit',   label: t('studentDashboard.takeAttendance.steps.submit')   },
+  ];
+
   if (step === 'done' && result) {
     return (
       <div className="wa-container">
         <div className={`wa-result ${result.is_flagged ? 'flagged' : 'success'}`}>
           <div className="wa-result-icon">{result.is_flagged ? '!' : 'OK'}</div>
-          <h2>{result.is_flagged ? 'Yoklama Kaydedildi — Şüpheli' : 'Yoklama Başarıyla Kaydedildi'}</h2>
+          <h2>{result.is_flagged ? t('studentDashboard.takeAttendance.resultFlagged') : t('studentDashboard.takeAttendance.resultSuccess')}</h2>
           <p>{result.message}</p>
           {result.is_flagged && (
             <div className="wa-flag-detail">
-              <p>Öğretmene bildirim gönderildi. Öğretmen kaydınızı inceleyecektir.</p>
+              <p>{t('studentDashboard.takeAttendance.flaggedInfo')}</p>
               <div className="wa-check-row">
                 <span className={`wa-check ${result.face_ok ? 'ok' : 'fail'}`}>
-                  Yüz Tanıma: {result.face_ok ? 'Başarılı' : 'Başarısız'}
+                  {t('studentDashboard.takeAttendance.faceCheck')}: {result.face_ok ? t('common.success') : t('common.failed')}
                 </span>
                 <span className={`wa-check ${result.location_ok ? 'ok' : 'fail'}`}>
-                  Konum: {result.location_ok ? 'Başarılı' : 'Başarısız'}
+                  {t('studentDashboard.takeAttendance.locationCheck')}: {result.location_ok ? t('common.success') : t('common.failed')}
                 </span>
               </div>
             </div>
           )}
           {!result.is_flagged && (
             <div className="wa-check-row">
-              <span className="wa-check ok">Yüz Tanıma: Başarılı</span>
-              <span className="wa-check ok">Konum: Başarılı</span>
+              <span className="wa-check ok">{t('studentDashboard.takeAttendance.faceCheck')}: {t('common.success')}</span>
+              <span className="wa-check ok">{t('studentDashboard.takeAttendance.locationCheck')}: {t('common.success')}</span>
             </div>
           )}
           <button className="wa-btn primary" onClick={reset} style={{ marginTop: '20px' }}>
-            Yeni Yoklama
+            {t('studentDashboard.takeAttendance.newAttendance')}
           </button>
         </div>
       </div>
@@ -268,18 +269,17 @@ function WebAttendance() {
   return (
     <div className="wa-container">
       <div className="wa-header">
-        <h1>Yoklama Al</h1>
-        <p className="wa-subtitle">Yüz tanıma ve konum doğrulamalı yoklama</p>
+        <h1>{t('studentDashboard.takeAttendance.title')}</h1>
+        <p className="wa-subtitle">{t('studentDashboard.takeAttendance.subtitle')}</p>
       </div>
 
-      {/* Progress indicator */}
       <div className="wa-steps">
-        {['Oturum', 'Yüz', 'Konum', 'Gönder'].map((s, i) => {
-          const idx = ['session','face','location','submit'].indexOf(step);
+        {WA_STEPS.map((s, i) => {
+          const idx = WA_STEPS.findIndex(x => x.key === step);
           return (
-            <div key={s} className={`wa-step ${i <= idx ? 'active' : ''}`}>
+            <div key={s.key} className={`wa-step ${i <= idx ? 'active' : ''}`}>
               <div className="wa-step-num">{i + 1}</div>
-              <div className="wa-step-label">{s}</div>
+              <div className="wa-step-label">{s.label}</div>
             </div>
           );
         })}
@@ -287,14 +287,13 @@ function WebAttendance() {
 
       {error && <div className="wa-error">{error}</div>}
 
-      {/* STEP 1 — Select session */}
       {step === 'session' && (
         <div className="wa-card">
-          <h2>Aktif Oturumu Seçin</h2>
+          <h2>{t('studentDashboard.takeAttendance.selectSession')}</h2>
           {loadingSessions ? (
-            <p className="wa-hint">Oturumlar yükleniyor...</p>
+            <p className="wa-hint">{t('common.loading')}</p>
           ) : sessions.length === 0 ? (
-            <p className="wa-hint">Şu an aktif oturum bulunmuyor. Öğretmeninizin oturum başlatmasını bekleyin.</p>
+            <p className="wa-hint">{t('studentDashboard.takeAttendance.noSessions')}</p>
           ) : (
             <>
               <div className="wa-sessions">
@@ -309,28 +308,27 @@ function WebAttendance() {
                       style={{ display: 'none' }}
                     />
                     <div className="wa-session-info">
-                      <span className="wa-session-course">Ders #{s.course_id}</span>
+                      <span className="wa-session-course">{t('studentDashboard.takeAttendance.courseNo', { id: s.course_id })}</span>
                       <span className="wa-session-date">{s.date || '—'}</span>
                     </div>
-                    <span className="wa-session-badge">Aktif</span>
+                    <span className="wa-session-badge">{t('studentDashboard.takeAttendance.active')}</span>
                   </label>
                 ))}
               </div>
               <button className="wa-btn primary" onClick={handleSelectSession}>
-                Devam Et
+                {t('common.continue')}
               </button>
             </>
           )}
         </div>
       )}
 
-      {/* STEP 2 — Face capture */}
       {step === 'face' && (
         <div className="wa-card">
-          <h2>Yüz Tanıma</h2>
-          <p className="wa-hint">Kameraya bakarak fotoğrafınızı çekin.</p>
+          <h2>{t('studentDashboard.takeAttendance.faceRecognition')}</h2>
+          <p className="wa-hint">{t('studentDashboard.takeAttendance.faceHint')}</p>
           {hasCamera === false ? (
-            <div className="wa-error">Kamera izni gerekli. Tarayıcı ayarlarınızı kontrol edin.</div>
+            <div className="wa-error">{t('studentDashboard.takeAttendance.cameraDenied')}</div>
           ) : (
             <>
               <div className="wa-webcam-wrapper">
@@ -346,46 +344,45 @@ function WebAttendance() {
                     <div className="wa-face-guide"></div>
                   </>
                 ) : (
-                  <img src={capturedImage} alt="Çekilen fotoğraf" className="wa-captured" />
+                  <img src={capturedImage} alt="captured" className="wa-captured" />
                 )}
               </div>
               <div className="wa-btn-row">
                 {!capturedImage ? (
                   <button className="wa-btn primary" onClick={handleCapture}>
-                    Fotoğraf Çek
+                    {t('studentDashboard.takeAttendance.captureBtn')}
                   </button>
                 ) : (
                   <>
                     <button className="wa-btn secondary" onClick={() => setCapturedImage(null)}>
-                      Yeniden Çek
+                      {t('studentDashboard.takeAttendance.retakeBtn')}
                     </button>
                     <button className="wa-btn primary" onClick={() => { setError(''); setStep('location'); }}>
-                      Devam Et
+                      {t('common.continue')}
                     </button>
                   </>
                 )}
-                <button className="wa-btn ghost" onClick={() => setStep('session')}>Geri</button>
+                <button className="wa-btn ghost" onClick={() => setStep('session')}>{t('common.back')}</button>
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* STEP 3 — GPS */}
       {step === 'location' && (
         <div className="wa-card">
-          <h2>Konum Doğrulaması</h2>
-          <p className="wa-hint">Bulunduğunuz konumu paylaşmanız gerekiyor.</p>
+          <h2>{t('studentDashboard.takeAttendance.locationTitle')}</h2>
+          <p className="wa-hint">{t('studentDashboard.takeAttendance.locationHint')}</p>
           <div className="wa-gps-status">
             {gpsStatus === 'idle' && (
               <button className="wa-btn primary" onClick={handleGetGPS}>
-                Konumumu Al
+                {t('studentDashboard.takeAttendance.getLocationBtn')}
               </button>
             )}
-            {gpsStatus === 'loading' && <p className="wa-hint">Konum alınıyor...</p>}
+            {gpsStatus === 'loading' && <p className="wa-hint">{t('studentDashboard.takeAttendance.gpsLoading')}</p>}
             {gpsStatus === 'ok' && gpsData && (
               <div className="wa-gps-ok">
-                <span className="wa-check ok">Konum alındı</span>
+                <span className="wa-check ok">{t('studentDashboard.takeAttendance.locationObtained')}</span>
                 <p className="wa-hint">
                   {gpsData.latitude.toFixed(5)}, {gpsData.longitude.toFixed(5)}
                   {gpsData.accuracy && ` (±${gpsData.accuracy.toFixed(0)}m)`}
@@ -393,7 +390,7 @@ function WebAttendance() {
               </div>
             )}
             {gpsStatus === 'error' && (
-              <button className="wa-btn secondary" onClick={handleGetGPS}>Tekrar Dene</button>
+              <button className="wa-btn secondary" onClick={handleGetGPS}>{t('common.retry')}</button>
             )}
           </div>
           <div className="wa-btn-row">
@@ -403,29 +400,28 @@ function WebAttendance() {
                 onClick={() => { setError(''); setStep('submit'); }}
                 disabled={gpsStatus !== 'ok'}
               >
-                Devam Et
+                {t('common.continue')}
               </button>
             )}
-            <button className="wa-btn ghost" onClick={() => setStep('face')}>Geri</button>
+            <button className="wa-btn ghost" onClick={() => setStep('face')}>{t('common.back')}</button>
           </div>
         </div>
       )}
 
-      {/* STEP 4 — Confirm & Submit */}
       {step === 'submit' && (
         <div className="wa-card">
-          <h2>Onay</h2>
+          <h2>{t('studentDashboard.takeAttendance.confirm')}</h2>
           <div className="wa-confirm-grid">
             <div className="wa-confirm-item">
-              <span className="wa-confirm-label">Oturum</span>
+              <span className="wa-confirm-label">{t('studentDashboard.takeAttendance.sessionLabel')}</span>
               <span className="wa-confirm-val">#{selectedSession}</span>
             </div>
             <div className="wa-confirm-item">
-              <span className="wa-confirm-label">Yüz Tanıma</span>
-              <span className="wa-check ok">Fotoğraf çekildi</span>
+              <span className="wa-confirm-label">{t('studentDashboard.takeAttendance.faceCheck')}</span>
+              <span className="wa-check ok">{t('studentDashboard.takeAttendance.photoCaptured')}</span>
             </div>
             <div className="wa-confirm-item">
-              <span className="wa-confirm-label">Konum</span>
+              <span className="wa-confirm-label">{t('studentDashboard.takeAttendance.locationCheck')}</span>
               <span className="wa-check ok">
                 {gpsData ? `${gpsData.latitude.toFixed(4)}, ${gpsData.longitude.toFixed(4)}` : '—'}
               </span>
@@ -433,9 +429,9 @@ function WebAttendance() {
           </div>
           <div className="wa-btn-row">
             <button className="wa-btn primary" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Gönderiliyor...' : 'Yoklamayı Gönder'}
+              {submitting ? t('studentDashboard.takeAttendance.submittingBtn') : t('studentDashboard.takeAttendance.submitBtn')}
             </button>
-            <button className="wa-btn ghost" onClick={() => setStep('location')}>Geri</button>
+            <button className="wa-btn ghost" onClick={() => setStep('location')}>{t('common.back')}</button>
           </div>
         </div>
       )}
@@ -445,7 +441,16 @@ function WebAttendance() {
 
 // ── Main StudentDashboardPage ────────────────────────────────────────────────
 export const StudentDashboardPage = ({ user, onLogout }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  const STUDENT_MENU_ITEMS = [
+    { id: 'dashboard',  label: t('nav.student.dashboard')  },
+    { id: 'schedule',   label: t('nav.student.schedule')   },
+    { id: 'attendance', label: t('nav.student.attendance') },
+    { id: 'take',       label: t('nav.student.takeAttendance') },
+    { id: 'disputes',   label: t('nav.student.disputes')   },
+  ];
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [history, setHistory] = useState([]);
@@ -512,13 +517,13 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
       <div className="student-overview">
         <div className="page-header">
           <div>
-            <h1>Hoş geldiniz, {user.name}!</h1>
+            <h1>{t('studentDashboard.overview.welcome', { name: user.name })}</h1>
             <p className="page-subtitle">
-              {user.student_number ? `Öğrenci No: ${user.student_number}` : user.email}
+              {user.student_number ? t('studentDashboard.overview.studentNo', { number: user.student_number }) : user.email}
             </p>
           </div>
           <button className="refresh-btn" onClick={() => fetchData('dashboard')}>
-            <MdRefresh size={16} style={{marginRight:5}}/>Yenile
+            <MdRefresh size={16} style={{marginRight:5}}/>{t('common.refresh')}
           </button>
         </div>
         {loading ? <SkeletonTable rows={5} cols={4} /> : (
@@ -527,27 +532,27 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
               <div className={`stat-card-lg ${rate >= 75 ? 'green' : 'red'}`}>
                 <div className="stat-icon-sm">{rate >= 75 ? <MdCheckCircle size={20}/> : <MdWarning size={20}/>}</div>
                 <div className="stat-big">{rate}%</div>
-                <div className="stat-lbl-lg">Genel Devam Oranı</div>
+                <div className="stat-lbl-lg">{t('studentDashboard.overview.attendanceRate')}</div>
               </div>
               <div className="stat-card-lg blue">
                 <div className="stat-icon-sm"><MdCheckCircle size={20}/></div>
                 <div className="stat-big">{attended}</div>
-                <div className="stat-lbl-lg">Katıldığı Ders</div>
+                <div className="stat-lbl-lg">{t('studentDashboard.overview.attended')}</div>
               </div>
               <div className="stat-card-lg purple">
                 <div className="stat-icon-sm"><MdHistory size={20}/></div>
                 <div className="stat-big">{total}</div>
-                <div className="stat-lbl-lg">Toplam Oturum</div>
+                <div className="stat-lbl-lg">{t('studentDashboard.overview.totalSessions')}</div>
               </div>
               <div className="stat-card-lg orange">
                 <div className="stat-icon-sm"><MdSchool size={20}/></div>
                 <div className="stat-big">{enrolled}</div>
-                <div className="stat-lbl-lg">Kayıtlı Ders</div>
+                <div className="stat-lbl-lg">{t('studentDashboard.overview.enrolledCourses')}</div>
               </div>
             </div>
             {rate < 75 && (
               <div className="attendance-warning">
-                Devam oranınız %{rate} ile minimum sınırın altında. Derslere katılımınızı artırmanız önerilir.
+                {t('studentDashboard.overview.lowAttendanceWarning', { rate })}
               </div>
             )}
           </>
@@ -573,8 +578,8 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     return (
       <div className="student-schedule">
         <div className="page-header">
-          <h1>Ders Programı</h1>
-          <button className="refresh-btn" onClick={() => fetchData('schedule')}>Yenile</button>
+          <h1>{t('studentDashboard.schedule.title')}</h1>
+          <button className="refresh-btn" onClick={() => fetchData('schedule')}>{t('common.refresh')}</button>
         </div>
         {loading ? <SkeletonTable rows={5} cols={4} /> : (
           <div className="schedule-table-wrapper">
@@ -583,8 +588,8 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                 <tr>
                   {DAYS_ORDER.map(day => (
                     <th key={day} className={day === today ? 'today-col' : ''}>
-                      <div>{DAYS_TR[day]}</div>
-                      <div className="day-full">{DAYS_FULL[day]}</div>
+                      <div>{t(`studentDashboard.schedule.daysShort.${day}`)}</div>
+                      <div className="day-full">{t(`studentDashboard.schedule.daysFull.${day}`)}</div>
                     </th>
                   ))}
                 </tr>
@@ -615,7 +620,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
             </table>
             {courses.every(c => !c.schedule?.days?.length) && (
               <p className="empty-text" style={{ textAlign: 'center', marginTop: '32px' }}>
-                Ders programı henüz tanımlanmamış
+                {t('studentDashboard.schedule.noSchedule')}
               </p>
             )}
           </div>
@@ -663,7 +668,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
       responsive: true,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: 'Derse Göre Devam Oranı', font: { size: 14 } },
+                title: { display: true, text: t('studentDashboard.attendance.chartTitle'), font: { size: 14 } },
         tooltip: { callbacks: { label: ctx => `${ctx.raw}%` } },
       },
       scales: {
@@ -676,8 +681,8 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     return (
       <div className="student-attendance">
         <div className="page-header">
-          <h1>Yoklama Geçmişi</h1>
-          <button className="refresh-btn" onClick={() => fetchData('attendance')}>Yenile</button>
+          <h1>{t('studentDashboard.attendance.title')}</h1>
+          <button className="refresh-btn" onClick={() => fetchData('attendance')}>{t('common.refresh')}</button>
         </div>
         {loading ? <SkeletonTable rows={5} cols={4} /> : (
           <>
@@ -688,7 +693,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                   <div className="att-low-warning">
                     <MdWarning size={18} style={{ marginRight: 6, flexShrink: 0 }} />
                     <span>
-                      <strong>Dikkat!</strong> Şu derslerde devam oranınız %70 sınırının altında:{' '}
+                      <strong>{t('studentDashboard.attendance.warning')}</strong> {t('studentDashboard.attendance.warningText')}{' '}
                       {lowAttendanceCourses.map(s => `${s.code} (%${s.rate})`).join(', ')}
                     </span>
                   </div>
@@ -705,14 +710,14 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                 value={historyFilter}
                 onChange={e => setHistoryFilter(e.target.value)}
               >
-                <option value="">Tüm Dersler</option>
+                <option value="">{t('studentDashboard.attendance.allCourses')}</option>
                 {courses.map(c => (
                   <option key={c.id} value={String(c.id)}>{c.code} — {c.name}</option>
                 ))}
               </select>
               {filtered.length > 0 && (
                 <div className="att-summary">
-                  <span>{presentCount}/{filtered.length} katılım</span>
+                  <span>{t('studentDashboard.attendance.summary', { present: presentCount, total: filtered.length })}</span>
                   <span className={`att-rate ${rate >= 70 ? 'good' : 'bad'}`}>%{rate}</span>
                 </div>
               )}
@@ -721,17 +726,17 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
               <table className="attendance-table">
                 <thead>
                   <tr>
-                    <th>Tarih</th>
-                    <th>Ders</th>
-                    <th>Durum</th>
-                    <th>Yüz</th>
-                    <th>Konum</th>
-                    <th>Bayrak</th>
+                    <th>{t('studentDashboard.attendance.headers.date')}</th>
+                    <th>{t('studentDashboard.attendance.headers.course')}</th>
+                    <th>{t('studentDashboard.attendance.headers.status')}</th>
+                    <th>{t('studentDashboard.attendance.headers.face')}</th>
+                    <th>{t('studentDashboard.attendance.headers.location')}</th>
+                    <th>{t('studentDashboard.attendance.headers.flag')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan="6" className="empty-cell">Kayıt bulunamadı</td></tr>
+                    <tr><td colSpan="6" className="empty-cell">{t('studentDashboard.attendance.notFound')}</td></tr>
                   ) : (
                     filtered.map(r => (
                       <tr key={r.id} className={r.is_flagged ? 'flagged-row' : ''}>
@@ -742,27 +747,27 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                         </td>
                         <td>
                           <span className={`status-badge ${r.status}`}>
-                            {r.status === 'present' ? 'Katıldı' : r.status === 'absent' ? 'Katılmadı' : r.status === 'excused' ? 'Mazeretli' : r.status === 'pending_review' ? 'İncelemede' : r.status}
+                            {t(`studentDashboard.attendance.statuses.${r.status}`, r.status)}
                           </span>
                         </td>
                         <td>
                           {r.verification_steps ? (
                             <span className={`step-badge ${r.verification_steps.face_ok ? 'face' : 'fail'}`}>
-                              {r.verification_steps.face_ok ? 'OK' : 'Hata'}
+                              {r.verification_steps.face_ok ? 'OK' : t('common.error')}
                             </span>
                           ) : '—'}
                         </td>
                         <td>
                           {r.verification_steps ? (
                             <span className={`step-badge ${r.verification_steps.location_ok ? 'gps' : 'fail'}`}>
-                              {r.verification_steps.location_ok ? 'OK' : r.verification_steps.location_skipped ? 'Atl.' : 'Hata'}
+                              {r.verification_steps.location_ok ? 'OK' : r.verification_steps.location_skipped ? t('studentDashboard.attendance.skipped') : t('common.error')}
                             </span>
                           ) : '—'}
                         </td>
                         <td>
                           {r.is_flagged
-                            ? <span className="flag-badge">Şüpheli</span>
-                            : <span className="ok-badge">Normal</span>}
+                            ? <span className="flag-badge">{t('studentDashboard.attendance.suspicious')}</span>
+                            : <span className="ok-badge">{t('studentDashboard.attendance.normal')}</span>}
                         </td>
                       </tr>
                     ))
@@ -799,17 +804,23 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
   return (
     <div className="student-dashboard-container">
       <Sidebar
-        title="Yoklama Sistemi"
-        subtitle="Ogrenci Portali"
+        title={t('nav.systemTitle')}
+        subtitle={t('nav.studentPortal')}
         menuItems={STUDENT_MENU_ITEMS}
         activeTab={activeTab}
         onTabChange={handleTabChange}
         user={user}
         onLogout={onLogout}
       />
-      <main className="main-content">
-        {renderContent()}
-      </main>
+      <div className="student-main-wrapper">
+        <div className="student-top-bar">
+          <div className="top-bar-spacer" />
+          <LanguageSwitcher compact />
+        </div>
+        <main className="main-content">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   );
 };

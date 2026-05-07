@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAttendance } from '../../hooks/useAttendance';
 import { useExcuses } from '../../hooks/useExcuses';
 import { FlaggedAttendanceList } from '../../components/FlaggedAttendanceList';
@@ -6,13 +7,12 @@ import { Badge } from '../../../../shared/components/ui/Badge';
 import { ExcuseDetailsModal } from '../../components/ExcuseDetailsModal';
 import './AttendancePage.css';
 
-const STATUS_LABELS = { pending: 'Bekliyor', approved: 'Onaylandı', rejected: 'Reddedildi' };
-
 /**
  * Attendance review page for instructors.
  * Supports deep-link triage context from push notifications.
  */
 export const AttendancePage = ({ triageContext = null }) => {
+  const { t } = useTranslation();
   const {
     flaggedRecords, filteredRecords, loading, activeTab, setActiveTab, tabCounts, approve, reject, undo,
   } = useAttendance();
@@ -28,11 +28,11 @@ export const AttendancePage = ({ triageContext = null }) => {
   const isFlaggedTriage = Boolean(triageContext?.filter === 'flagged' && triageSessionId);
 
   const tabs = useMemo(() => [
-    { id: 'all', label: 'Tümü', count: tabCounts.all },
-    { id: 'flagged', label: 'Bayraklı', count: tabCounts.flagged },
-    { id: 'resolved', label: 'Çözülenler', count: tabCounts.resolved },
-    { id: 'excuses', label: 'Mazeretler', count: excusePendingCount },
-  ], [tabCounts.all, tabCounts.flagged, tabCounts.resolved, excusePendingCount]);
+    { id: 'all',      label: t('attendancePage.tabs.all'),      count: tabCounts.all      },
+    { id: 'flagged',  label: t('attendancePage.tabs.flagged'),  count: tabCounts.flagged  },
+    { id: 'resolved', label: t('attendancePage.tabs.resolved'), count: tabCounts.resolved },
+    { id: 'excuses',  label: t('attendancePage.tabs.excuses'),  count: excusePendingCount },
+  ], [tabCounts.all, tabCounts.flagged, tabCounts.resolved, excusePendingCount, t]);
 
   useEffect(() => {
     if (!isFlaggedTriage) return;
@@ -103,7 +103,7 @@ export const AttendancePage = ({ triageContext = null }) => {
   const handleExcuseApprove = useCallback(async (id) => {
     try {
       const result = await approveExcuse(id);
-      return result?.success ? { success: true } : { success: false, error: result?.error || 'Mazeret onaylanamadı' };
+      return result?.success ? { success: true } : { success: false, error: result?.error || t('attendancePage.errorApproveExcuse') };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -112,7 +112,7 @@ export const AttendancePage = ({ triageContext = null }) => {
   const handleExcuseReject = useCallback(async (id, reason) => {
     try {
       const result = await rejectExcuse(id, reason);
-      return result?.success ? { success: true } : { success: false, error: result?.error || 'Mazeret reddedilemedi' };
+      return result?.success ? { success: true } : { success: false, error: result?.error || t('attendancePage.errorRejectExcuse') };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -132,7 +132,7 @@ export const AttendancePage = ({ triageContext = null }) => {
     if (excuseRecords.length === 0) {
       return (
         <div className="empty-state">
-          <p>Mazeret talebi bulunamadı</p>
+          <p>{t('attendancePage.excuses.empty')}</p>
         </div>
       );
     }
@@ -142,13 +142,13 @@ export const AttendancePage = ({ triageContext = null }) => {
         <table className="flagged-table">
           <thead>
             <tr>
-              <th>Öğrenci</th>
-              <th>Ders</th>
-              <th>Tarih</th>
-              <th>Mazeret Türü</th>
-              <th>Gönderilme</th>
-              <th>Durum</th>
-              <th>İşlem</th>
+              <th>{t('attendancePage.excuses.headers.student')}</th>
+              <th>{t('attendancePage.excuses.headers.course')}</th>
+              <th>{t('attendancePage.excuses.headers.date')}</th>
+              <th>{t('attendancePage.excuses.headers.type')}</th>
+              <th>{t('attendancePage.excuses.headers.submitted')}</th>
+              <th>{t('attendancePage.excuses.headers.status')}</th>
+              <th>{t('attendancePage.excuses.headers.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -173,13 +173,13 @@ export const AttendancePage = ({ triageContext = null }) => {
                 <td><div className="timestamp">{excuse.submittedAt}</div></td>
                 <td>
                   <Badge variant={excuse.status === 'pending' ? 'pending' : excuse.status === 'approved' ? 'approved' : 'rejected'}>
-                    {STATUS_LABELS[excuse.status] || excuse.status}
+                    {t(`attendancePage.excuses.statuses.${excuse.status}`, excuse.status)}
                   </Badge>
                 </td>
                 <td>
                   <div className="action-buttons">
-                    <button className="action-btn details-btn" onClick={() => handleViewExcuse(excuse)} title="Detay">
-                      Detay
+                    <button className="action-btn details-btn" onClick={() => handleViewExcuse(excuse)} title={t('attendancePage.excuses.detailsBtn')}>
+                      {t('attendancePage.excuses.detailsBtn')}
                     </button>
                   </div>
                 </td>
@@ -195,17 +195,17 @@ export const AttendancePage = ({ triageContext = null }) => {
     <div className="attendance-container">
       <div className="attendance-header">
         <div>
-          <h2>Yoklama Yönetimi</h2>
-          <p className="subtitle">Bayraklı kayıtları ve mazeretleri inceleyin</p>
+          <h2>{t('attendancePage.title')}</h2>
+          <p className="subtitle">{t('attendancePage.subtitle')}</p>
         </div>
         <div className="pending-badge">
-          {tabCounts.flagged} Bekleyen İnceleme
+          {tabCounts.flagged} {t('attendancePage.pendingReview')}
         </div>
       </div>
 
       {isFlaggedTriage && (
         <div className="triage-context-banner" role="status" aria-live="polite">
-          Bildirimden geldiniz: Oturum {triageSessionId} - Supheli Kayitlar Inceleniyor
+          {t('attendancePage.triageBanner', { sessionId: triageSessionId })}
         </div>
       )}
 

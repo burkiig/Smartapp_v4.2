@@ -1,31 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   MdPeople, MdPerson, MdSchool, MdPlayCircle, MdFlag,
   MdCheckCircle, MdWarning, MdAccessTime,
 } from 'react-icons/md';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
+import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
 import { AuditLogPage } from '../../audit/AuditLogPage';
 import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
 import './AdminDashboardPage.css';
 
-const ADMIN_MENU_ITEMS = [
-  { id: 'overview',   label: 'Genel Bakış'          },
-  { id: 'users',      label: 'Kullanıcılar'         },
-  { id: 'courses',    label: 'Dersler'              },
-  { id: 'rooms',      label: 'Fakülteler'            },
-  { id: 'reports',    label: 'Yoklama Raporları'    },
-  { id: 'excuses',    label: 'Mazeretler'           },
-  { id: 'audit-logs', label: 'Sistem Kayıtları'    },
-  { id: 'logout',     label: 'Çıkış'               },
-];
-
-const roleTR = { admin: 'Admin', instructor: 'Öğretmen', student: 'Öğrenci' };
-
 // ── AddUserModal ───────────────────────────────────────────────────────────────
 
 function AddUserModal({ onClose, onSuccess }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     username: '', email: '', password: '', name: '',
     role: 'student', department: '', student_number: '',
@@ -41,7 +31,7 @@ function AddUserModal({ onClose, onSuccess }) {
       await apiClient.post('/users', form);
       onSuccess(); onClose();
     } catch (err) {
-      setError(err.message || 'Kullanici olusturulamadi');
+      setError(err.message || t('modals.addUser.errorCreate'));
     } finally { setLoading(false); }
   };
 
@@ -49,54 +39,54 @@ function AddUserModal({ onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Yeni Kullanici</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.addUser.title')}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-row">
             <div className="form-group">
-              <label>Kullanici Adi *</label>
+              <label>{t('modals.addUser.usernameLabel')}</label>
               <input value={form.username} onChange={e => set('username', e.target.value)} required placeholder="username" />
             </div>
             <div className="form-group">
-              <label>E-posta *</label>
+              <label>{t('modals.addUser.emailLabel')}</label>
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)} required placeholder="email@example.com" />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Sifre *</label>
-              <input type="password" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Sifre" />
+              <label>{t('modals.addUser.passwordLabel')}</label>
+              <input type="password" value={form.password} onChange={e => set('password', e.target.value)} required />
             </div>
             <div className="form-group">
-              <label>Ad Soyad *</label>
-              <input value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Ad Soyad" />
+              <label>{t('modals.addUser.fullNameLabel')}</label>
+              <input value={form.name} onChange={e => set('name', e.target.value)} required />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Rol *</label>
+              <label>{t('modals.addUser.roleLabel')}</label>
               <select value={form.role} onChange={e => set('role', e.target.value)}>
-                <option value="student">Öğrenci</option>
-                <option value="instructor">Öğretmen</option>
-                <option value="admin">Admin</option>
+                <option value="student">{t('modals.addUser.roleStudent')}</option>
+                <option value="instructor">{t('modals.addUser.roleInstructor')}</option>
+                <option value="admin">{t('modals.addUser.roleAdmin')}</option>
               </select>
             </div>
             <div className="form-group">
-              <label>Bölüm</label>
-              <input value={form.department} onChange={e => set('department', e.target.value)} placeholder="Bilgisayar Mühendisliği" />
+              <label>{t('modals.addUser.departmentLabel')}</label>
+              <input value={form.department} onChange={e => set('department', e.target.value)} placeholder={t('modals.addUser.departmentPlaceholder')} />
             </div>
           </div>
           {form.role === 'student' && (
             <div className="form-group">
-              <label>Öğrenci Numarası</label>
+              <label>{t('modals.addUser.studentNoLabel')}</label>
               <input value={form.student_number} onChange={e => set('student_number', e.target.value)} placeholder="2021001" />
             </div>
           )}
           <div className="modal-buttons">
-            <button type="button" className="btn-cancel" onClick={onClose}>İptal</button>
-            <button type="submit" className="btn-save" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>{t('modals.addUser.cancelBtn')}</button>
+            <button type="submit" className="btn-save" disabled={loading}>{loading ? t('modals.addUser.savingBtn') : t('modals.addUser.saveBtn')}</button>
           </div>
         </form>
       </div>
@@ -107,6 +97,7 @@ function AddUserModal({ onClose, onSuccess }) {
 // ── EditUserModal ──────────────────────────────────────────────────────────────
 
 function EditUserModal({ userData, onClose, onSuccess }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     name: userData.name || '',
     username: userData.username || '',
@@ -154,10 +145,10 @@ function EditUserModal({ userData, onClose, onSuccess }) {
           image_base64: ev.target.result,
         });
         setFaceStatus(true);
-        setFaceMsg('Yuz kaydi guncellendi.');
+        setFaceMsg(t('modals.editUser.faceUpdated'));
         setFaceFile(null); setFacePreview('');
       } catch (err) {
-        setFaceMsg('Hata: ' + (err.message || 'Yuz kaydi yapilamadi'));
+        setFaceMsg(t('modals.editUser.faceError') + ': ' + (err.message || ''));
       } finally { setFaceLoading(false); }
     };
     reader.readAsDataURL(faceFile);
@@ -172,7 +163,7 @@ function EditUserModal({ userData, onClose, onSuccess }) {
       await apiClient.patch(`/users/${userData.id}`, payload);
       onSuccess(); onClose();
     } catch (err) {
-      setError(err.message || 'Guncellenemedi');
+      setError(err.message || t('modals.editUser.errorUpdate'));
     } finally { setLoading(false); }
   };
 
@@ -180,85 +171,85 @@ function EditUserModal({ userData, onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content wide" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Kullanici Duzenle</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.editUser.title')}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <form onSubmit={handleSubmit} className="modal-form">
-          <div className="form-section-title">Temel Bilgiler</div>
+          <div className="form-section-title">{t('modals.editUser.basicInfo')}</div>
           <div className="form-row">
             <div className="form-group">
-              <label>Ad Soyad</label>
+              <label>{t('modals.editUser.fullName')}</label>
               <input value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Kullanici Adi</label>
+              <label>{t('modals.editUser.username')}</label>
               <input value={form.username} onChange={e => set('username', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>E-posta</label>
+              <label>{t('modals.editUser.email')}</label>
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Yeni Sifre (bos = degistirme)</label>
-              <input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="Degistirmek istemiyorsaniz bos birakin" />
+              <label>{t('modals.editUser.newPassword')}</label>
+              <input type="password" value={form.password} onChange={e => set('password', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Rol</label>
+              <label>{t('modals.editUser.role')}</label>
               <select value={form.role} onChange={e => set('role', e.target.value)}>
-                <option value="student">Ogrenci</option>
-                <option value="instructor">Ogretmen</option>
-                <option value="admin">Admin</option>
+                <option value="student">{t('admin.users.roles.student')}</option>
+                <option value="instructor">{t('admin.users.roles.instructor')}</option>
+                <option value="admin">{t('admin.users.roles.admin')}</option>
               </select>
             </div>
             <div className="form-group">
-              <label>Bolum</label>
+              <label>{t('modals.editUser.department')}</label>
               <input value={form.department} onChange={e => set('department', e.target.value)} />
             </div>
           </div>
           {form.role === 'student' && (
             <div className="form-group">
-              <label>Ogrenci Numarasi</label>
+              <label>{t('modals.editUser.studentNo')}</label>
               <input value={form.student_number} onChange={e => set('student_number', e.target.value)} />
             </div>
           )}
           <div className="form-group">
             <label className="checkbox-label">
               <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} />
-              Hesap Aktif
+              {t('modals.editUser.isActive')}
             </label>
           </div>
 
-          <div className="form-section-title">Yuz Kaydi</div>
+          <div className="form-section-title">{t('modals.editUser.faceRecord')}</div>
           <div className="face-status-row">
-            <span>Mevcut Durum:</span>
-            {faceStatus === null  && <span className="face-badge loading">Yukleniyor...</span>}
-            {faceStatus === true  && <span className="face-badge enrolled">Kayitli</span>}
-            {faceStatus === false && <span className="face-badge not-enrolled">Kayit Yok</span>}
+            <span>{t('modals.editUser.faceStatus')}</span>
+            {faceStatus === null  && <span className="face-badge loading">{t('modals.editUser.faceLoading')}</span>}
+            {faceStatus === true  && <span className="face-badge enrolled">{t('modals.editUser.faceEnrolled')}</span>}
+            {faceStatus === false && <span className="face-badge not-enrolled">{t('modals.editUser.faceNotEnrolled')}</span>}
           </div>
           <div className="form-group" style={{ marginTop: '10px' }}>
-            <label>Yeni Yuz Fotografı Yukle (JPG/PNG)</label>
+            <label>{t('modals.editUser.uploadFace')}</label>
             <input type="file" accept="image/*" onChange={handleFileChange} />
           </div>
           {facePreview && (
             <div className="face-upload-preview">
-              <img src={facePreview} alt="Onizleme" className="face-preview-img" />
+              <img src={facePreview} alt="preview" className="face-preview-img" />
               <button type="button" className="btn-save" onClick={handleFaceEnroll} disabled={faceLoading}>
-                {faceLoading ? 'Kaydediliyor...' : 'Yuzu Guncelle'}
+                {faceLoading ? t('modals.editUser.savingBtn') : t('modals.editUser.updateFace')}
               </button>
             </div>
           )}
           {faceMsg && (
-            <div className={faceMsg.startsWith('Hata') ? 'modal-error' : 'modal-success'}>{faceMsg}</div>
+            <div className={faceMsg.startsWith(t('common.error')) ? 'modal-error' : 'modal-success'}>{faceMsg}</div>
           )}
 
           <div className="modal-buttons">
-            <button type="button" className="btn-cancel" onClick={onClose}>Iptal</button>
-            <button type="submit" className="btn-save" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>{t('modals.editUser.cancelBtn')}</button>
+            <button type="submit" className="btn-save" disabled={loading}>{loading ? t('modals.editUser.savingBtn') : t('modals.editUser.saveBtn')}</button>
           </div>
         </form>
       </div>
@@ -269,9 +260,10 @@ function EditUserModal({ userData, onClose, onSuccess }) {
 // ── ScheduleInput ──────────────────────────────────────────────────────────────
 
 const DAYS_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const DAYS_TR = ['Pzt', 'Sal', 'Car', 'Per', 'Cum'];
 
 function ScheduleInput({ value, onChange }) {
+  const { t } = useTranslation();
+  const DAYS_TR = DAYS_EN.map(d => t(`modals.schedule.days.${d}`));
   const getSlots = () => {
     if (!value || typeof value !== 'object') return [];
     if (Array.isArray(value.slots)) return value.slots;
@@ -330,12 +322,12 @@ function ScheduleInput({ value, onChange }) {
             className="slot-time-input"
           />
           <button type="button" className="btn-remove-slot" onClick={() => removeSlot(idx)}>
-            Sil
+            {t('modals.schedule.removeDay')}
           </button>
         </div>
       ))}
       <button type="button" className="btn-add-slot" onClick={addSlot}>
-        + Gun Ekle
+        {t('modals.schedule.addDay')}
       </button>
     </div>
   );
@@ -345,6 +337,7 @@ function ScheduleInput({ value, onChange }) {
 // Checkbox tabanlı çoklu hoca seçici.
 
 function InstructorMultiSelect({ instructors, selectedIds, onChange }) {
+  const { t } = useTranslation();
   const toggle = (id) => {
     if (selectedIds.includes(id)) {
       onChange(selectedIds.filter(x => x !== id));
@@ -354,7 +347,7 @@ function InstructorMultiSelect({ instructors, selectedIds, onChange }) {
   };
   return (
     <div className="instructor-multi-select">
-      {instructors.length === 0 && <p style={{ color: '#94a3b8', fontSize: 13 }}>Öğretmen bulunamadı</p>}
+      {instructors.length === 0 && <p style={{ color: '#94a3b8', fontSize: 13 }}>{t('modals.addCourse.noInstructors')}</p>}
       {instructors.map(i => (
         <label key={i.id} className={`instructor-option ${selectedIds.includes(i.id) ? 'selected' : ''}`}>
           <input
@@ -373,6 +366,7 @@ function InstructorMultiSelect({ instructors, selectedIds, onChange }) {
 // ── AddCourseModal ─────────────────────────────────────────────────────────────
 
 function AddCourseModal({ instructors, onClose, onSuccess }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     code: '', name: '',
     schedule: { days: [], start_time: '09:00', end_time: '10:00' },
@@ -401,7 +395,7 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
       }
       onSuccess(); onClose();
     } catch (err) {
-      setError(err.message || 'Ders olusturulamadi');
+      setError(err.message || t('modals.addCourse.errorCreate'));
     } finally { setLoading(false); }
   };
 
@@ -409,27 +403,27 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-content-wide" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Yeni Ders</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.addCourse.title')}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-row">
             <div className="form-group">
-              <label>Ders Kodu *</label>
+              <label>{t('modals.addCourse.codeLabel')}</label>
               <input value={form.code} onChange={e => set('code', e.target.value)} required placeholder="CS101" />
             </div>
             <div className="form-group">
-              <label>Ders Adi *</label>
-              <input value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Veri Yapilari" />
+              <label>{t('modals.addCourse.nameLabel')}</label>
+              <input value={form.name} onChange={e => set('name', e.target.value)} required />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>
-                Ogretmenler
+                {t('modals.addCourse.instructorsLabel')}
                 {selectedInstructorIds.length > 0 && (
-                  <span className="instructor-count-badge">{selectedInstructorIds.length} seçildi</span>
+                  <span className="instructor-count-badge">{t('modals.addCourse.selectedCount', { count: selectedInstructorIds.length })}</span>
                 )}
               </label>
               <InstructorMultiSelect
@@ -438,36 +432,36 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
                 onChange={setSelectedInstructorIds}
               />
               {selectedInstructorIds.length > 1 && (
-                <span className="form-hint">İlk seçilen birincil öğretmen olarak atanır.</span>
+                <span className="form-hint">{t('modals.addCourse.primaryHint')}</span>
               )}
             </div>
             <div className="form-group" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-              <label>Program</label>
+              <label>{t('modals.addCourse.scheduleLabel')}</label>
               <ScheduleInput value={form.schedule} onChange={v => set('schedule', v)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Varsayılan Oturum Süresi (dk)</label>
+              <label>{t('modals.addCourse.durationLabel')}</label>
               <input
-                type="number" min="10" max="360" placeholder="Örn: 90"
+                type="number" min="10" max="360"
                 value={form.default_duration_minutes}
                 onChange={e => set('default_duration_minutes', e.target.value)}
               />
             </div>
             <div className="form-group">
-              <label>Paralel Ders Grubu ID</label>
+              <label>{t('modals.addCourse.parallelLabel')}</label>
               <input
-                type="number" min="1" placeholder="Örn: 5 (boş bırakabilirsiniz)"
+                type="number" min="1"
                 value={form.shared_class_id}
                 onChange={e => set('shared_class_id', e.target.value)}
               />
-              <span className="form-hint">Aynı ID'ye sahip dersler ortak yoklama grubu oluşturur.</span>
+              <span className="form-hint">{t('modals.addCourse.parallelHint')}</span>
             </div>
           </div>
           <div className="modal-buttons">
-            <button type="button" className="btn-cancel" onClick={onClose}>Iptal</button>
-            <button type="submit" className="btn-save" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>{t('modals.addCourse.cancelBtn')}</button>
+            <button type="submit" className="btn-save" disabled={loading}>{loading ? t('modals.addCourse.savingBtn') : t('modals.addCourse.saveBtn')}</button>
           </div>
         </form>
       </div>
@@ -478,6 +472,7 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
 // ── EditCourseModal ────────────────────────────────────────────────────────────
 
 function EditCourseModal({ course, instructors, onClose, onSuccess }) {
+  const { t } = useTranslation();
   const defaultSchedule = course.schedule && typeof course.schedule === 'object'
     ? course.schedule
     : { days: [], start_time: '09:00', end_time: '10:00' };
@@ -528,7 +523,7 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
       }
       onSuccess(); onClose();
     } catch (err) {
-      setError(err.message || 'Guncellenemedi');
+      setError(err.message || t('modals.editCourse.errorUpdate'));
     } finally { setLoading(false); }
   };
 
@@ -536,27 +531,27 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-content-wide" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Ders Duzenle — {course.code}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.editCourse.title', { code: course.code })}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-row">
             <div className="form-group">
-              <label>Ders Kodu</label>
+              <label>{t('modals.editCourse.codeLabel')}</label>
               <input value={form.code} onChange={e => set('code', e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Ders Adi</label>
+              <label>{t('modals.editCourse.nameLabel')}</label>
               <input value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>
-                Ogretmenler
+                {t('modals.addCourse.instructorsLabel')}
                 {selectedInstructorIds.length > 0 && (
-                  <span className="instructor-count-badge">{selectedInstructorIds.length} seçildi</span>
+                  <span className="instructor-count-badge">{t('modals.addCourse.selectedCount', { count: selectedInstructorIds.length })}</span>
                 )}
               </label>
               <InstructorMultiSelect
@@ -565,36 +560,36 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
                 onChange={setSelectedInstructorIds}
               />
               {selectedInstructorIds.length > 1 && (
-                <span className="form-hint">İlk seçilen birincil öğretmen olarak atanır.</span>
+                <span className="form-hint">{t('modals.addCourse.primaryHint')}</span>
               )}
             </div>
             <div className="form-group" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-              <label>Program</label>
+              <label>{t('modals.addCourse.scheduleLabel')}</label>
               <ScheduleInput value={form.schedule} onChange={v => set('schedule', v)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Varsayılan Oturum Süresi (dk)</label>
+              <label>{t('modals.addCourse.durationLabel')}</label>
               <input
-                type="number" min="10" max="360" placeholder="Örn: 90"
+                type="number" min="10" max="360" placeholder={t('modals.editCourse.durationPlaceholder')}
                 value={form.default_duration_minutes}
                 onChange={e => set('default_duration_minutes', e.target.value)}
               />
             </div>
             <div className="form-group">
-              <label>Paralel Ders Grubu ID</label>
+              <label>{t('modals.addCourse.parallelLabel')}</label>
               <input
-                type="number" min="1" placeholder="Boş = bağımsız ders"
+                type="number" min="1" placeholder={t('modals.editCourse.parallelPlaceholder')}
                 value={form.shared_class_id}
                 onChange={e => set('shared_class_id', e.target.value)}
               />
-              <span className="form-hint">Aynı ID'ye sahip dersler ortak yoklama grubu oluşturur.</span>
+              <span className="form-hint">{t('modals.editCourse.parallelHint')}</span>
             </div>
           </div>
           <div className="modal-buttons">
-            <button type="button" className="btn-cancel" onClick={onClose}>Iptal</button>
-            <button type="submit" className="btn-save" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>{t('modals.editCourse.cancelBtn')}</button>
+            <button type="submit" className="btn-save" disabled={loading}>{loading ? t('modals.editCourse.savingBtn') : t('modals.editCourse.saveBtn')}</button>
           </div>
         </form>
       </div>
@@ -605,6 +600,7 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
 // ── CourseStudentsModal ────────────────────────────────────────────────────────
 
 function CourseStudentsModal({ course, onClose }) {
+  const { t } = useTranslation();
   const [enrolled, setEnrolled] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
@@ -622,9 +618,9 @@ function CourseStudentsModal({ course, onClose }) {
       setEnrolled(e || []);
       setAllStudents(Array.isArray(s) ? s : (s?.users || []));
     } catch (err) {
-      setError(err.message || 'Yukleme hatasi');
+      setError(err.message || t('modals.courseStudents.errorLoad'));
     } finally { setLoading(false); }
-  }, [course.id]);
+  }, [course.id, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -636,17 +632,17 @@ function CourseStudentsModal({ course, onClose }) {
       setSelectedStudent('');
       await loadData();
     } catch (err) {
-      setError(err.message || 'Eklenemedi');
+      setError(err.message || t('modals.courseStudents.errorAdd'));
     } finally { setAdding(false); }
   };
 
   const handleRemove = async (studentId) => {
-    if (!window.confirm('Bu ogrenciyi dersten cikarmak istediginizden emin misiniz?')) return;
+    if (!window.confirm(t('modals.courseStudents.confirmRemove'))) return;
     try {
       await apiClient.delete(`/courses/${course.id}/enroll/${studentId}`);
       await loadData();
     } catch (err) {
-      setError(err.message || 'Cikarilmadi');
+      setError(err.message || t('modals.courseStudents.errorRemove'));
     }
   };
 
@@ -657,14 +653,14 @@ function CourseStudentsModal({ course, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content wide" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{course.code}: {course.name} — Kayitli Ogrenciler</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.courseStudents.title', { code: course.code, name: course.name })}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
 
         <div className="enroll-add-row">
           <select value={selectedStudent} onChange={e => setSelectedStudent(e.target.value)} className="enroll-select">
-            <option value="">Ogrenci sec...</option>
+            <option value="">{t('modals.courseStudents.selectPlaceholder')}</option>
             {available.map(s => (
               <option key={s.id} value={s.id}>
                 {s.name}{s.student_number ? ` (${s.student_number})` : ''}{s.department ? ` — ${s.department}` : ''}
@@ -672,16 +668,16 @@ function CourseStudentsModal({ course, onClose }) {
             ))}
           </select>
           <button className="btn-save" onClick={handleAdd} disabled={!selectedStudent || adding}>
-            {adding ? 'Ekleniyor...' : 'Ogrenci Ekle'}
+            {adding ? t('modals.courseStudents.addingBtn') : t('modals.courseStudents.addBtn')}
           </button>
         </div>
 
         {loading ? (
-          <div className="loading-inline">Yukleniyor...</div>
+          <div className="loading-inline">{t('common.loading')}</div>
         ) : (
           <div className="enrolled-list">
             {enrolled.length === 0
-              ? <div className="empty-text">Bu derse kayitli ogrenci yok</div>
+              ? <div className="empty-text">{t('modals.courseStudents.empty')}</div>
               : enrolled.map(s => (
                 <div key={s.id} className="enrolled-item">
                   <div className="enrolled-info">
@@ -689,14 +685,14 @@ function CourseStudentsModal({ course, onClose }) {
                     {s.student_number && <span className="enrolled-num">{s.student_number}</span>}
                     {s.department && <span className="enrolled-dept">{s.department}</span>}
                   </div>
-                  <button className="btn-remove" onClick={() => handleRemove(s.id)}>Cikar</button>
+                  <button className="btn-remove" onClick={() => handleRemove(s.id)}>{t('modals.courseStudents.removeBtn')}</button>
                 </div>
               ))
             }
           </div>
         )}
         <div style={{ marginTop: '16px', textAlign: 'right' }}>
-          <button className="btn-cancel" onClick={onClose}>Kapat</button>
+          <button className="btn-cancel" onClick={onClose}>{t('modals.courseStudents.closeBtn')}</button>
         </div>
       </div>
     </div>
@@ -706,6 +702,7 @@ function CourseStudentsModal({ course, onClose }) {
 // ── AddRoomModal ───────────────────────────────────────────────────────────────
 
 function AddRoomModal({ onClose, onSuccess }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     name: '', capacity: '', type: 'Fakulte Binasi', equipment: '',
     latitude: '', longitude: '', geofence_radius: '100',
@@ -716,14 +713,14 @@ function AddRoomModal({ onClose, onSuccess }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleGetLocation = () => {
-    if (!navigator.geolocation) { setError('Tarayici konum servisini desteklemiyor.'); return; }
+    if (!navigator.geolocation) { setError(t('modals.addRoom.errorGps')); return; }
     setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
       pos => {
         setForm(f => ({ ...f, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }));
         setGpsLoading(false);
       },
-      err => { setError('Konum alinamadi: ' + err.message); setGpsLoading(false); },
+      err => { setError(t('modals.addRoom.errorLocation') + ': ' + err.message); setGpsLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -742,7 +739,7 @@ function AddRoomModal({ onClose, onSuccess }) {
       });
       onSuccess(); onClose();
     } catch (err) {
-      setError(err.message || 'Fakulte olusturulamadi');
+      setError(err.message || t('modals.addRoom.errorCreate'));
     } finally { setLoading(false); }
   };
 
@@ -750,59 +747,59 @@ function AddRoomModal({ onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Yeni Fakulte / Bina</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.addRoom.title')}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-row">
             <div className="form-group">
-              <label>Ad *</label>
-              <input value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Muhendislik Fakultesi" />
+              <label>{t('modals.addRoom.nameLabel')}</label>
+              <input value={form.name} onChange={e => set('name', e.target.value)} required />
             </div>
             <div className="form-group">
-              <label>Kapasite</label>
-              <input type="number" value={form.capacity} onChange={e => set('capacity', e.target.value)} placeholder="500" />
+              <label>{t('modals.addRoom.capacityLabel')}</label>
+              <input type="number" value={form.capacity} onChange={e => set('capacity', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Tur</label>
+              <label>{t('modals.addRoom.typeLabel')}</label>
               <select value={form.type} onChange={e => set('type', e.target.value)}>
-                <option>Fakulte Binasi</option>
-                <option>Enstitu</option>
-                <option>Meslek Yuksekokulu</option>
-                <option>Derslik Bloku</option>
-                <option>Laboratuvar Binasi</option>
+                <option value="faculty">{t('modals.addRoom.types.faculty')}</option>
+                <option value="institute">{t('modals.addRoom.types.institute')}</option>
+                <option value="vocational">{t('modals.addRoom.types.vocational')}</option>
+                <option value="classroom">{t('modals.addRoom.types.classroom')}</option>
+                <option value="lab">{t('modals.addRoom.types.lab')}</option>
               </select>
             </div>
             <div className="form-group">
-              <label>Aciklama</label>
-              <input value={form.equipment} onChange={e => set('equipment', e.target.value)} placeholder="Ek bilgi..." />
+              <label>{t('modals.addRoom.descLabel')}</label>
+              <input value={form.equipment} onChange={e => set('equipment', e.target.value)} />
             </div>
           </div>
           <div className="form-group">
             <button type="button" className="btn-gps" onClick={handleGetLocation} disabled={gpsLoading}>
-              {gpsLoading ? 'Konum aliniyor...' : 'GPS Konumumu Otomatik Doldur'}
+              {gpsLoading ? t('modals.addRoom.gpsLoading') : t('modals.addRoom.gpsBtn')}
             </button>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Enlem</label>
+              <label>{t('modals.addRoom.latLabel')}</label>
               <input type="number" step="any" value={form.latitude} onChange={e => set('latitude', e.target.value)} placeholder="41.015137" />
             </div>
             <div className="form-group">
-              <label>Boylam</label>
+              <label>{t('modals.addRoom.lngLabel')}</label>
               <input type="number" step="any" value={form.longitude} onChange={e => set('longitude', e.target.value)} placeholder="28.979530" />
             </div>
           </div>
           <div className="form-group">
-            <label>Geofence Yaricapi (metre)</label>
+            <label>{t('modals.addRoom.geofenceLabel')}</label>
             <input type="number" value={form.geofence_radius} onChange={e => set('geofence_radius', e.target.value)} placeholder="100" />
           </div>
           <div className="modal-buttons">
-            <button type="button" className="btn-cancel" onClick={onClose}>Iptal</button>
-            <button type="submit" className="btn-save" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>{t('modals.addRoom.cancelBtn')}</button>
+            <button type="submit" className="btn-save" disabled={loading}>{loading ? t('modals.addRoom.savingBtn') : t('modals.addRoom.saveBtn')}</button>
           </div>
         </form>
       </div>
@@ -813,6 +810,7 @@ function AddRoomModal({ onClose, onSuccess }) {
 // ── EditRoomModal ──────────────────────────────────────────────────────────────
 
 function EditRoomModal({ room, onClose, onSuccess }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     name: room.name || '',
     capacity: room.capacity ?? '',
@@ -828,14 +826,14 @@ function EditRoomModal({ room, onClose, onSuccess }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleGetLocation = () => {
-    if (!navigator.geolocation) { setError('Tarayici konum servisini desteklemiyor.'); return; }
+    if (!navigator.geolocation) { setError(t('modals.addRoom.errorGps')); return; }
     setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
       pos => {
         setForm(f => ({ ...f, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }));
         setGpsLoading(false);
       },
-      err => { setError('Konum alinamadi: ' + err.message); setGpsLoading(false); },
+      err => { setError(t('modals.addRoom.errorLocation') + ': ' + err.message); setGpsLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -854,7 +852,7 @@ function EditRoomModal({ room, onClose, onSuccess }) {
       });
       onSuccess(); onClose();
     } catch (err) {
-      setError(err.message || 'Guncellenemedi');
+      setError(err.message || t('modals.editRoom.errorUpdate'));
     } finally { setLoading(false); }
   };
 
@@ -862,59 +860,59 @@ function EditRoomModal({ room, onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Fakulte Duzenle — {room.name}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
+          <h2>{t('modals.editRoom.title', { name: room.name })}</h2>
+          <button className="modal-close" onClick={onClose} aria-label={t('common.close')}>{t('modals.close')}</button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-row">
             <div className="form-group">
-              <label>Ad</label>
+              <label>{t('modals.addRoom.nameLabel')}</label>
               <input value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Kapasite</label>
+              <label>{t('modals.addRoom.capacityLabel')}</label>
               <input type="number" value={form.capacity} onChange={e => set('capacity', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Tur</label>
+              <label>{t('modals.addRoom.typeLabel')}</label>
               <select value={form.type} onChange={e => set('type', e.target.value)}>
-                <option>Fakulte Binasi</option>
-                <option>Enstitu</option>
-                <option>Meslek Yuksekokulu</option>
-                <option>Derslik Bloku</option>
-                <option>Laboratuvar Binasi</option>
+                <option value="faculty">{t('modals.addRoom.types.faculty')}</option>
+                <option value="institute">{t('modals.addRoom.types.institute')}</option>
+                <option value="vocational">{t('modals.addRoom.types.vocational')}</option>
+                <option value="classroom">{t('modals.addRoom.types.classroom')}</option>
+                <option value="lab">{t('modals.addRoom.types.lab')}</option>
               </select>
             </div>
             <div className="form-group">
-              <label>Aciklama</label>
+              <label>{t('modals.addRoom.descLabel')}</label>
               <input value={form.equipment} onChange={e => set('equipment', e.target.value)} />
             </div>
           </div>
           <div className="form-group">
             <button type="button" className="btn-gps" onClick={handleGetLocation} disabled={gpsLoading}>
-              {gpsLoading ? 'Konum aliniyor...' : 'GPS Konumumu Otomatik Doldur'}
+              {gpsLoading ? t('modals.addRoom.gpsLoading') : t('modals.addRoom.gpsBtn')}
             </button>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Enlem</label>
+              <label>{t('modals.addRoom.latLabel')}</label>
               <input type="number" step="any" value={form.latitude} onChange={e => set('latitude', e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Boylam</label>
+              <label>{t('modals.addRoom.lngLabel')}</label>
               <input type="number" step="any" value={form.longitude} onChange={e => set('longitude', e.target.value)} />
             </div>
           </div>
           <div className="form-group">
-            <label>Geofence Yaricapi (metre)</label>
+            <label>{t('modals.addRoom.geofenceLabel')}</label>
             <input type="number" value={form.geofence_radius} onChange={e => set('geofence_radius', e.target.value)} />
           </div>
           <div className="modal-buttons">
-            <button type="button" className="btn-cancel" onClick={onClose}>Iptal</button>
-            <button type="submit" className="btn-save" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="button" className="btn-cancel" onClick={onClose}>{t('modals.editRoom.cancelBtn')}</button>
+            <button type="submit" className="btn-save" disabled={loading}>{loading ? t('modals.editRoom.savingBtn') : t('modals.editRoom.saveBtn')}</button>
           </div>
         </form>
       </div>
@@ -925,7 +923,25 @@ function EditRoomModal({ room, onClose, onSuccess }) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export const AdminDashboardPage = ({ user, onLogout }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
+
+  const ADMIN_MENU_ITEMS = [
+    { id: 'overview',   label: t('nav.admin.overview')   },
+    { id: 'users',      label: t('nav.admin.users')      },
+    { id: 'courses',    label: t('nav.admin.courses')    },
+    { id: 'rooms',      label: t('nav.admin.rooms')      },
+    { id: 'reports',    label: t('nav.admin.reports')    },
+    { id: 'excuses',    label: t('nav.admin.excuses')    },
+    { id: 'audit-logs', label: t('nav.admin.auditLogs')  },
+    { id: 'logout',     label: t('nav.admin.logout')     },
+  ];
+
+  const roleTR = {
+    admin:      t('admin.users.roles.admin'),
+    instructor: t('admin.users.roles.instructor'),
+    student:    t('admin.users.roles.student'),
+  };
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -1013,27 +1029,27 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   useEffect(() => { fetchData(activeTab); }, [activeTab, fetchData]);
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Bu kullaniciyi silmek istediginizden emin misiniz?')) return;
+    if (!window.confirm(t('modals.confirmDeleteUser'))) return;
     try {
       await apiClient.delete(`/users/${userId}`);
       setUsers(prev => prev.filter(u => u.id !== userId));
-    } catch (err) { alert(err.message || 'Silinemedi'); }
+    } catch (err) { alert(err.message || t('modals.errorDelete')); }
   };
 
   const handleDeleteCourse = async (courseId) => {
-    if (!window.confirm('Bu dersi silmek istediginizden emin misiniz?')) return;
+    if (!window.confirm(t('modals.confirmDeleteCourse'))) return;
     try {
       await apiClient.delete(`/courses/${courseId}`);
       setCourses(prev => prev.filter(c => c.id !== courseId));
-    } catch (err) { alert(err.message || 'Silinemedi'); }
+    } catch (err) { alert(err.message || t('modals.errorDelete')); }
   };
 
   const handleDeleteRoom = async (roomId) => {
-    if (!window.confirm('Bu fakulteyi silmek istediginizden emin misiniz?')) return;
+    if (!window.confirm(t('modals.confirmDeleteRoom'))) return;
     try {
       await apiClient.delete(`/rooms/${roomId}`);
       setRooms(prev => prev.filter(r => r.id !== roomId));
-    } catch (err) { alert(err.message || 'Silinemedi'); }
+    } catch (err) { alert(err.message || t('modals.errorDelete')); }
   };
 
   // ── Overview ──────────────────────────────────────────────────────────────────
@@ -1041,8 +1057,8 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
     <div className="admin-overview">
       <div className="page-header">
         <div>
-          <h1>Sistem Genel Bakis</h1>
-          <p className="page-subtitle">Yoklama sisteminizi yonetin</p>
+          <h1>{t('admin.overview.title')}</h1>
+          <p className="page-subtitle">{t('admin.overview.subtitle')}</p>
         </div>
       </div>
       {loading ? (
@@ -1061,42 +1077,42 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             <div className="stat-card blue">
               <div className="stat-icon-wrap"><MdPeople size={24} /></div>
               <div className="stat-num">{stats?.total_students ?? 0}</div>
-              <div className="stat-lbl">Öğrenci</div>
+              <div className="stat-lbl">{t('admin.overview.students')}</div>
             </div>
             <div className="stat-card purple">
               <div className="stat-icon-wrap"><MdPerson size={24} /></div>
               <div className="stat-num">{stats?.total_instructors ?? 0}</div>
-              <div className="stat-lbl">Öğretmen</div>
+              <div className="stat-lbl">{t('admin.overview.instructors')}</div>
             </div>
             <div className="stat-card green">
               <div className="stat-icon-wrap"><MdSchool size={24} /></div>
               <div className="stat-num">{stats?.total_courses ?? 0}</div>
-              <div className="stat-lbl">Ders</div>
+              <div className="stat-lbl">{t('admin.overview.courses')}</div>
             </div>
             <div className="stat-card orange">
               <div className="stat-icon-wrap"><MdPlayCircle size={24} /></div>
               <div className="stat-num">{stats?.active_sessions ?? 0}</div>
-              <div className="stat-lbl">Aktif Oturum</div>
+              <div className="stat-lbl">{t('admin.overview.activeSessions')}</div>
             </div>
             <div className="stat-card red">
               <div className="stat-icon-wrap"><MdFlag size={24} /></div>
               <div className="stat-num">{stats?.flagged_records ?? 0}</div>
-              <div className="stat-lbl">Şüpheli Kayıt</div>
+              <div className="stat-lbl">{t('admin.overview.suspiciousRecords')}</div>
             </div>
           </div>
           <div className="content-grid">
             <div className="card">
-              <div className="card-header"><h2>Son Aktiviteler</h2></div>
+              <div className="card-header"><h2>{t('admin.overview.recentActivity')}</h2></div>
               <div className="activity-list">
                 {recentActivity.length === 0
-                  ? <p className="empty-text">Henuz aktivite yok</p>
+                  ? <p className="empty-text">{t('admin.overview.noActivity')}</p>
                   : recentActivity.map((a, i) => (
                     <div key={i} className="activity-item">
                       <span className={`activity-dot ${a.status === 'present' ? 'present' : a.status === 'pending_review' ? 'warning' : 'absent'}`} />
                       <div className="activity-content">
                         <div className="activity-action">
-                          Öğrenci #{a.student_id} — Ders #{a.course_id}
-                          {a.is_flagged && <span className="flag-badge"><MdFlag size={12} style={{marginRight:3}}/>Şüpheli</span>}
+                          {t('dashboard.studentNumber', { id: a.student_id })} — {t('dashboard.courseNumber', { id: a.course_id })}
+                          {a.is_flagged && <span className="flag-badge"><MdFlag size={12} style={{marginRight:3}}/>{t('admin.overview.suspicious')}</span>}
                         </div>
                         <div className="activity-meta">
                           <MdAccessTime size={12} style={{marginRight:4}}/>
@@ -1109,11 +1125,11 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
               </div>
             </div>
             <div className="card">
-              <div className="card-header"><h2>Hizli Erisim</h2></div>
+              <div className="card-header"><h2>{t('admin.overview.quickAccess')}</h2></div>
               <div className="quick-actions-list">
-                <button className="quick-action-item" onClick={() => setActiveTab('users')}>Kullanici Yonetimi</button>
-                <button className="quick-action-item" onClick={() => setActiveTab('courses')}>Ders Yonetimi</button>
-                <button className="quick-action-item" onClick={() => setActiveTab('rooms')}>Fakulte Yonetimi</button>
+                <button className="quick-action-item" onClick={() => setActiveTab('users')}>{t('admin.overview.userManagement')}</button>
+                <button className="quick-action-item" onClick={() => setActiveTab('courses')}>{t('admin.overview.courseManagement')}</button>
+                <button className="quick-action-item" onClick={() => setActiveTab('rooms')}>{t('admin.overview.roomManagement')}</button>
               </div>
             </div>
           </div>
@@ -1134,43 +1150,43 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
     return (
       <div className="admin-users">
         <div className="page-header">
-          <h1>Kullanici Yonetimi</h1>
-          <button className="btn-primary" onClick={() => setShowAddUser(true)}>+ Kullanici Ekle</button>
+          <h1>{t('admin.users.title')}</h1>
+          <button className="btn-primary" onClick={() => setShowAddUser(true)}>{t('admin.users.addUser')}</button>
         </div>
         <div className="role-tabs">
           {[
-            { key: 'all',        label: 'Tumu' },
-            { key: 'student',    label: 'Ogrenciler' },
-            { key: 'instructor', label: 'Ogretmenler' },
-            { key: 'admin',      label: 'Adminler' },
-          ].map(t => (
+            { key: 'all',        label: t('admin.users.all') },
+            { key: 'student',    label: t('admin.users.students') },
+            { key: 'instructor', label: t('admin.users.instructors') },
+            { key: 'admin',      label: t('admin.users.admins') },
+          ].map(tab => (
             <button
-              key={t.key}
-              className={`role-tab${userRoleFilter === t.key ? ' active' : ''}`}
-              onClick={() => setUserRoleFilter(t.key)}
+              key={tab.key}
+              className={`role-tab${userRoleFilter === tab.key ? ' active' : ''}`}
+              onClick={() => setUserRoleFilter(tab.key)}
             >
-              {t.label} ({counts[t.key]})
+              {tab.label} ({counts[tab.key]})
             </button>
           ))}
         </div>
-        {loading ? <div className="loading-inline">Yukleniyor...</div> : (
+        {loading ? <div className="loading-inline">{t('common.loading')}</div> : (
           <div className="table-container">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Ad Soyad</th>
-                  <th>Kullanici Adi</th>
-                  <th>E-posta</th>
-                  <th>Rol</th>
-                  <th>Bolum</th>
-                  <th>Ogrenci No</th>
-                  <th>Durum</th>
-                  <th>Islemler</th>
+                  <th>{t('admin.users.fullName')}</th>
+                  <th>{t('admin.users.username')}</th>
+                  <th>{t('admin.users.email')}</th>
+                  <th>{t('admin.users.role')}</th>
+                  <th>{t('admin.users.department')}</th>
+                  <th>{t('admin.users.studentNo')}</th>
+                  <th>{t('admin.users.status')}</th>
+                  <th>{t('admin.users.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0
-                  ? <tr><td colSpan="8" className="empty-cell">Kullanici bulunamadi</td></tr>
+                  ? <tr><td colSpan="8" className="empty-cell">{t('admin.users.notFound')}</td></tr>
                   : filtered.map(u => (
                     <tr key={u.id}>
                       <td>{u.name}</td>
@@ -1179,10 +1195,10 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                       <td><span className={`role-badge ${u.role}`}>{roleTR[u.role] || u.role}</span></td>
                       <td>{u.department || '—'}</td>
                       <td>{u.student_number || '—'}</td>
-                      <td><span className={`status-badge ${u.is_active ? 'active' : 'inactive'}`}>{u.is_active ? 'Aktif' : 'Pasif'}</span></td>
+                      <td><span className={`status-badge ${u.is_active ? 'active' : 'inactive'}`}>{u.is_active ? t('admin.users.active') : t('admin.users.inactive')}</span></td>
                       <td className="actions-cell">
-                        <button className="btn-action edit"   onClick={() => setEditingUser(u)}>Duzenle</button>
-                        <button className="btn-action delete" onClick={() => handleDeleteUser(u.id)}>Sil</button>
+                        <button className="btn-action edit"   onClick={() => setEditingUser(u)}>{t('admin.users.editBtn')}</button>
+                        <button className="btn-action delete" onClick={() => handleDeleteUser(u.id)}>{t('admin.users.deleteBtn')}</button>
                       </td>
                     </tr>
                   ))
@@ -1199,13 +1215,13 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   const renderCourses = () => (
     <div className="admin-courses">
       <div className="page-header">
-        <h1>Ders Yonetimi</h1>
-        <button className="btn-primary" onClick={() => setShowAddCourse(true)}>+ Ders Ekle</button>
+        <h1>{t('admin.courses.title')}</h1>
+        <button className="btn-primary" onClick={() => setShowAddCourse(true)}>{t('admin.courses.addCourse')}</button>
       </div>
-      {loading ? <div className="loading-inline">Yukleniyor...</div> : (
+      {loading ? <div className="loading-inline">{t('common.loading')}</div> : (
         <div className="courses-grid">
           {courses.length === 0
-            ? <p className="empty-text">Henuz ders yok</p>
+            ? <p className="empty-text">{t('admin.courses.noCourses')}</p>
             : courses.map(c => {
               const courseInstructorIds = c.instructor_ids?.length
                 ? c.instructor_ids
@@ -1217,21 +1233,21 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                 <div key={c.id} className="course-card">
                   <div className="course-header">
                     <h3>{c.code}</h3>
-                    <span className="student-count">{c.enrolled_count ?? 0} ogrenci</span>
+                    <span className="student-count">{t('admin.courses.students_count', { count: c.enrolled_count ?? 0 })}</span>
                   </div>
                   <div className="course-body">
                     <p className="course-name">{c.name}</p>
                     <p className="course-meta">
                       {courseInstructors.length === 0
-                        ? <><span>Ogretmen: </span><em style={{ color: '#94a3b8' }}>Atanmamis</em></>
+                        ? <><span>{t('admin.courses.teacher')}: </span><em style={{ color: '#94a3b8' }}>{t('admin.courses.unassigned')}</em></>
                         : courseInstructors.length === 1
-                          ? <><span>Ogretmen: </span><strong>{courseInstructors[0].name}</strong></>
-                          : <><span>Ogretmenler: </span><strong>{courseInstructors.map(i => i.name).join(', ')}</strong></>
+                          ? <><span>{t('admin.courses.teacher')}: </span><strong>{courseInstructors[0].name}</strong></>
+                          : <><span>{t('admin.courses.teachers')}: </span><strong>{courseInstructors.map(i => i.name).join(', ')}</strong></>
                       }
                     </p>
                     {c.shared_class_id && (
                       <p className="course-meta course-parallel-badge">
-                        Paralel Grup #{c.shared_class_id}
+                        {t('admin.courses.parallelGroup', { id: c.shared_class_id })}
                       </p>
                     )}
                     {c.schedule && typeof c.schedule === 'object' && c.schedule.days?.length > 0 && (
@@ -1239,9 +1255,9 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                     )}
                   </div>
                   <div className="course-actions">
-                    <button className="btn-action edit"      onClick={() => setEditingCourse(c)}>Duzenle</button>
-                    <button className="btn-action secondary" onClick={() => setCourseStudents(c)}>Ogrenciler</button>
-                    <button className="btn-action delete"    onClick={() => handleDeleteCourse(c.id)}>Sil</button>
+                    <button className="btn-action edit"      onClick={() => setEditingCourse(c)}>{t('admin.courses.editBtn')}</button>
+                    <button className="btn-action secondary" onClick={() => setCourseStudents(c)}>{t('admin.courses.studentsBtn')}</button>
+                    <button className="btn-action delete"    onClick={() => handleDeleteCourse(c.id)}>{t('admin.courses.deleteBtn')}</button>
                   </div>
                 </div>
               );
@@ -1256,13 +1272,13 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   const renderRooms = () => (
     <div className="admin-rooms">
       <div className="page-header">
-        <h1>Fakulte / Bina Yonetimi</h1>
-        <button className="btn-primary" onClick={() => setShowAddRoom(true)}>+ Fakulte Ekle</button>
+        <h1>{t('admin.rooms.title')}</h1>
+        <button className="btn-primary" onClick={() => setShowAddRoom(true)}>{t('admin.rooms.addRoom')}</button>
       </div>
-      {loading ? <div className="loading-inline">Yukleniyor...</div> : (
+      {loading ? <div className="loading-inline">{t('common.loading')}</div> : (
         <div className="rooms-grid">
           {rooms.length === 0
-            ? <p className="empty-text">Henuz fakulte / bina yok</p>
+            ? <p className="empty-text">{t('admin.rooms.noRooms')}</p>
             : rooms.map(r => (
               <div key={r.id} className="room-card">
                 <div className="room-header">
@@ -1270,18 +1286,18 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                   <div className="status-indicator" />
                 </div>
                 <div className="room-body">
-                  {r.type     && <p>Tur: {r.type}</p>}
-                  {r.capacity && <p>Kapasite: {r.capacity}</p>}
+                  {r.type     && <p>{t('admin.rooms.type')}: {r.type}</p>}
+                  {r.capacity && <p>{t('admin.rooms.capacity')}: {r.capacity}</p>}
                   {r.equipment && <p>{r.equipment}</p>}
                   {r.latitude
                     ? <p>GPS: {Number(r.latitude).toFixed(6)}, {Number(r.longitude).toFixed(6)}</p>
-                    : <p className="text-warning">GPS konumu tanimli degil</p>
+                    : <p className="text-warning">{t('admin.rooms.noGps')}</p>
                   }
-                  <p>Geofence: {r.geofence_radius} m</p>
+                  <p>{t('admin.rooms.geofence')}: {r.geofence_radius} m</p>
                 </div>
                 <div className="room-actions">
-                  <button className="btn-action edit"   onClick={() => setEditingRoom(r)}>Duzenle</button>
-                  <button className="btn-action delete" onClick={() => handleDeleteRoom(r.id)}>Sil</button>
+                  <button className="btn-action edit"   onClick={() => setEditingRoom(r)}>{t('admin.rooms.editBtn')}</button>
+                  <button className="btn-action delete" onClick={() => handleDeleteRoom(r.id)}>{t('admin.rooms.deleteBtn')}</button>
                 </div>
               </div>
             ))
@@ -1297,15 +1313,14 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       ? attendanceRecords.filter(r => String(r.course_id) === reportCourseFilter)
       : attendanceRecords;
 
-    const statusTR = { present: 'Katildi', absent: 'Katilmadi', excused: 'Mazeret' };
     const statusCls = { present: 'active', absent: 'inactive', excused: 'excused' };
 
     return (
       <div className="admin-reports">
         <div className="page-header">
           <div>
-            <h1>Yoklama Raporlari</h1>
-            <p className="page-subtitle">Tum derslerin yoklama kayitlarini goruntuleyebilirsiniz (salt okunur)</p>
+            <h1>{t('admin.reports.title')}</h1>
+            <p className="page-subtitle">{t('admin.reports.subtitle')}</p>
           </div>
         </div>
         <div className="report-filter-row">
@@ -1315,38 +1330,38 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             className="enroll-select"
             style={{ maxWidth: '320px' }}
           >
-            <option value="">Tum Dersler</option>
+            <option value="">{t('admin.reports.allCourses')}</option>
             {courses.map(c => (
               <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
             ))}
           </select>
-          <span className="report-count">{filtered.length} kayit</span>
+          <span className="report-count">{t('admin.reports.recordCount', { count: filtered.length })}</span>
         </div>
-        {loading ? <div className="loading-inline">Yukleniyor...</div> : (
+        {loading ? <div className="loading-inline">{t('common.loading')}</div> : (
           <div className="table-container">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Ogrenci</th>
-                  <th>Ogrenci No</th>
-                  <th>Ders</th>
-                  <th>Ogretmen</th>
-                  <th>Tarih</th>
-                  <th>Durum</th>
-                  <th>Bayrak</th>
-                  <th>Dogrulama</th>
+                  <th>{t('admin.reports.student')}</th>
+                  <th>{t('admin.reports.studentNo')}</th>
+                  <th>{t('admin.reports.course')}</th>
+                  <th>{t('admin.reports.teacher')}</th>
+                  <th>{t('admin.reports.date')}</th>
+                  <th>{t('admin.reports.status')}</th>
+                  <th>{t('admin.reports.flag')}</th>
+                  <th>{t('admin.reports.verification')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0
-                  ? <tr><td colSpan="8" className="empty-cell">Kayit bulunamadi</td></tr>
+                  ? <tr><td colSpan="8" className="empty-cell">{t('admin.reports.notFound')}</td></tr>
                   : filtered.map(r => {
                     const course = courses.find(c => c.id === r.course_id);
                     const instructor = instructors.find(i => i.id === course?.instructor_id);
                     const steps = r.verification_steps || {};
                     return (
                       <tr key={r.id}>
-                        <td>{r.student_name || `Ogrenci #${r.student_id}`}</td>
+                        <td>{r.student_name || t('admin.reports.student') + ` #${r.student_id}`}</td>
                         <td>{r.student_number || '—'}</td>
                         <td>
                           <span className="course-code-badge">{r.course_code || `#${r.course_id}`}</span>
@@ -1358,12 +1373,12 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                         </td>
                         <td>
                           <span className={`status-badge ${statusCls[r.status] || 'inactive'}`}>
-                            {statusTR[r.status] || r.status}
+                            {r.status ? t(`admin.reports.statuses.${r.status}`, r.status) : r.status}
                           </span>
                         </td>
                         <td>
                           {r.is_flagged
-                            ? <span className="flag-badge">Bayrakli</span>
+                            ? <span className="flag-badge">{t('admin.reports.flagged')}</span>
                             : <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</span>
                           }
                         </td>
@@ -1410,15 +1425,21 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       {editingRoom    && <EditRoomModal room={editingRoom} onClose={() => setEditingRoom(null)} onSuccess={() => fetchData('rooms')} />}
 
       <Sidebar
-        title="Attendance System"
-        subtitle="Admin Panel"
+        title={t('nav.systemTitle')}
+        subtitle={t('nav.adminPanel')}
         menuItems={ADMIN_MENU_ITEMS}
         activeTab={activeTab}
         onTabChange={handleTabChange}
         user={user}
         onLogout={onLogout}
       />
-      <main className="main-content">{renderContent()}</main>
+      <div className="admin-main-wrapper">
+        <div className="admin-top-bar">
+          <div className="top-bar-spacer" />
+          <LanguageSwitcher compact />
+        </div>
+        <main className="main-content">{renderContent()}</main>
+      </div>
     </div>
   );
 };

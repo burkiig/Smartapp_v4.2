@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../../shared/services/apiClient';
 import './QRScan.css';
 
 const QR_ROTATE_INTERVAL_MS = 55_000; // rotate 5s before 60s TTL
 
 export const QRScan = ({ onClose }) => {
+    const { t } = useTranslation();
     const [courses, setCourses] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [activeSessions, setActiveSessions] = useState([]);
@@ -67,7 +69,7 @@ export const QRScan = ({ onClose }) => {
     const handleStartSession = async (e) => {
         e.preventDefault();
         if (!form.course_id) {
-            setMessage({ text: 'Ders seçiniz', type: 'error' });
+            setMessage({ text: t('qrScan.errorSelectCourse'), type: 'error' });
             return;
         }
 
@@ -90,12 +92,12 @@ export const QRScan = ({ onClose }) => {
                     sessionId: newSessionId,
                     qrImage: result.session.qr_image,
                 });
-                setMessage({ text: 'Oturum başlatıldı! QR kodu öğrencilerle paylaşın.', type: 'success' });
+                setMessage({ text: t('qrScan.sessionStarted'), type: 'success' });
                 startQRRotation(newSessionId);
                 loadData();
             }
         } catch (err) {
-            setMessage({ text: err.message || 'Oturum başlatılamadı', type: 'error' });
+            setMessage({ text: err.message || t('qrScan.errorStart'), type: 'error' });
         } finally {
             setStarting(false);
         }
@@ -104,14 +106,14 @@ export const QRScan = ({ onClose }) => {
     const handleEndSession = async (sessionId) => {
         try {
             await apiClient.post(`/sessions/${sessionId}/end`);
-            setMessage({ text: 'Oturum sonlandırıldı', type: 'success' });
+            setMessage({ text: t('qrScan.sessionEnded'), type: 'success' });
             if (activeQR?.sessionId === sessionId) {
                 setActiveQR(null);
                 stopQRRotation();
             }
             loadData();
         } catch (err) {
-            setMessage({ text: err.message || 'Oturum sonlandırılamadı', type: 'error' });
+            setMessage({ text: err.message || t('qrScan.errorEnd'), type: 'error' });
         }
     };
 
@@ -121,7 +123,7 @@ export const QRScan = ({ onClose }) => {
             setActiveQR({ sessionId, qrImage: result.qr_image });
             startQRRotation(sessionId);
         } catch (err) {
-            setMessage({ text: err.message || 'QR alınamadı', type: 'error' });
+            setMessage({ text: err.message || t('qrScan.errorQR'), type: 'error' });
         }
     };
 
@@ -164,10 +166,10 @@ export const QRScan = ({ onClose }) => {
     return (
         <div className="qr-scan-container">
             <div className="qr-scan-header">
-                <button className="back-button" onClick={onClose}>← Geri</button>
+                <button className="back-button" onClick={onClose}>← {t('common.back')}</button>
                 <div className="header-content">
-                    <h2>Oturum & QR Yönetimi</h2>
-                    <p>Yoklama oturumu başlatın, QR kodu görüntüleyin</p>
+                    <h2>{t('qrScan.title')}</h2>
+                    <p>{t('qrScan.subtitle')}</p>
                 </div>
             </div>
 
@@ -176,15 +178,15 @@ export const QRScan = ({ onClose }) => {
             )}
 
             {loading ? (
-                <div className="qr-loading"><div className="spinner"></div><p>Yükleniyor...</p></div>
+                <div className="qr-loading"><div className="spinner"></div><p>{t('common.loading')}</p></div>
             ) : (
                 <div className="qr-content">
                     {/* QR Display */}
                     {activeQR && (
                         <div className="qr-display-section">
-                            <h3>QR Kodu — Oturum #{activeQR.sessionId}</h3>
+                            <h3>{t('qrScan.qrCode')} — {t('qrScan.sessionNo', { id: activeQR.sessionId })}</h3>
                             <div className="qr-countdown">
-                                Yenileme: <strong>{qrCountdown}s</strong>
+                                {t('qrScan.refresh')}: <strong>{qrCountdown}s</strong>
                             </div>
                             {activeQR.qrImage ? (
                                 <img
@@ -193,17 +195,17 @@ export const QRScan = ({ onClose }) => {
                                     className="qr-image"
                                 />
                             ) : (
-                                <p className="no-qr">QR görsel yüklenemedi</p>
+                                <p className="no-qr">{t('qrScan.errorLoadQR')}</p>
                             )}
                             <div className="qr-actions">
                                 <button className="rotate-qr-btn" onClick={() => rotateQR(activeQR.sessionId)}>
-                                    QR Yenile
+                                    {t('qrScan.refreshQR')}
                                 </button>
                                 <button className="end-btn" onClick={() => handleEndSession(activeQR.sessionId)}>
-                                    Oturumu Sonlandır
+                                    {t('qrScan.endSession')}
                                 </button>
                                 <button className="close-qr-btn" onClick={() => { setActiveQR(null); stopQRRotation(); }}>
-                                    QR'ı Kapat
+                                    {t('qrScan.closeQR')}
                                 </button>
                             </div>
                         </div>
@@ -212,17 +214,17 @@ export const QRScan = ({ onClose }) => {
                     {/* Active Sessions */}
                     {activeSessions.length > 0 && (
                         <div className="active-sessions-section">
-                            <h3>Aktif Oturumlar</h3>
+                            <h3>{t('qrScan.activeSessions')}</h3>
                             <div className="sessions-list">
                                 {activeSessions.map(s => (
                                     <div key={s.id} className="session-row">
                                         <div className="session-info">
-                                            <span className="session-title">Oturum #{s.id} — Ders {s.course_id}</span>
+                                            <span className="session-title">{t('qrScan.sessionNo', { id: s.id })} — {t('qrScan.courseNo', { id: s.course_id })}</span>
                                             <span className="session-date">{s.date} {s.start_time}</span>
                                         </div>
                                         <div className="session-actions">
-                                            <button className="show-qr-btn" onClick={() => handleShowQR(s.id)}>QR Göster</button>
-                                            <button className="end-btn-sm" onClick={() => handleEndSession(s.id)}>Bitir</button>
+                                            <button className="show-qr-btn" onClick={() => handleShowQR(s.id)}>{t('qrScan.showQR')}</button>
+                                            <button className="end-btn-sm" onClick={() => handleEndSession(s.id)}>{t('qrScan.end')}</button>
                                         </div>
                                     </div>
                                 ))}
@@ -232,25 +234,25 @@ export const QRScan = ({ onClose }) => {
 
                     {/* Start New Session Form */}
                     <div className="start-session-section">
-                        <h3>Yeni Oturum Başlat</h3>
+                        <h3>{t('qrScan.newSession')}</h3>
                         <form onSubmit={handleStartSession} className="session-form">
                             <div className="form-row-qr">
                                 <div className="form-group-qr">
-                                    <label>Ders *</label>
+                                    <label>{t('qrScan.courseLabel')}</label>
                                     <select
                                         value={form.course_id}
                                         onChange={e => setForm(f => ({ ...f, course_id: e.target.value }))}
                                         required
                                     >
-                                        <option value="">Ders seçiniz</option>
+                                        <option value="">{t('qrScan.coursePlaceholder')}</option>
                                         {courses.map(c => (
                                             <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                                         ))}
                                     </select>
-                                    {courses.length === 0 && <span className="hint-text">Henüz ders yok</span>}
+                                    {courses.length === 0 && <span className="hint-text">{t('qrScan.noCourses')}</span>}
                                 </div>
                                 <div className="form-group-qr">
-                                    <label>Tarih</label>
+                                    <label>{t('qrScan.dateLabel')}</label>
                                     <input
                                         type="date"
                                         value={form.date}
@@ -260,7 +262,7 @@ export const QRScan = ({ onClose }) => {
                             </div>
                             <div className="form-row-qr">
                                 <div className="form-group-qr">
-                                    <label>Başlangıç Saati</label>
+                                    <label>{t('qrScan.startTime')}</label>
                                     <input
                                         type="time"
                                         value={form.start_time}
@@ -268,7 +270,7 @@ export const QRScan = ({ onClose }) => {
                                     />
                                 </div>
                                 <div className="form-group-qr">
-                                    <label>Bitiş Saati</label>
+                                    <label>{t('qrScan.endTime')}</label>
                                     <input
                                         type="time"
                                         value={form.end_time}
@@ -277,30 +279,29 @@ export const QRScan = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Fakülte / Bina Seçimi — GPS otomatik doldurur */}
                             <div className="form-row-qr">
                                 <div className="form-group-qr form-group-full">
-                                    <label>🏛 Fakülte / Bina <span className="hint-text">(seçilince GPS otomatik dolar)</span></label>
+                                    <label>🏛 {t('qrScan.roomLabel')} <span className="hint-text">({t('qrScan.roomHint')})</span></label>
                                     <select
                                         value={form.room_id}
                                         onChange={e => handleRoomChange(e.target.value)}
                                     >
-                                        <option value="">— Fakülte seçiniz (opsiyonel) —</option>
+                                        <option value="">{t('qrScan.roomPlaceholder')}</option>
                                         {rooms.map(r => (
                                             <option key={r.id} value={r.id}>
                                                 {r.name}
-                                                {r.latitude ? ` (${Number(r.latitude).toFixed(4)}, ${Number(r.longitude).toFixed(4)})` : ' — GPS tanımlı değil'}
+                                                {r.latitude ? ` (${Number(r.latitude).toFixed(4)}, ${Number(r.longitude).toFixed(4)})` : ` — ${t('qrScan.noGps')}`}
                                             </option>
                                         ))}
                                     </select>
                                     {rooms.length === 0 && (
                                         <span className="hint-text hint-warn">
-                                            Kayıtlı fakülte yok — Admin panelinden fakülte ekleyin
+                                            {t('qrScan.noRooms')}
                                         </span>
                                     )}
                                     {form.room_id && !rooms.find(r => String(r.id) === String(form.room_id))?.latitude && (
                                         <span className="hint-text hint-warn">
-                                            Bu fakülte için GPS tanımlı değil. Koordinatları manuel girin.
+                                            {t('qrScan.roomNoGps')}
                                         </span>
                                     )}
                                 </div>
@@ -308,7 +309,7 @@ export const QRScan = ({ onClose }) => {
 
                             <div className="form-row-qr">
                                 <div className="form-group-qr">
-                                    <label>Enlem (GPS)</label>
+                                    <label>{t('qrScan.latLabel')}</label>
                                     <input
                                         type="number"
                                         step="any"
@@ -319,7 +320,7 @@ export const QRScan = ({ onClose }) => {
                                     />
                                 </div>
                                 <div className="form-group-qr">
-                                    <label>Boylam (GPS)</label>
+                                    <label>{t('qrScan.lngLabel')}</label>
                                     <input
                                         type="number"
                                         step="any"
@@ -331,7 +332,7 @@ export const QRScan = ({ onClose }) => {
                                 </div>
                             </div>
                             <button type="submit" className="start-btn" disabled={starting}>
-                                {starting ? 'Başlatılıyor...' : '▶ Oturum Başlat ve QR Üret'}
+                                {starting ? t('qrScan.startingBtn') : t('qrScan.startBtn')}
                             </button>
                         </form>
                     </div>

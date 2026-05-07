@@ -1,9 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Webcam from 'react-webcam';
 import apiClient from '../../../shared/services/apiClient';
 import './FaceScan.css';
 
 export const FaceScan = ({ onClose, preselectedStudent }) => {
+    const { t } = useTranslation();
     const webcamRef = useRef(null);
     const [hasPermission, setHasPermission] = useState(null);
     const [isScanning, setIsScanning] = useState(false);
@@ -42,20 +44,20 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
 
     const handleScan = async () => {
         if (!selectedSession || !selectedStudent) {
-            setMessage({ text: 'Oturum ve öğrenci seçiniz', type: 'error' });
+            setMessage({ text: t('faceScan.errorSelectSessionStudent'), type: 'error' });
             return;
         }
         if (!webcamRef.current) return;
 
         const imageSrc = webcamRef.current.getScreenshot();
         if (!imageSrc) {
-            setMessage({ text: 'Görüntü alınamadı', type: 'error' });
+            setMessage({ text: t('faceScan.errorCapture'), type: 'error' });
             return;
         }
 
         try {
             setIsScanning(true);
-            setMessage({ text: 'Yüz doğrulanıyor...', type: 'info' });
+            setMessage({ text: t('faceScan.verifying'), type: 'info' });
 
             await apiClient.post('/attendance/manual', {
                 session_id: Number(selectedSession),
@@ -65,7 +67,7 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
 
             const student = students.find(s => String(s.id) === selectedStudent);
             setMessage({
-                text: `✓ ${student?.name || 'Öğrenci'} için yoklama kaydedildi`,
+                text: `✓ ${t('faceScan.recorded', { name: student?.name || t('faceScan.student') })}`,
                 type: 'success',
             });
             setTimeout(() => {
@@ -73,7 +75,7 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
             }, 2000);
         } catch (error) {
             setMessage({
-                text: error.message || 'Yoklama kaydedilemedi',
+                text: error.message || t('faceScan.errorRecord'),
                 type: 'error',
             });
         } finally {
@@ -86,7 +88,7 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
             <div className="face-scan-container">
                 <div className="permission-loading">
                     <div className="spinner"></div>
-                    <p>Kamera izni bekleniyor...</p>
+                    <p>{t('faceScan.waitingPermission')}</p>
                 </div>
             </div>
         );
@@ -97,9 +99,9 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
             <div className="face-scan-container">
                 <div className="permission-denied">
                     <span className="icon">!</span>
-                    <h3>Kamera İzni Gerekli</h3>
-                    <p>Tarayıcı ayarlarından kamera iznini açınız.</p>
-                    <button className="btn-secondary" onClick={onClose}>Geri Dön</button>
+                    <h3>{t('faceScan.cameraDeniedTitle')}</h3>
+                    <p>{t('faceScan.cameraDeniedDesc')}</p>
+                    <button className="btn-secondary" onClick={onClose}>{t('common.back')}</button>
                 </div>
             </div>
         );
@@ -108,45 +110,45 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
     return (
         <div className="face-scan-container">
             <div className="face-scan-header">
-                <button className="back-button" onClick={onClose}>← Geri</button>
+                <button className="back-button" onClick={onClose}>← {t('common.back')}</button>
                 <div className="header-content">
-                    <h2>Manuel Yüz Yoklaması</h2>
-                    <p>Öğretmen tarafından manuel yoklama kaydı</p>
+                    <h2>{t('faceScan.title')}</h2>
+                    <p>{t('faceScan.subtitle')}</p>
                 </div>
             </div>
 
             {loadingData ? (
-                <div className="permission-loading"><div className="spinner"></div><p>Yükleniyor...</p></div>
+                <div className="permission-loading"><div className="spinner"></div><p>{t('common.loading')}</p></div>
             ) : (
                 <>
                     <div className="manual-selectors">
                         <div className="selector-group">
-                            <label>Aktif Oturum *</label>
+                            <label>{t('faceScan.sessionLabel')}</label>
                             <select value={selectedSession} onChange={e => setSelectedSession(e.target.value)}>
-                                <option value="">Oturum seçiniz</option>
+                                <option value="">{t('faceScan.sessionPlaceholder')}</option>
                                 {sessions.map(s => (
                                     <option key={s.id} value={s.id}>
-                                        #{s.id} — Ders {s.course_id} ({s.date})
+                                        #{s.id} — {t('faceScan.courseNo', { id: s.course_id })} ({s.date})
                                     </option>
                                 ))}
                             </select>
                             {sessions.length === 0 && (
-                                <span className="no-data-hint">Aktif oturum yok. Önce oturum başlatın.</span>
+                                <span className="no-data-hint">{t('faceScan.noSessions')}</span>
                             )}
                         </div>
                         <div className="selector-group">
-                            <label>Öğrenci *</label>
+                            <label>{t('faceScan.studentLabel')}</label>
                             {preselectedStudent ? (
                                 <div className="preselected-student">
                                     <strong>{preselectedStudent.name}</strong>
                                     <span> ({preselectedStudent.student_number || preselectedStudent.username})</span>
                                     <button type="button" className="btn-secondary" style={{ marginLeft: '8px', padding: '2px 8px', fontSize: '0.8rem' }} onClick={() => setSelectedStudent('')}>
-                                        Degistir
+                                        {t('faceScan.changeBtn')}
                                     </button>
                                 </div>
                             ) : (
                                 <select value={selectedStudent} onChange={e => setSelectedStudent(e.target.value)}>
-                                    <option value="">Öğrenci seçiniz</option>
+                                    <option value="">{t('faceScan.studentPlaceholder')}</option>
                                     {students.map(s => (
                                         <option key={s.id} value={s.id}>
                                             {s.name} ({s.student_number || s.username})
@@ -176,7 +178,7 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
                             {message.text ? (
                                 <div className={`message ${message.type}`}>{message.text}</div>
                             ) : (
-                                <p className="status-text">{isScanning ? 'Taranıyor...' : 'Hazır'}</p>
+                                <p className="status-text">{isScanning ? t('faceScan.scanning') : t('faceScan.ready')}</p>
                             )}
                         </div>
                     </div>
@@ -187,7 +189,7 @@ export const FaceScan = ({ onClose, preselectedStudent }) => {
                             onClick={handleScan}
                             disabled={isScanning || !selectedSession || !selectedStudent}
                         >
-                            {isScanning ? 'Kaydediliyor...' : 'Yoklamayı Kaydet'}
+                            {isScanning ? t('faceScan.savingBtn') : t('faceScan.saveBtn')}
                         </button>
                     </div>
                 </>
