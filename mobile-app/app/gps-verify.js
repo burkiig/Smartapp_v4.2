@@ -34,6 +34,8 @@ export default function GPSVerifyScreen() {
   const [step, setStep] = useState('idle'); // idle | requesting | checking | success | denied | outside | error
   const [result, setResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [distanceFromClass, setDistanceFromClass] = useState(null);
   const [pulseAnim] = useState(new Animated.Value(1));
 
   // Pulsing animation for the location icon while checking
@@ -68,6 +70,7 @@ export default function GPSVerifyScreen() {
       // Step 2 — Get location & call backend
       setStep('checking');
       const { latitude, longitude, accuracy, is_mocked } = await getCurrentLocation();
+      setGpsAccuracy(accuracy);
       const verification = await attendance.verifyLocation(
         parseInt(session_id, 10),
         latitude,
@@ -89,9 +92,11 @@ export default function GPSVerifyScreen() {
       });
       setStep('success');
     } catch (err) {
-      // Backend "Konum doğrulaması başarısız" mesajı içeriyorsa "outside" göster
       const msg = err.message || '';
-      if (msg.includes('Konum doğrulaması') || msg.includes('outside') || msg.includes('mesafe')) {
+      if (msg.includes('Konum doğrulaması') || msg.includes('outside') || msg.includes('Mesafe:')) {
+        // "Mesafe: 87m (izin verilen: 50m)" formatından mesafeyi çıkar
+        const match = msg.match(/Mesafe:\s*([\d.]+)m/);
+        if (match) setDistanceFromClass(Math.round(parseFloat(match[1])));
         setStep('outside');
         setErrorMessage(msg);
       } else {
@@ -135,22 +140,41 @@ export default function GPSVerifyScreen() {
 
   const renderIdle = () => null;
 
-  const renderChecking = () => (
-    <View style={styles.centerContent}>
-      <Animated.View style={[styles.iconCircle, styles.iconCircleBlue, { transform: [{ scale: pulseAnim }] }]}>
-        <Ionicons name="location" size={56} color="#fff" />
-      </Animated.View>
-      <Text style={styles.statusTitle}>
-        {step === 'requesting' ? 'Konum İzni İsteniyor...' : 'Konumunuz Doğrulanıyor...'}
-      </Text>
-      <Text style={styles.statusSubtitle}>
-        {step === 'requesting'
-          ? 'Lütfen konum iznini onaylayın'
-          : 'Sınıf koordinatlarıyla karşılaştırılıyor'}
-      </Text>
-      <ActivityIndicator size="large" color="#fff" style={styles.spinner} />
-    </View>
-  );
+  const _gpsSignal = (acc) => {
+    if (acc === null) return null;
+    if (acc < 10) return { label: 'Mükemmel', color: '#4ADE80' };
+    if (acc < 30) return { label: 'İyi',      color: '#FCD34D' };
+    if (acc < 60) return { label: 'Orta',     color: '#FB923C' };
+    return              { label: 'Zayıf',     color: '#F87171' };
+  };
+
+  const renderChecking = () => {
+    const signal = _gpsSignal(gpsAccuracy);
+    return (
+      <View style={styles.centerContent}>
+        <Animated.View style={[styles.iconCircle, styles.iconCircleBlue, { transform: [{ scale: pulseAnim }] }]}>
+          <Ionicons name="location" size={56} color="#fff" />
+        </Animated.View>
+        <Text style={styles.statusTitle}>
+          {step === 'requesting' ? 'Konum İzni İsteniyor...' : 'Konumunuz Doğrulanıyor...'}
+        </Text>
+        <Text style={styles.statusSubtitle}>
+          {step === 'requesting'
+            ? 'Lütfen konum iznini onaylayın'
+            : 'Sınıf koordinatlarıyla karşılaştırılıyor'}
+        </Text>
+        {signal && (
+          <View style={styles.signalBadge}>
+            <View style={[styles.signalDot, { backgroundColor: signal.color }]} />
+            <Text style={[styles.signalText, { color: signal.color }]}>
+              GPS Sinyali: {signal.label} (±{Math.round(gpsAccuracy)}m)
+            </Text>
+          </View>
+        )}
+        <ActivityIndicator size="large" color="#fff" style={styles.spinner} />
+      </View>
+    );
+  };
 
   const renderSuccess = () => (
     <View style={styles.centerContent}>
@@ -207,6 +231,15 @@ export default function GPSVerifyScreen() {
       <Text style={styles.statusSubtitle}>
         Yoklama alabilmek için sınıfın içinde olmanız gerekiyor
       </Text>
+
+      {distanceFromClass !== null && (
+        <View style={styles.distanceBadge}>
+          <Ionicons name="navigate-outline" size={20} color="#DC2626" />
+          <Text style={styles.distanceText}>
+            Sınıfa uzaklığınız: <Text style={styles.distanceValue}>~{distanceFromClass}m</Text>
+          </Text>
+        </View>
+      )}
 
       {errorMessage ? (
         <View style={[styles.infoCard, styles.infoCardRed]}>
@@ -298,10 +331,11 @@ export default function GPSVerifyScreen() {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>GPS Doğrulama</Text>
-            <Text style={styles.headerSubtitle}>Adım 2 / 2 — Konum Kontrolü</Text>
+            <Text style={styles.headerSubtitle}>Adım 3 / 3 — Konum Kontrolü</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
+            <View style={styles.stepDot} />
             <View style={styles.stepDot} />
             <View style={[styles.stepDot, styles.stepDotActive]} />
           </View>
@@ -317,6 +351,11 @@ export default function GPSVerifyScreen() {
           <View style={styles.chainStep}>
             <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
             <Text style={styles.chainLabel}>QR Kod</Text>
+          </View>
+          <View style={styles.chainArrow} />
+          <View style={styles.chainStep}>
+            <Ionicons name="scan-outline" size={16} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.chainLabel}>Yüz</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
@@ -423,6 +462,12 @@ const styles = StyleSheet.create({
   spinner: {
     marginTop: 20,
   },
+  signalBadge:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  signalDot:     { width: 8, height: 8, borderRadius: 4 },
+  signalText:    { fontSize: 13, fontWeight: '600' },
+  distanceBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 14, paddingHorizontal: 18, paddingVertical: 12, marginBottom: 16 },
+  distanceText:  { fontSize: 15, color: '#fff', fontWeight: '500' },
+  distanceValue: { fontWeight: '800', fontSize: 18 },
   infoCard: {
     width: '100%',
     backgroundColor: 'rgba(255,255,255,0.15)',

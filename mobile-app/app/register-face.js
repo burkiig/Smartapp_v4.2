@@ -126,14 +126,10 @@ export default function RegisterFaceScreen() {
       if (step < 3) {
         setStep(step + 1);
       } else {
-        // Send all 3 photos; backend returns { success: true, message: "..." }
-        let enrollOk = false;
-        for (const b64 of newPhotos) {
-          const result = await face.enroll(b64);
-          if (result?.success === true) enrollOk = true;
-        }
+        // 3 fotoğrafı tek istekte gönder — backend embedding ortalaması alır
+        const result = await face.enrollMulti(newPhotos);
 
-        if (enrollOk) {
+        if (result?.success === true) {
           Alert.alert(
             'Kayıt Başarılı',
             'Yüzünüz sisteme kaydedildi. Şimdi kimliğinizi doğrulayın.',

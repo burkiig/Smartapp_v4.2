@@ -13,8 +13,10 @@ export const QRScan = ({ onClose }) => {
     const [loading, setLoading] = useState(true);
     const [starting, setStarting] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
-    const [activeQR, setActiveQR] = useState(null); // { sessionId, qrImage }
+    const [activeQR, setActiveQR] = useState(null); // { sessionId, qrImage, staticQrImage }
     const [qrCountdown, setQrCountdown] = useState(55);
+    const [projectorMode, setProjectorMode] = useState(false);
+    const [showStatic, setShowStatic] = useState(false);
     const rotateTimerRef = useRef(null);
     const countdownTimerRef = useRef(null);
 
@@ -91,6 +93,7 @@ export const QRScan = ({ onClose }) => {
                 setActiveQR({
                     sessionId: newSessionId,
                     qrImage: result.session.qr_image,
+                    staticQrImage: result.session.static_qr_image || null,
                 });
                 setMessage({ text: t('qrScan.sessionStarted'), type: 'success' });
                 startQRRotation(newSessionId);
@@ -119,12 +122,27 @@ export const QRScan = ({ onClose }) => {
 
     const handleShowQR = async (sessionId) => {
         try {
-            const result = await apiClient.get(`/sessions/${sessionId}/qr`);
-            setActiveQR({ sessionId, qrImage: result.qr_image });
+            const [dynRes, statRes] = await Promise.allSettled([
+                apiClient.get(`/sessions/${sessionId}/qr`),
+                apiClient.get(`/sessions/${sessionId}/static-qr`),
+            ]);
+            setActiveQR({
+                sessionId,
+                qrImage: dynRes.status === 'fulfilled' ? dynRes.value.qr_image : null,
+                staticQrImage: statRes.status === 'fulfilled' ? statRes.value.qr_image : null,
+            });
             startQRRotation(sessionId);
         } catch (err) {
             setMessage({ text: err.message || t('qrScan.errorQR'), type: 'error' });
         }
+    };
+
+    const handleDownloadStaticQR = () => {
+        if (!activeQR?.staticQrImage) return;
+        const link = document.createElement('a');
+        link.href = activeQR.staticQrImage;
+        link.download = `yoklama-qr-${activeQR.sessionId}.png`;
+        link.click();
     };
 
     const rotateQR = useCallback(async (sessionId) => {
@@ -183,32 +201,93 @@ export const QRScan = ({ onClose }) => {
                 <div className="qr-content">
                     {/* QR Display */}
                     {activeQR && (
-                        <div className="qr-display-section">
-                            <h3>{t('qrScan.qrCode')} — {t('qrScan.sessionNo', { id: activeQR.sessionId })}</h3>
-                            <div className="qr-countdown">
-                                {t('qrScan.refresh')}: <strong>{qrCountdown}s</strong>
+                        <>
+                        {/* Projektör Modu overlay */}
+                        {projectorMode && (
+                            <div className="projector-overlay" onClick={() => setProjectorMode(false)}>
+                                <div className="projector-qr-wrap" onClick={e => e.stopPropagation()}>
+                                    <img
+                                        src={showStatic ? activeQR.staticQrImage : activeQR.qrImage}
+                                        alt="QR Code"
+                                        className="projector-qr-image"
+                                    />
+                                    {!showStatic && (
+                                        <div className="projector-countdown">
+                                            Yenileniyor: <strong>{qrCountdown}s</strong>
+                                        </div>
+                                    )}
+                                    {showStatic && (
+                                        <div className="projector-static-badge">📌 Statik QR — Oturum boyunca geçerli</div>
+                                    )}
+                                    <button className="projector-close-btn" onClick={() => setProjectorMode(false)}>✕ Kapat</button>
+                                </div>
                             </div>
-                            {activeQR.qrImage ? (
+                        )}
+
+                        <div className="qr-display-section">
+                            {/* Sekme seçici */}
+                            <div className="qr-tab-bar">
+                                <button
+                                    className={`qr-tab${!showStatic ? ' qr-tab-active' : ''}`}
+                                    onClick={() => setShowStatic(false)}
+                                >
+                                    🔄 Dinamik QR
+                                </button>
+                                <button
+                                    className={`qr-tab${showStatic ? ' qr-tab-active' : ''}`}
+                                    onClick={() => setShowStatic(true)}
+                                    disabled={!activeQR.staticQrImage}
+                                >
+                                    📌 Statik QR (Slayt)
+                                </button>
+                            </div>
+
+                            <h3>{t('qrScan.qrCode')} — {t('qrScan.sessionNo', { id: activeQR.sessionId })}</h3>
+
+                            {!showStatic && (
+                                <div className="qr-countdown">
+                                    {t('qrScan.refresh')}: <strong>{qrCountdown}s</strong>
+                                </div>
+                            )}
+                            {showStatic && (
+                                <div className="qr-static-info">
+                                    📌 Bu QR oturum boyunca değişmez — slaytınıza ekleyebilirsiniz
+                                </div>
+                            )}
+
+                            {(showStatic ? activeQR.staticQrImage : activeQR.qrImage) ? (
                                 <img
-                                    src={activeQR.qrImage}
+                                    src={showStatic ? activeQR.staticQrImage : activeQR.qrImage}
                                     alt="QR Code"
                                     className="qr-image"
                                 />
                             ) : (
                                 <p className="no-qr">{t('qrScan.errorLoadQR')}</p>
                             )}
+
                             <div className="qr-actions">
-                                <button className="rotate-qr-btn" onClick={() => rotateQR(activeQR.sessionId)}>
-                                    {t('qrScan.refreshQR')}
+                                {!showStatic && (
+                                    <button className="rotate-qr-btn" onClick={() => rotateQR(activeQR.sessionId)}>
+                                        {t('qrScan.refreshQR')}
+                                    </button>
+                                )}
+                                {showStatic && activeQR.staticQrImage && (
+                                    <button className="download-qr-btn" onClick={handleDownloadStaticQR}>
+                                        ⬇ Statik QR İndir (.png)
+                                    </button>
+                                )}
+                                <button className="projector-btn" onClick={() => setProjectorMode(true)}>
+                                    🖥 Projektör Modu
                                 </button>
                                 <button className="end-btn" onClick={() => handleEndSession(activeQR.sessionId)}>
                                     {t('qrScan.endSession')}
                                 </button>
-                                <button className="close-qr-btn" onClick={() => { setActiveQR(null); stopQRRotation(); }}>
+                                <button className="close-qr-btn" onClick={() => { setActiveQR(null); stopQRRotation(); setProjectorMode(false); }}>
                                     {t('qrScan.closeQR')}
                                 </button>
                             </div>
                         </div>
+                        </>
                     )}
 
                     {/* Active Sessions */}

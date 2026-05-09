@@ -36,7 +36,7 @@ export const getCurrentLocation = async (options = {}) => {
 
   const location = await Location.getCurrentPositionAsync({
     accuracy: options.accuracy ?? Location.Accuracy.High,
-    timeInterval: options.timeout ?? 10000
+    timeout: options.timeout ?? 15000,
   });
 
   return {
@@ -49,21 +49,26 @@ export const getCurrentLocation = async (options = {}) => {
 
 /**
  * Verify that the student is inside the classroom geofence.
- * Calls the backend's POST /api/verify/location endpoint.
+ * Calls the backend's POST /attendance/verify-location endpoint.
+ * NOTE: gps-verify.js uses attendance.verifyLocation() from api.js directly.
+ * This function is kept as a fallback utility only.
  */
 export const verifyLocation = async (sessionId) => {
-  const { latitude, longitude, accuracy } = await getCurrentLocation();
+  const { latitude, longitude, accuracy, is_mocked } = await getCurrentLocation();
 
   const result = await apiAdapter.post('/attendance/verify-location', {
     session_id: sessionId,
     latitude,
-    longitude
+    longitude,
+    accuracy,
+    is_mocked,
   });
 
   return {
     ...result,
     latitude,
     longitude,
-    gps_accuracy: accuracy
+    gps_accuracy: accuracy,
+    is_mocked,
   };
 };

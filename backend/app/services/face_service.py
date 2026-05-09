@@ -1,3 +1,4 @@
+import numpy as np
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,39 @@ class FaceService:
         self.db = db
         self.face_repo = FaceReferenceRepository(db)
         self.engine = get_face_engine()
+
+    def enroll_multi(self, user_id: int, images: list[str], accessed_by: str = "face.enroll_multi", ip_address: str | None = None) -> dict:
+        """Enroll face using multiple images — averages embeddings for better accuracy across angles/lighting."""
+        if not self.engine.is_available:
+            raise HTTPException(status_code=503, detail="Yüz tanıma motoru kullanılamıyor. insightface kurulu mu?")
+
+        embeddings = []
+        for img in images:
+            emb = self.engine.extract_embedding(img)
+            if emb is not None:
+                embeddings.append(emb)
+
+        if len(embeddings) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="En az 2 geçerli yüz görüntüsü gerekli. Yüzünüzü çerçeve içinde tutarak tekrar deneyin.",
+            )
+
+        avg_embedding = np.mean(embeddings, axis=0)
+        avg_embedding = avg_embedding / (np.linalg.norm(avg_embedding) + 1e-10)
+
+        serialized = self.engine.serialize_embedding(avg_embedding)
+        ref = self.face_repo.upsert(user_id, serialized)
+        log_action(
+            self.db,
+            action="enroll_multi",
+            actor_id=user_id,
+            resource="face_references",
+            resource_id=ref.id,
+            detail={"accessed_by": accessed_by, "image_count": len(images), "valid_embeddings": len(embeddings)},
+            ip_address=ip_address,
+        )
+        return {"success": True, "message": f"Yüz kaydı tamamlandı ({len(embeddings)} görüntü ortalaması alındı)"}
 
     def enroll(self, user_id: int, image_base64: str, accessed_by: str = "face.enroll", ip_address: str | None = None) -> dict:
         if not self.engine.is_available:

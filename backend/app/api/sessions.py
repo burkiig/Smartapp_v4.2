@@ -85,6 +85,9 @@ def start_session(
     payload = build_qr_payload(session.id, session.course_id, session.qr_token)
     qr_image = generate_qr_image_base64(payload)
 
+    static_payload = build_qr_payload(session.id, session.course_id, session.static_qr_token)
+    static_qr_image = generate_qr_image_base64(static_payload)
+
     # Notify enrolled students: push + DB notification
     try:
         from app.repositories.course_repo import EnrollmentRepository
@@ -127,7 +130,9 @@ def start_session(
     except Exception:
         pass
 
-    return {"success": True, "session": _session_to_response(session, qr_image)}
+    data = _session_to_response(session, qr_image)
+    data["static_qr_image"] = static_qr_image
+    return {"success": True, "session": data}
 
 
 @router.post("/{session_id}/end")
@@ -166,6 +171,26 @@ def get_session(
     if not session:
         raise HTTPException(status_code=404, detail="Oturum bulunamadı")
     return session
+
+
+@router.get("/{session_id}/static-qr")
+def get_static_qr(
+    session_id: int,
+    current_user: User = Depends(require_instructor),
+    db: DBSession = Depends(get_db),
+):
+    """Statik QR görüntüsünü döner — slayt/sunum için, TTL'den muaf."""
+    repo = SessionRepository(db)
+    session = repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Oturum bulunamadı")
+    if session.status != "active":
+        raise HTTPException(status_code=400, detail="Oturum aktif değil")
+    if not session.static_qr_token:
+        raise HTTPException(status_code=404, detail="Bu oturum için statik QR bulunamadı")
+    payload = build_qr_payload(session.id, session.course_id, session.static_qr_token)
+    qr_image = generate_qr_image_base64(payload)
+    return {"success": True, "qr_image": qr_image, "session_id": session_id}
 
 
 @router.get("/{session_id}/qr")

@@ -127,7 +127,11 @@ export const attendance = {
 // ==================== FACE ====================
 
 export const face = {
-  /** POST /api/v1/face/enroll — student self-enrolls */
+  /** POST /api/v1/face/enroll-multi — student self-enrolls with multiple images (averaged) */
+  enrollMulti: (images) =>
+    apiAdapter.post('/face/enroll-multi', { images }),
+
+  /** POST /api/v1/face/enroll — student self-enrolls (single image fallback) */
   enroll: (imageBase64) =>
     apiAdapter.post('/face/enroll', { image_base64: imageBase64 }),
 

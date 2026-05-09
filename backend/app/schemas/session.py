@@ -29,9 +29,11 @@ class SessionResponse(BaseModel):
     qr_token: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    geofence_radius: Optional[int] = None
     created_by_id: Optional[int] = None
     created_at: datetime
     qr_image: Optional[str] = None
+    static_qr_image: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

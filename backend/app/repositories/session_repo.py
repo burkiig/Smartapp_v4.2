@@ -32,7 +32,9 @@ class SessionRepository:
 
     def create(self, course_id: int, date: str, start_time: Optional[str] = None,
                end_time: Optional[str] = None, qr_token: Optional[str] = None,
+               static_qr_token: Optional[str] = None,
                latitude: Optional[float] = None, longitude: Optional[float] = None,
+               geofence_radius: Optional[int] = None,
                created_by_id: Optional[int] = None) -> AttendanceSession:
         from datetime import timezone as _tz
         session = AttendanceSession(
@@ -42,8 +44,10 @@ class SessionRepository:
             end_time=end_time,
             qr_token=qr_token,
             qr_token_issued_at=datetime.now(_tz.utc) if qr_token else None,
+            static_qr_token=static_qr_token,
             latitude=latitude,
             longitude=longitude,
+            geofence_radius=geofence_radius,
             created_by_id=created_by_id,
         )
         self.db.add(session)

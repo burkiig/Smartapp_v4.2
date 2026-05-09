@@ -20,9 +20,11 @@ class AttendanceSession(Base):
     status = Column(String, default="active")
     qr_token = Column(String, unique=True, nullable=True)
     qr_token_issued_at = Column(DateTime(timezone=True), nullable=True)
+    static_qr_token = Column(String, unique=True, nullable=True)  # slayt/sunum için sabit QR
     # Optional GPS for sessions created with coordinates
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    geofence_radius = Column(Integer, nullable=True)  # odadan kopyalanır, NULL ise settings default kullanılır
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 

@@ -39,9 +39,41 @@ class EnrollRequest(BaseModel):
     image_base64: str
 
 
+class EnrollMultiRequest(BaseModel):
+    images: list[str]
+
+    @field_validator("images")
+    @classmethod
+    def images_not_empty(cls, v):
+        if not v or len(v) < 1:
+            raise ValueError("En az 1 görüntü gerekli")
+        if len(v) > 5:
+            raise ValueError("En fazla 5 görüntü gönderilebilir")
+        return v
+
+
 class EnrollForStudentRequest(BaseModel):
     student_id: int
     image_base64: str
+
+
+@router.post("/enroll-multi")
+def enroll_self_multi(
+    data: EnrollMultiRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Student self-enrolls with multiple images — embeddings are averaged for better accuracy."""
+    for img in data.images:
+        _validate_image(img)
+    service = FaceService(db)
+    return service.enroll_multi(
+        current_user.id,
+        data.images,
+        accessed_by="/api/v1/face/enroll-multi",
+        ip_address=request.client.host if request.client else None,
+    )
 
 
 @router.post("/enroll")

@@ -75,10 +75,12 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={16} color={Colors.warning} />
               </TouchableOpacity>
             ) : (
-              <View style={styles.okBanner}>
+              <TouchableOpacity style={styles.okBanner} onPress={() => router.push('/register-face')}>
                 <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
                 <Text style={styles.okText}>Yüz tanıma aktif ve hazır</Text>
-              </View>
+                <Text style={styles.okSub}>Yeniden kaydet</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.success} />
+              </TouchableOpacity>
             )}
 
             {/* Info card */}
@@ -92,13 +94,22 @@ export default function ProfileScreen() {
 
             {/* Actions */}
             <View style={styles.section}>
-              {!faceOk && (
+              {!faceOk ? (
                 <MenuItem
                   icon="scan-outline"
                   bg={Colors.warningLight}
                   color={Colors.warning}
                   title="Yüz Kaydet"
                   sub="Face ID yoklaması için gerekli"
+                  onPress={() => router.push('/register-face')}
+                />
+              ) : (
+                <MenuItem
+                  icon="refresh-outline"
+                  bg="#F3E8FF"
+                  color="#7C3AED"
+                  title="Yüzümü Yeniden Kaydet"
+                  sub="Tanıma başarısız oluyorsa güncelle"
                   onPress={() => router.push('/register-face')}
                 />
               )}
@@ -171,6 +182,7 @@ const styles = StyleSheet.create({
   warnText:   { flex: 1, fontSize: 13, color: Colors.warning, fontWeight: '600' },
   okBanner:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.successMuted, borderWidth: 1, borderColor: Colors.successLight, marginHorizontal: 20, marginTop: 16, borderRadius: 12, padding: 14 },
   okText:     { flex: 1, fontSize: 13, color: Colors.success, fontWeight: '600' },
+  okSub:      { fontSize: 11, color: Colors.success, opacity: 0.75, fontWeight: '500' },
 
   // Card
   card:      { backgroundColor: Colors.card, marginHorizontal: 20, marginTop: 16, borderRadius: 18, padding: 20, ...Shadows.sm },

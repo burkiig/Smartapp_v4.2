@@ -83,7 +83,7 @@ export default function QRScanScreen() {
       if (isVerified) {
         setScanState('success');
         setTimeout(() => {
-          router.replace({ pathname: '/gps-verify', params: { session_id: resolvedSessionId } });
+          router.replace({ pathname: '/face-scan', params: { session_id: resolvedSessionId } });
         }, 800);
       } else {
         setScanState('error');
@@ -154,8 +154,8 @@ export default function QRScanScreen() {
 
   const gradientColors =
     scanState === 'success' ? ['#059669', '#10B981'] :
-    scanState === 'error'   ? ['#DC2626', '#EF4444'] :
-                              ['#1E3A8A', '#2563EB'];
+      scanState === 'error' ? ['#DC2626', '#EF4444'] :
+        ['#1E3A8A', '#2563EB'];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -168,11 +168,12 @@ export default function QRScanScreen() {
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>QR Kod Okuyucu</Text>
-            <Text style={styles.headerSubtitle}>Adım 1 / 2 — QR Doğrulama</Text>
+            <Text style={styles.headerSubtitle}>Adım 1 / 3 — QR Doğrulama</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
             <View style={[styles.stepDot, styles.stepDotActive]} />
+            <View style={styles.stepDot} />
             <View style={styles.stepDot} />
           </View>
         </View>
@@ -222,17 +223,17 @@ export default function QRScanScreen() {
           {/* Status text */}
           <View style={styles.statusBox}>
             <Text style={styles.statusTitle}>
-              {scanState === 'idle'       ? 'Hazır'                    :
-               scanState === 'scanning'  ? 'QR Kodu Çerçeveye Al'     :
-               scanState === 'verifying' ? 'Sunucuda Doğrulanıyor...'  :
-               scanState === 'success'   ? 'QR Doğrulandı! ✅'         :
-                                           'Doğrulama Başarısız'}
+              {scanState === 'idle' ? 'Hazır' :
+                scanState === 'scanning' ? 'QR Kodu Çerçeveye Al' :
+                  scanState === 'verifying' ? 'Sunucuda Doğrulanıyor...' :
+                    scanState === 'success' ? 'QR Doğrulandı! ✅' :
+                      'Doğrulama Başarısız'}
             </Text>
             <Text style={styles.statusSubtitle}>
-              {scanState === 'scanning'  ? 'QR kodu otomatik olarak okunacak'      :
-               scanState === 'verifying' ? 'Lütfen bekleyin...'                    :
-               scanState === 'success'   ? 'GPS doğrulamasına yönlendiriliyorsunuz...' :
-               scanState === 'error'     ? errorMessage                            : ''}
+              {scanState === 'scanning' ? 'QR kodu otomatik olarak okunacak' :
+                scanState === 'verifying' ? 'Lütfen bekleyin...' :
+                  scanState === 'success' ? 'Yüz doğrulamasına yönlendiriliyorsunuz...' :
+                    scanState === 'error' ? errorMessage : ''}
             </Text>
           </View>
         </View>
@@ -255,6 +256,11 @@ export default function QRScanScreen() {
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
+            <Ionicons name="scan-outline" size={16} color="rgba(255,255,255,0.6)" />
+            <Text style={styles.chainLabel}>Yüz</Text>
+          </View>
+          <View style={styles.chainArrow} />
+          <View style={styles.chainStep}>
             <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.6)" />
             <Text style={styles.chainLabel}>GPS</Text>
           </View>
@@ -266,7 +272,7 @@ export default function QRScanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  gradient:  { flex: 1 },
+  gradient: { flex: 1 },
 
   header: {
     flexDirection: 'row',
@@ -282,11 +288,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 18, fontWeight: '700', color: '#fff' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 
   stepIndicator: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  stepDot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
+  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
   stepDotActive: { backgroundColor: '#fff', width: 20, borderRadius: 4 },
 
   cameraContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 },
@@ -305,9 +311,9 @@ const styles = StyleSheet.create({
   corner: {
     position: 'absolute', width: 36, height: 36, borderColor: '#fff',
   },
-  cornerTopLeft:     { top: 12,  left: 12,  borderTopWidth: 4, borderLeftWidth: 4,   borderTopLeftRadius: 8 },
-  cornerTopRight:    { top: 12,  right: 12, borderTopWidth: 4, borderRightWidth: 4,  borderTopRightRadius: 8 },
-  cornerBottomLeft:  { bottom: 12, left: 12,  borderBottomWidth: 4, borderLeftWidth: 4,  borderBottomLeftRadius: 8 },
+  cornerTopLeft: { top: 12, left: 12, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
+  cornerTopRight: { top: 12, right: 12, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
+  cornerBottomLeft: { bottom: 12, left: 12, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
   cornerBottomRight: { bottom: 12, right: 12, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
 
   scanLine: {
@@ -336,9 +342,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2, shadowRadius: 12, elevation: 6,
   },
 
-  statusBox:     { alignItems: 'center', paddingHorizontal: 32 },
-  statusTitle:   { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 6 },
-  statusSubtitle:{ fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 20 },
+  statusBox: { alignItems: 'center', paddingHorizontal: 32 },
+  statusTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 6 },
+  statusSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 20 },
 
   buttonArea: { paddingHorizontal: 24, paddingBottom: 12 },
   retryBtn: {
@@ -352,16 +358,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 20, paddingHorizontal: 32, gap: 4,
   },
-  chainStep:      { alignItems: 'center', gap: 4 },
-  chainLabel:     { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
+  chainStep: { alignItems: 'center', gap: 4 },
+  chainLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
   chainLabelActive: { color: '#fff' },
-  chainArrow:     { width: 24, height: 1, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 6, marginBottom: 14 },
+  chainArrow: { width: 24, height: 1, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 6, marginBottom: 14 },
 
   centerBox: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     padding: 32, gap: 16,
   },
-  permTitle:    { fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  permTitle: { fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center' },
   permSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 20 },
   actionBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -369,6 +375,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 28,
   },
   actionBtnText: { fontSize: 15, fontWeight: '600', color: '#1D4ED8' },
-  backLink:      { paddingVertical: 12 },
-  backLinkText:  { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  backLink: { paddingVertical: 12 },
+  backLinkText: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
 });

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -25,14 +25,42 @@ export default function FaceScanScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [showLightHint, setShowLightHint] = useState(false);
   const cameraRef = useRef(null);
+
+  // 3 saniye boyunca yüz algılanamıyorsa ışık/konum ipucu göster
+  useEffect(() => {
+    if (faceDetected || isScanning) {
+      setShowLightHint(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowLightHint(true), 3000);
+    return () => clearTimeout(timer);
+  }, [faceDetected, isScanning]);
+
+  const _getFaceErrorMessage = (errMessage = '') => {
+    if (errMessage.includes('yüz bulunamadı') || errMessage.includes('Görüntüde yüz')) {
+      return 'Yüzünüz çerçeve içinde algılanamadı. Kameraya doğrudan bakın ve tekrar deneyin.';
+    }
+    if (errMessage.includes('Liveness') || errMessage.includes('statik görüntü')) {
+      return 'Canlılık testi başarısız. Tarama sırasında hafifçe başınızı hareket ettirin.';
+    }
+    if (errMessage.includes('benzerlik') || errMessage.includes('similarity') || errMessage.includes('doğrulaması başarısız')) {
+      return 'Yüzünüz kayıtlı görüntüyle eşleşmedi. Iyi aydınlatılmış bir ortamda, gözlüksüz tekrar deneyin. Sorun devam ederse yüzünüzü yeniden kaydetmeniz gerekebilir.';
+    }
+    if (errMessage.includes('kayıt bulunamadı') || errMessage.includes('yüz kaydı')) {
+      return 'Kayıtlı yüz bulunamadı. Önce yüz kaydı yapmanız gerekiyor.';
+    }
+    return errMessage || 'Yüz tanıma sırasında bir hata oluştu. Tekrar deneyin.';
+  };
 
   const handleStartScan = async () => {
     if (!cameraRef.current || isScanning) return;
     setIsScanning(true);
 
     try {
-      // Take first frame (full quality, will be resized below)
+      // İlk kare
       const photo1 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
 
       if (!photo1?.uri) {
@@ -40,16 +68,16 @@ export default function FaceScanScreen() {
         return;
       }
 
-      // Resize to 640px — sufficient for face recognition, reduces payload ~10x
       const resized1 = await ImageManipulator.manipulateAsync(
         photo1.uri,
         [{ resize: { width: 640 } }],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
-      // Wait briefly and take second frame for liveness detection
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 600ms bekle — kullanıcı hafifçe hareket etsin (liveness için)
+      await new Promise(resolve => setTimeout(resolve, 600));
 
+      // İkinci kare — liveness için zorunlu
       let photo2Base64 = null;
       try {
         const photo2 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
@@ -60,7 +88,12 @@ export default function FaceScanScreen() {
         );
         photo2Base64 = resized2.base64;
       } catch {
-        // Second frame optional — liveness will be skipped on backend
+        Alert.alert(
+          'Kamera Hatası',
+          'İkinci kare alınamadı. Lütfen tekrar deneyin.',
+          [{ text: 'Tamam' }]
+        );
+        return;
       }
 
       const result = await attendance.verifyFace(
@@ -69,21 +102,16 @@ export default function FaceScanScreen() {
         photo2Base64,
       );
 
-      // Only 'verified' state is success — 'pending' or 'failed' are not
       if (result?.face_status === 'verified') {
         router.replace({
           pathname: '/gps-verify',
           params: { session_id },
         });
       } else {
-        Alert.alert(
-          'Yüz Tanıma Başarısız',
-          'Yüzünüz tanınamadı. Lütfen iyi aydınlatılmış bir ortamda, gözlük ve maske olmadan tekrar deneyin.',
-          [{ text: 'Tamam' }]
-        );
+        Alert.alert('Yüz Tanıma Başarısız', _getFaceErrorMessage(), [{ text: 'Tamam' }]);
       }
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'Yüz tanıma sırasında bir hata oluştu.');
+      Alert.alert('Yüz Tanıma Başarısız', _getFaceErrorMessage(err?.message), [{ text: 'Tamam' }]);
     } finally {
       setIsScanning(false);
     }
@@ -164,13 +192,29 @@ export default function FaceScanScreen() {
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
               facing="front"
+              onFacesDetected={({ faces }) => setFaceDetected(faces.length > 0)}
+              faceDetectorSettings={{ mode: 'fast', detectLandmarks: 'none', runClassifications: 'none' }}
             />
             <View style={styles.overlay}>
-              {/* Corner decorations */}
-              <View style={[styles.corner, styles.cornerTopLeft]} />
-              <View style={[styles.corner, styles.cornerTopRight]} />
-              <View style={[styles.corner, styles.cornerBottomLeft]} />
-              <View style={[styles.corner, styles.cornerBottomRight]} />
+              {/* Corner decorations — renk yüz tespitine göre değişiyor */}
+              {['cornerTopLeft','cornerTopRight','cornerBottomLeft','cornerBottomRight'].map(k => (
+                <View
+                  key={k}
+                  style={[styles.corner, styles[k], { borderColor: faceDetected ? '#4ADE80' : '#fff' }]}
+                />
+              ))}
+
+              {/* Yüz tespit göstergesi */}
+              {!isScanning && (
+                <View style={[styles.faceIndicator, { backgroundColor: faceDetected ? 'rgba(74,222,128,0.2)' : 'transparent' }]}>
+                  {faceDetected && (
+                    <View style={styles.faceIndicatorBadge}>
+                      <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
+                      <Text style={styles.faceIndicatorText}>Yüz Algılandı</Text>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Scanning overlay */}
               {isScanning && (
@@ -184,12 +228,14 @@ export default function FaceScanScreen() {
 
           <View style={styles.statusContainer}>
             <Text style={styles.statusText}>
-              {isScanning ? 'Taranıyor...' : 'Taramaya Hazır'}
+              {isScanning ? 'Taranıyor...' : faceDetected ? 'Yüz Algılandı ✓' : 'Yüz Bekleniyor...'}
             </Text>
             <Text style={styles.statusSubtext}>
               {isScanning
                 ? 'Lütfen hareketsiz bekleyin'
-                : 'Yüzünüzü çerçeve içine alın, ardından butona basın'}
+                : faceDetected
+                  ? 'Taramaya başlamak için butona basın'
+                  : 'Yüzünüzü çerçeve içine ortalayın'}
             </Text>
           </View>
         </View>
@@ -197,13 +243,13 @@ export default function FaceScanScreen() {
         {/* Scan Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.scanButton, isScanning && styles.scanButtonDisabled]}
+            style={[styles.scanButton, (!faceDetected || isScanning) && styles.scanButtonDisabled]}
             onPress={handleStartScan}
-            disabled={isScanning}
+            disabled={!faceDetected || isScanning}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={isScanning ? ['#6B7280', '#4B5563'] : ['#7C3AED', '#A855F7']}
+              colors={(!faceDetected || isScanning) ? ['#6B7280', '#4B5563'] : ['#7C3AED', '#A855F7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.scanButtonGradient}
@@ -237,6 +283,34 @@ export default function FaceScanScreen() {
               <Text style={styles.instructionNumberText}>3</Text>
             </View>
             <Text style={styles.instructionText}>Tarama sırasında hareketsiz durun</Text>
+          </View>
+        </View>
+
+        {/* Işık / ortam ipucu — 3 saniye boyunca yüz algılanamazsa göster */}
+        {showLightHint && !isScanning && (
+          <View style={styles.lightHint}>
+            <Ionicons name="sunny-outline" size={16} color="#FCD34D" />
+            <Text style={styles.lightHintText}>
+              Yüz algılanamıyor — daha aydınlık bir ortama geçin veya kameraya doğrudan bakın
+            </Text>
+          </View>
+        )}
+
+        {/* Security chain footer */}
+        <View style={styles.chainFooter}>
+          <View style={styles.chainStep}>
+            <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.chainLabel}>QR Kod</Text>
+          </View>
+          <View style={styles.chainArrow} />
+          <View style={styles.chainStep}>
+            <Ionicons name="scan" size={16} color="#fff" />
+            <Text style={[styles.chainLabel, styles.chainLabelActive]}>Yüz</Text>
+          </View>
+          <View style={styles.chainArrow} />
+          <View style={styles.chainStep}>
+            <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.chainLabel}>GPS</Text>
           </View>
         </View>
       </LinearGradient>
@@ -317,6 +391,9 @@ const styles = StyleSheet.create({
   cornerTopRight: { top: 16, right: 16, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
   cornerBottomLeft: { bottom: 16, left: 16, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
   cornerBottomRight: { bottom: 16, right: 16, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
+  faceIndicator:      { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 12 },
+  faceIndicatorBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  faceIndicatorText:  { color: '#4ADE80', fontSize: 12, fontWeight: '700' },
   scanningOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -428,4 +505,11 @@ const styles = StyleSheet.create({
   settingsButtonText: { fontSize: 15, fontWeight: '600', color: '#7C3AED' },
   backButtonAlt: { paddingVertical: 12 },
   backButtonAltText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  lightHint:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 20, marginBottom: 8, backgroundColor: 'rgba(251,191,36,0.15)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)', borderRadius: 10, padding: 12 },
+  lightHintText: { flex: 1, fontSize: 12, color: '#FCD34D', lineHeight: 17 },
+  chainFooter:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 32, gap: 4 },
+  chainStep:        { alignItems: 'center', gap: 4 },
+  chainLabel:       { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
+  chainLabelActive: { color: '#fff' },
+  chainArrow:       { width: 24, height: 1, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 6, marginBottom: 14 },
 });

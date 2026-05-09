@@ -792,3 +792,281 @@ docker run --rm -e ENV=test -e TESTING=true \
 ```
 
 > **Önemli:** CI sırlarını (`SECRET_KEY`, `DATABASE_URL` vb.) GitHub repo'ya düz metin olarak ekleme. GitHub → Settings → Secrets and Variables → Actions bölümünden ekle.
+
+---
+
+## Son Geliştirmeler
+
+Bu bölüm, analiz ve geliştirme sürecinde tespit edilen sorunların giderilmesi ve eklenen yeni özellikleri özetler.
+
+---
+
+### QR Sistemi
+
+#### Navigasyon Zinciri Düzeltildi
+**Sorun:** QR tarama başarılı olduğunda uygulama yüz tarama adımını atlayarak doğrudan GPS doğrulamaya geçiyordu. 3 adımlı pipeline fiilen 2 adımlı çalışıyordu.
+
+**Çözüm:** Akış `QR → Yüz → GPS` olacak şekilde düzeltildi.
+
+- `mobile-app/app/qr-scan.js` — Başarılı taramada `/face-scan`'a yönlendirme, "Adım 1/3", QR→Yüz→GPS footer eklendi
+- `mobile-app/app/face-scan.js` — QR→**Yüz**→GPS footer eklendi
+- `mobile-app/app/gps-verify.js` — "Adım 2/2" → "Adım 3/3", footer'a Yüz adımı eklendi
+
+#### QR Token Güvenliği
+**Sorun:** `qr_token_issued_at` boş bırakılırsa TTL kontrolü atlanıyor, QR hiç süresi dolmuyordu.
+
+- `backend/app/services/session_service.py` — Oturum oluşturulurken `qr_token_issued_at` UTC ile otomatik set ediliyor
+- `backend/app/services/attendance_service.py` — `qr_token_issued_at` boşsa QR geçersiz sayılıyor
+
+#### QR Görüntü Kalitesi
+- `backend/app/utils/qr.py` — `ERROR_CORRECT_L` → `ERROR_CORRECT_M` (onarım kapasitesi %7 → %15)
+
+#### Tekrar Tarama Engeli
+**Sorun:** Öğrenci QR'ı taradıktan sonra ekranı arkadaşına göstererek ikincisinin de taramasına izin veriliyordu.
+
+- `backend/app/services/attendance_service.py` — QR zaten doğrulanmış bir attempt varsa `409` hatası döner
+
+#### Statik QR (Slayt / Projektör Desteği)
+**Yeni özellik:** Öğretmenin slaytına gömebileceği, oturum boyunca değişmeyen bir QR kodu.
+
+- `backend/app/models/session.py` — `static_qr_token` ve `geofence_radius` kolonları eklendi
+- `backend/app/repositories/session_repo.py` — `create()` yeni alanları kabul ediyor
+- `backend/app/services/session_service.py` — Oturum başlarken statik token otomatik üretiliyor
+- `backend/app/services/attendance_service.py` — Dinamik veya statik token eşleşiyorsa QR doğrulanıyor; statik için TTL atlanıyor
+- `backend/app/api/sessions.py` — `GET /sessions/{id}/static-qr` endpoint'i eklendi; `start_session` yanıtına `static_qr_image` eklendi
+- `backend/app/schemas/session.py` — `static_qr_image` ve `geofence_radius` alanları response şemasına eklendi
+- `web-panel/.../QRScan.js` — "Dinamik QR / Statik QR (Slayt)" sekme sistemi, "Statik QR İndir (.png)" butonu, tam ekran Projektör Modu (siyah arka plan, büyük QR)
+- `web-panel/.../QRScan.css` — Sekme, indirme butonu ve projektör overlay stilleri
+
+> **Veritabanı:** Üretim ortamında aşağıdaki sorgular çalıştırılmalıdır:
+> ```sql
+> ALTER TABLE attendance_sessions ADD COLUMN static_qr_token VARCHAR UNIQUE;
+> ALTER TABLE attendance_sessions ADD COLUMN geofence_radius INTEGER;
+> ```
+
+---
+
+### Yüz Tanıma Sistemi
+
+#### Kayıt Mantığı Düzeltildi
+**Sorun:** 3 fotoğraf ayrı ayrı gönderiliyordu, her biri öncekini siliyordu. Yalnızca son fotoğrafın embedding'i saklanıyordu.
+
+**Çözüm:** 3 embedding ortalaması alınarak tek normalize edilmiş embedding saklanıyor.
+
+- `backend/app/services/face_service.py` — `enroll_multi()` metodu: N embedding `numpy.mean` ile ortalar, normalize eder
+- `backend/app/api/face.py` — `POST /api/v1/face/enroll-multi` endpoint'i (1–5 görüntü kabul eder)
+- `mobile-app/src/services/api.js` — `face.enrollMulti(images)` fonksiyonu eklendi
+- `mobile-app/app/register-face.js` — 3 ayrı `enroll()` döngüsü → tek `enrollMulti(newPhotos)` çağrısı
+
+#### Yüz Doğrulama Zinciri Güçlendirildi
+**Sorun:** GPS adımına geçmek için yüz doğrulama zorunlu tutulmuyordu.
+
+- `backend/app/services/attendance_service.py` — Konum doğrulamaya geçmeden `face_status == "verified"` kontrolü eklendi
+
+#### Benzerlik Eşiği Güncellendi
+**Sorun:** Varsayılan eşik `0.4` çok düşüktü; buffalo_l modeli aynı kişi için genellikle 0.85–0.97 üretir.
+
+- `backend/app/config/settings.py` + `backend/.env` — `FACE_SIMILARITY_THRESHOLD`: `0.4` → `0.55`
+
+#### Liveness Zorunlu Hale Getirildi
+**Sorun:** İkinci kare (liveness için) opsiyoneldi; alınamazsa backend kişiyi canlı sayıyordu.
+
+- `mobile-app/app/face-scan.js` — İkinci kare alınamazsa işlem iptal edilir, kullanıcıya uyarı gösterilir; bekleme süresi 600ms'ye çıkarıldı
+
+#### Hata Mesajları Netleştirildi
+- `mobile-app/app/face-scan.js` — `_getFaceErrorMessage()`: backend hata türüne göre ayrı mesajlar ("Yüz algılanamadı", "Canlılık testi başarısız", "Eşleşme sağlanamadı — yeniden kayıt gerekebilir" vb.)
+
+#### Cihazda Yüz Tespiti
+**Sorun:** Boş, karanlık veya yüzsüz fotoğraflar sunucuya gönderiliyordu.
+
+- `mobile-app/app/face-scan.js` — `onFacesDetected` ile gerçek zamanlı tespit: köşe renkleri yeşile döner, "Yüz Algılandı ✓" rozeti görünür, yüz yokken tarama butonu devre dışıdır
+
+#### Işık Kalitesi Uyarısı
+- `mobile-app/app/face-scan.js` — 3 saniye boyunca yüz algılanamıyorsa sarı uyarı kutusu: *"Daha aydınlık bir ortama geçin"*
+
+#### Yüzü Yeniden Kaydet
+**Sorun:** Yüz zaten kayıtlıyken yeniden kayıt yolu yoktu.
+
+- `mobile-app/app/(tabs)/profile.js` — Yüz kayıtlıyken banner tıklanabilir hale geldi; menüde "Yüzümü Yeniden Kaydet" butonu gösteriliyor
+
+---
+
+### Konum Doğrulama Sistemi
+
+#### Yanlış API Parametresi Düzeltildi
+**Sorun:** `timeInterval` geçersiz bir parametre adıydı; `Location.getCurrentPositionAsync` onu sessizce görmezden geliyordu.
+
+- `mobile-app/src/services/locationService.js` — `timeInterval` → `timeout: 15000`
+
+#### Eksik Alanlar Eklendi
+**Sorun:** Eski `verifyLocation` fonksiyonu `accuracy` ve `is_mocked` alanlarını backend'e göndermiyordu.
+
+- `mobile-app/src/services/locationService.js` — `accuracy` ve `is_mocked` backend isteğine eklendi
+
+#### Oda Bazlı Geofence
+**Sorun:** `rooms` tablosunda `geofence_radius` kolonu mevcut olmasına rağmen hiç kullanılmıyor, tüm sınıflar için sabit 50m uygulanıyordu.
+
+- `backend/app/models/session.py` — `geofence_radius` kolonu eklendi
+- `backend/app/services/session_service.py` — Oda seçilince `rooms.geofence_radius` oturuma kopyalanıyor
+- `backend/app/services/attendance_service.py` — Sabit 50m yerine oturumun `geofence_radius` değeri kullanılıyor; tanımlı değilse `DEFAULT_GEOFENCE_RADIUS_M` devreye giriyor
+
+#### Mesafe Gösterimi
+**Sorun:** Öğrenci sınıf dışında kalınca yalnızca "Sınıf dışındasınız" yazıyordu.
+
+- `mobile-app/app/gps-verify.js` — Backend hata mesajından "Mesafe: Xm" parse edilerek "Sınıfa uzaklığınız: ~87m" göstergesi eklendi
+
+#### GPS Sinyal Kalitesi Göstergesi
+- `mobile-app/app/gps-verify.js` — Doğrulama sırasında renkli sinyal rozeti: **Mükemmel** / **İyi** / **Orta** / **Zayıf** (±Xm değeriyle birlikte)
+
+---
+
+---
+
+### Veritabanı Ekibi İçin Yapılacaklar
+
+> Bu değişiklikler kod tarafında tamamlandı. Üretim veritabanına (Supabase / PostgreSQL) aşağıdaki adımların uygulanması gerekiyor.
+
+#### Neden Gerekli?
+
+İki yeni özellik `attendance_sessions` tablosuna birer kolon ekliyor:
+
+| Kolon | Tür | Varsayılan | Açıklama |
+|---|---|---|---|
+| `static_qr_token` | `VARCHAR` | `NULL` | Hocanın slaytına koyabileceği, oturum boyunca değişmeyen QR kodu tokeni. Her oturum oluşturulduğunda backend otomatik üretiyor. |
+| `geofence_radius` | `INTEGER` | `NULL` | Oda bazlı geofence yarıçapı (metre). Oda seçilince `rooms.geofence_radius` buraya kopyalanıyor. `NULL` ise sistem `DEFAULT_GEOFENCE_RADIUS_M` (50m) değerini kullanıyor. |
+
+---
+
+#### Seçenek A — Supabase Dashboard (Önerilen)
+
+Supabase → proje → **SQL Editor** → **New query** → aşağıdaki sorguları çalıştır → **Run**:
+
+```sql
+-- 1. Statik QR token kolonu
+ALTER TABLE attendance_sessions
+  ADD COLUMN IF NOT EXISTS static_qr_token VARCHAR;
+
+-- Unique kısıt: aynı token iki farklı oturuma atanmasın
+CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_sessions_static_qr_token
+  ON attendance_sessions (static_qr_token)
+  WHERE static_qr_token IS NOT NULL;
+
+-- 2. Oda bazlı geofence yarıçapı kolonu
+ALTER TABLE attendance_sessions
+  ADD COLUMN IF NOT EXISTS geofence_radius INTEGER;
+```
+
+> `IF NOT EXISTS` sayesinde sorgular ikinci kez çalıştırılırsa hata vermez.
+
+---
+
+#### Seçenek B — Alembic Migration (Kod tabanlı)
+
+`backend/` klasöründe:
+
+```bash
+# Sanal ortamı etkinleştir
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Linux/Mac
+
+# Yeni migration dosyası oluştur
+alembic revision --autogenerate -m "add_static_qr_token_and_geofence_radius_to_sessions"
+
+# Oluşturulan dosyayı kontrol et:
+# backend/alembic/versions/<hash>_add_static_qr_token_and_geofence_radius_to_sessions.py
+# İçinde upgrade() ve downgrade() fonksiyonları otomatik doldurulmuş olmalı.
+
+# Migration'ı uygula
+alembic upgrade head
+```
+
+Otomatik oluşturulan migration yeterli değilse dosyayı şu şekilde manuel düzenle:
+
+```python
+def upgrade() -> None:
+    op.add_column(
+        "attendance_sessions",
+        sa.Column("static_qr_token", sa.String(), nullable=True),
+    )
+    op.create_index(
+        "uq_attendance_sessions_static_qr_token",
+        "attendance_sessions",
+        ["static_qr_token"],
+        unique=True,
+        postgresql_where=sa.text("static_qr_token IS NOT NULL"),
+    )
+    op.add_column(
+        "attendance_sessions",
+        sa.Column("geofence_radius", sa.Integer(), nullable=True),
+    )
+
+def downgrade() -> None:
+    op.drop_index("uq_attendance_sessions_static_qr_token", table_name="attendance_sessions")
+    op.drop_column("attendance_sessions", "static_qr_token")
+    op.drop_column("attendance_sessions", "geofence_radius")
+```
+
+---
+
+#### Kontrol Sorgusu
+
+Migration sonrası kolonların eklendiğini doğrulamak için:
+
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'attendance_sessions'
+  AND column_name IN ('static_qr_token', 'geofence_radius')
+ORDER BY column_name;
+```
+
+Beklenen çıktı:
+
+```
+ column_name      | data_type | is_nullable
+------------------+-----------+------------
+ geofence_radius  | integer   | YES
+ static_qr_token  | character | YES
+```
+
+---
+
+#### Mevcut Oturumlar İçin Veri Dolumu (Opsiyonel)
+
+Yeni kolonlar `NULL` ile başlar. Halihazırda aktif oturumlar varsa statik QR token geriye dönük olarak üretilebilir. Bunun için backend'i yeniden başlatmak yeterlidir — yeni oturumlar otomatik token alır, eskilere dokunulmaz.
+
+Eski oturumlar için de token üretilmesini istiyorsan (opsiyonel):
+
+```sql
+-- Mevcut aktif oturumlar için rastgele token doldur (salt postgres uuid kullanır)
+UPDATE attendance_sessions
+SET static_qr_token = gen_random_uuid()::TEXT
+WHERE static_qr_token IS NULL
+  AND status = 'active';
+```
+
+---
+
+### Değiştirilen Dosyalar
+
+| # | Dosya | Konu |
+|---|---|---|
+| 1 | `mobile-app/app/qr-scan.js` | Navigasyon, adım göstergesi, footer |
+| 2 | `mobile-app/app/face-scan.js` | Navigasyon, liveness, yüz tespiti, ışık uyarısı, hata mesajları, footer |
+| 3 | `mobile-app/app/gps-verify.js` | Adım göstergesi, footer, mesafe gösterimi, GPS sinyal kalitesi |
+| 4 | `mobile-app/app/register-face.js` | `enrollMulti` kullanımına geçiş |
+| 5 | `mobile-app/app/(tabs)/profile.js` | Yeniden kayıt butonu (kayıtlı kullanıcı için de) |
+| 6 | `mobile-app/src/services/api.js` | `enrollMulti` fonksiyonu eklendi |
+| 7 | `mobile-app/src/services/locationService.js` | `timeout` parametresi düzeltildi, `is_mocked` eklendi |
+| 8 | `backend/app/services/attendance_service.py` | Statik QR, TTL fix, tekrar tarama engeli, `face_status` kontrolü, oda geofence |
+| 9 | `backend/app/services/session_service.py` | Statik token üretimi, `qr_token_issued_at`, oda geofence kopyalama |
+| 10 | `backend/app/services/face_service.py` | `enroll_multi()` metodu |
+| 11 | `backend/app/api/face.py` | `/enroll-multi` endpoint'i |
+| 12 | `backend/app/api/sessions.py` | `/static-qr` endpoint'i, `start_session` statik QR yanıtı |
+| 13 | `backend/app/models/session.py` | `static_qr_token`, `geofence_radius` kolonları |
+| 14 | `backend/app/repositories/session_repo.py` | `create()` yeni parametreler |
+| 15 | `backend/app/schemas/session.py` | `static_qr_image`, `geofence_radius` response alanları |
+| 16 | `backend/app/utils/qr.py` | `ERROR_CORRECT_M` |
+| 17 | `backend/app/config/settings.py` + `backend/.env` | Benzerlik eşiği `0.4` → `0.55` |
+| 18 | `web-panel/.../QRScan.js` | Statik/Dinamik QR sekmeleri, indirme butonu, projektör modu |
+| 19 | `web-panel/.../QRScan.css` | Sekme, indirme, projektör overlay stilleri |

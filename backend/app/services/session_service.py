@@ -32,12 +32,16 @@ class SessionService:
         if not course:
             raise HTTPException(status_code=404, detail="Ders bulunamadı")
 
-        # Use room/faculty GPS if room_id provided and no explicit coordinates given
-        if room_id and latitude is None and longitude is None:
+        # Oda seçildiyse GPS koordinatlarını ve geofence yarıçapını odadan al
+        geofence_radius = None
+        if room_id:
             room = self.room_repo.get_by_id(room_id)
-            if room and room.latitude is not None:
-                latitude = room.latitude
-                longitude = room.longitude
+            if room:
+                if latitude is None and longitude is None and room.latitude is not None:
+                    latitude = room.latitude
+                    longitude = room.longitude
+                if room.geofence_radius:
+                    geofence_radius = room.geofence_radius
 
         # Check for existing active session
         existing = self.session_repo.get_active(course_id=course_id)
@@ -45,6 +49,7 @@ class SessionService:
             raise HTTPException(status_code=409, detail="Bu ders için zaten aktif bir oturum var")
 
         qr_token = generate_qr_token()
+        static_qr_token = generate_qr_token()
         today = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
         now_time = start_time or datetime.now(timezone.utc).strftime("%H:%M")
 
@@ -69,8 +74,10 @@ class SessionService:
             start_time=now_time,
             end_time=resolved_end_time,
             qr_token=qr_token,
+            static_qr_token=static_qr_token,
             latitude=latitude,
             longitude=longitude,
+            geofence_radius=geofence_radius,
             created_by_id=created_by.id,
         )
         return session

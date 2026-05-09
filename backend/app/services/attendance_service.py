@@ -44,26 +44,31 @@ class AttendancePipelineService:
         if not session or session.status != "active":
             raise HTTPException(status_code=404, detail="Aktif oturum bulunamadı")
 
-        if session.qr_token != qr_token:
+        is_dynamic = session.qr_token == qr_token
+        is_static  = bool(session.static_qr_token) and session.static_qr_token == qr_token
+
+        if not is_dynamic and not is_static:
             raise HTTPException(
                 status_code=400, detail="QR kod geçersiz veya süresi dolmuş"
             )
 
-        # Time-based anti-replay: reject tokens older than QR_TOKEN_TTL_SECONDS
-        # TTL can be overridden by admin via system_settings table
-        qr_ttl = settings.QR_TOKEN_TTL_SECONDS
-        try:
-            from app.api.admin_settings import get_setting_value
+        # Dinamik QR için TTL kontrolü — statik QR TTL'den muaf
+        if is_dynamic:
+            qr_ttl = settings.QR_TOKEN_TTL_SECONDS
+            try:
+                from app.api.admin_settings import get_setting_value
+                ttl_str = get_setting_value(self.db, "qr_token_ttl_seconds")
+                if ttl_str:
+                    qr_ttl = int(ttl_str)
+            except Exception:
+                pass
 
-            ttl_str = get_setting_value(self.db, "qr_token_ttl_seconds")
-            if ttl_str:
-                qr_ttl = int(ttl_str)
-        except Exception:
-            pass
-
-        if session.qr_token_issued_at is not None:
+            if session.qr_token_issued_at is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="QR kodunun süresi dolmuş. Lütfen yeni kodu taratın.",
+                )
             issued_at = session.qr_token_issued_at
-            # SQLite returns naive datetimes — normalise to UTC-aware before comparison
             if issued_at.tzinfo is None:
                 issued_at = issued_at.replace(tzinfo=timezone.utc)
             age_seconds = (datetime.now(timezone.utc) - issued_at).total_seconds()
@@ -99,8 +104,12 @@ class AttendancePipelineService:
                 status_code=409, detail="Bu oturum için zaten yoklama işaretlediniz"
             )
 
-        # Get or create attempt
+        # Tekrar tarama engeli — QR zaten taranmışsa reddet
         attempt = self.attempt_repo.get_by_student_session(student.id, session_id)
+        if attempt and attempt.qr_status == "verified":
+            raise HTTPException(
+                status_code=409, detail="Bu oturum için QR zaten tarandı. Yüz doğrulama adımına geçin."
+            )
         if not attempt:
             attempt = self.attempt_repo.create(student.id, session_id)
 
@@ -166,6 +175,10 @@ class AttendancePipelineService:
             raise HTTPException(
                 status_code=400, detail="Önce QR kodu taratın"
             )
+        if attempt.face_status != "verified":
+            raise HTTPException(
+                status_code=400, detail="Önce yüz doğrulaması yapın"
+            )
 
         session = self.session_repo.get_by_id(session_id)
 
@@ -183,12 +196,14 @@ class AttendancePipelineService:
                         f"(±{accuracy:.1f}m, maksimum: ±{settings.GPS_ACCURACY_THRESHOLD:.1f}m)."
                     ),
                 )
+            # Oda bazlı geofence: oturumda geofence_radius varsa onu kullan
+            effective_radius = session.geofence_radius or settings.DEFAULT_GEOFENCE_RADIUS_M
             inside, distance_m = verify_location(
                 latitude,
                 longitude,
                 session.latitude,
                 session.longitude,
-                radius_m=settings.DEFAULT_GEOFENCE_RADIUS_M,
+                radius_m=effective_radius,
                 accuracy_m=accuracy,
                 max_accuracy_m=settings.MAX_GPS_ACCURACY_M,
             )
@@ -205,7 +220,7 @@ class AttendancePipelineService:
         if not inside and not location_skipped:
             raise HTTPException(
                 status_code=400,
-                detail=f"Konum doğrulaması başarısız. Mesafe: {distance_m}m (izin verilen: {settings.DEFAULT_GEOFENCE_RADIUS_M}m)",
+                detail=f"Konum doğrulaması başarısız. Mesafe: {distance_m:.0f}m (izin verilen: {effective_radius}m)",
             )
 
         attempt = self.attempt_repo.update(
