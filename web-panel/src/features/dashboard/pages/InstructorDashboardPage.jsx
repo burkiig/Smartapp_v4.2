@@ -14,6 +14,7 @@ import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
 import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
 import { FaceScan } from '../../attendance/components/FaceScan';
 import { QRScan } from '../../attendance/components/QRScan';
+import { ClassroomPage } from '../../classroom/ClassroomPage';
 import './InstructorDashboardPage.css';
 
 /**
@@ -38,6 +39,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
   const INSTRUCTOR_MENU_ITEMS = [
     { id: 'dashboard',  label: t('nav.instructor.dashboard')  },
     { id: 'schedule',   label: t('nav.instructor.schedule')   },
+    { id: 'classroom',  label: t('nav.instructor.classroom')  },
     { id: 'qr-scan',    label: t('nav.instructor.qrScan')     },
     { id: 'face-scan',  label: t('nav.instructor.faceScan')   },
     { id: 'attendance', label: t('nav.instructor.attendance') },
@@ -73,6 +75,8 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
         return <DashboardView onNavigate={handleTabChange} />;
       case 'schedule':
         return <WeeklySchedulePage />;
+      case 'classroom':
+        return <ClassroomPage onClose={() => setActiveTab('dashboard')} />;
       case 'face-scan':
         return (
           <FaceScan

@@ -95,6 +95,13 @@ dump.rdb
 # MinIO/S3
 .minio/
 
+# Local credentials (common filenames)
+*.pem
+*.p12
+id_rsa
+id_ed25519
+*.pfx
+
 # Team reports (may contain architecture details)
 BACKEND_DEGISIKLIK_RAPORU.txt
 *_RAPORU.txt

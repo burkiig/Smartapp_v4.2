@@ -1,14 +1,24 @@
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { getApiBaseUrl } from '../../../shared/services/apiBaseUrl';
 
 /**
  * Login — supports email OR username.
  * Tokens are stored in httpOnly cookies by the server; we never touch localStorage for tokens.
  */
+function apiErrorMessage(data) {
+  const d = data?.detail;
+  if (Array.isArray(d) && d.length) {
+    return d.map((x) => x?.msg || x?.detail || JSON.stringify(x)).join('; ');
+  }
+  if (typeof d === 'string') return d;
+  return data?.message || 'Giriş başarısız';
+}
+
 export const loginUser = async (login, password) => {
   try {
+    const baseUrl = getApiBaseUrl();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
-    const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+    const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       credentials: 'include',   // send/receive httpOnly cookies
       headers: { 'Content-Type': 'application/json' },
@@ -20,7 +30,7 @@ export const loginUser = async (login, password) => {
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.detail || data.message || 'Giriş başarısız' };
+      return { success: false, error: apiErrorMessage(data) };
     }
 
     // Store only the user profile — NOT the tokens
@@ -40,7 +50,8 @@ export const loginUser = async (login, password) => {
  */
 export const logoutUser = async () => {
   try {
-    await fetch(`${BASE_URL}/api/v1/auth/logout`, {
+    const baseUrl = getApiBaseUrl();
+    await fetch(`${baseUrl}/api/v1/auth/logout`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -58,9 +69,10 @@ export const logoutUser = async () => {
  */
 export const getMe = async () => {
   try {
+    const baseUrl = getApiBaseUrl();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const response = await fetch(`${BASE_URL}/api/v1/auth/me`, {
+    const response = await fetch(`${baseUrl}/api/v1/auth/me`, {
       credentials: 'include',
       signal: controller.signal,
     });
@@ -78,7 +90,8 @@ export const getMe = async () => {
  */
 export const refreshToken = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

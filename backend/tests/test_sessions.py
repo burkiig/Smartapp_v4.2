@@ -123,3 +123,31 @@ class TestListSessions:
     def test_list_all_sessions(self, client, instructor_headers, active_session):
         resp = client.get("/api/v1/sessions/", headers=instructor_headers)
         assert resp.status_code == 200
+
+
+class TestSessionPublicStats:
+    def test_public_stats_active_session(self, client, instructor_headers, active_session):
+        resp = client.get(
+            f"/api/v1/sessions/{active_session.id}/public-stats",
+            headers=instructor_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_id"] == active_session.id
+        assert data["checked_in_count"] == 0
+
+    def test_public_stats_closed_session_fails(self, client, instructor_headers, active_session, db):
+        active_session.status = "closed"
+        db.commit()
+        resp = client.get(
+            f"/api/v1/sessions/{active_session.id}/public-stats",
+            headers=instructor_headers,
+        )
+        assert resp.status_code == 400
+
+    def test_student_cannot_read_public_stats(self, client, student_headers, active_session):
+        resp = client.get(
+            f"/api/v1/sessions/{active_session.id}/public-stats",
+            headers=student_headers,
+        )
+        assert resp.status_code == 403

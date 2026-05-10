@@ -8,11 +8,13 @@
  * API prefix: /api/v1
  */
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { getApiBaseUrl } from './apiBaseUrl';
+
 const TIMEOUT_MS = 10000;
 
 async function request(method, path, { body, params } = {}) {
-  let url = `${BASE_URL}/api/v1${path}`;
+  const baseUrl = getApiBaseUrl();
+  let url = `${baseUrl}/api/v1${path}`;
 
   if (params && Object.keys(params).length) {
     const qs = new URLSearchParams(
@@ -37,7 +39,7 @@ async function request(method, path, { body, params } = {}) {
 
     // Handle 401 — try silent token refresh via cookie rotation
     if (response.status === 401) {
-      const refreshed = await _tryRefreshToken();
+      const refreshed = await _tryRefreshToken(baseUrl);
       if (refreshed) {
         const retryResponse = await fetch(url, {
           method,
@@ -70,9 +72,9 @@ async function request(method, path, { body, params } = {}) {
   }
 }
 
-async function _tryRefreshToken() {
+async function _tryRefreshToken(baseUrl) {
   try {
-    const response = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+    const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

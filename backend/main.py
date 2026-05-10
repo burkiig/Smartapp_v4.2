@@ -44,6 +44,10 @@ _MOBILE_ORIGINS = [
     "http://localhost",        # Capacitor Android HTTP (port-less)
     "http://localhost:8081",   # Expo web dev server
     "http://localhost:19006",  # Expo web alternative port
+    # CRA / Vite over 127.0.0.1 (browsers treat this as distinct from "localhost")
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8081",
 ]
 _cors_origins = list(dict.fromkeys(settings.CORS_ORIGINS + _MOBILE_ORIGINS))
 

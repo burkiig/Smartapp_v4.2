@@ -1,0 +1,140 @@
+.present-root {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  color: #e2e8f0;
+  padding: clamp(20px, 4vw, 48px);
+  box-sizing: border-box;
+}
+
+.present-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.present-login-shell {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.present-forbidden {
+  font-size: 18px;
+  color: #fca5a5;
+}
+
+.present-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.present-sub {
+  margin: 0 0 24px;
+  color: #94a3b8;
+  font-size: 15px;
+  max-width: 540px;
+}
+
+.present-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.present-banner--error {
+  background: rgba(127, 29, 29, 0.5);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.present-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.present-tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.present-tab--on {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #0f172a;
+}
+
+.present-tab:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.present-count {
+  font-size: clamp(20px, 3.5vw, 32px);
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #f8fafc;
+}
+
+.present-ttl {
+  margin: 0 0 20px;
+  color: #94a3b8;
+  font-size: clamp(14px, 2vw, 18px);
+}
+
+.present-qr {
+  display: block;
+  width: min(min(72vw, 72vh), 420px);
+  height: auto;
+  margin: 0 auto 20px;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+  background: #fff;
+  padding: 12px;
+}
+
+.present-fallback {
+  text-align: center;
+  color: #94a3b8;
+}
+
+.present-refresh {
+  display: block;
+  margin: 0 auto;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid #475569;
+  background: rgba(30, 41, 59, 0.8);
+  color: #e2e8f0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.present-refresh:hover {
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.present-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #334155;
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: present-spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes present-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -52,6 +52,17 @@ class FinalAttendanceRepository:
             .all()
         )
 
+    def count_present_for_session(self, session_id: int) -> int:
+        """Anonymous-friendly aggregate: finalized 'present' rows for this session."""
+        return (
+            self.db.query(FinalAttendanceRecord)
+            .filter(
+                FinalAttendanceRecord.session_id == session_id,
+                FinalAttendanceRecord.status == "present",
+            )
+            .count()
+        )
+
     def get_by_student(self, student_id: int) -> List[FinalAttendanceRecord]:
         return (
             self.db.query(FinalAttendanceRecord)

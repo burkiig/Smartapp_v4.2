@@ -7,7 +7,7 @@ from app.schemas.session import SessionCreate, SessionResponse, SessionPublicRes
 from app.schemas.attendance import CancellationCreate, CancellationResponse
 from app.services.session_service import SessionService
 from app.repositories.session_repo import SessionRepository
-from app.repositories.attendance_repo import CancellationRepository
+from app.repositories.attendance_repo import CancellationRepository, FinalAttendanceRepository
 from app.repositories.course_repo import CourseRepository
 from app.security.dependencies import get_current_user, require_instructor
 from app.models.user import User
@@ -202,6 +202,33 @@ def get_session_qr(
     service = SessionService(db)
     qr_image = service.get_qr_image(session_id)
     return {"success": True, "qr_image": qr_image}
+
+
+@router.get("/{session_id}/public-stats")
+def get_session_public_stats(
+    session_id: int,
+    current_user: User = Depends(require_instructor),
+    db: DBSession = Depends(get_db),
+):
+    """Counts present check-ins only — no student names (projector-safe)."""
+    repo = SessionRepository(db)
+    session = repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Oturum bulunamadı")
+    if session.status != "active":
+        raise HTTPException(status_code=400, detail="Yalnızca aktif oturumlar için istatistik alınabilir")
+
+    if current_user.role == "instructor":
+        course_repo = CourseRepository(db)
+        my_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
+        if session.course_id not in my_ids:
+            raise HTTPException(status_code=403, detail="Bu oturum üzerinde yetkiniz yok")
+
+    count = FinalAttendanceRepository(db).count_present_for_session(session_id)
+    return {
+        "session_id": session_id,
+        "checked_in_count": count,
+    }
 
 
 @router.post("/{session_id}/rotate-qr")

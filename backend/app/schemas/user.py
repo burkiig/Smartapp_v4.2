@@ -60,6 +60,11 @@ class LoginRequest(BaseModel):
     login: str          # email or username
     password: str
 
+    @field_validator("login", "password")
+    @classmethod
+    def strip_fields(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
+
 
 class TokenResponse(BaseModel):
     access_token: str

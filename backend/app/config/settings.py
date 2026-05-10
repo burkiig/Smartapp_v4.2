@@ -1,11 +1,42 @@
 import os
 import warnings
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# backend/ — always load this folder's .env (not cwd), so uvicorn from any directory works.
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+_REPO_ROOT = _BACKEND_ROOT.parent
+
+# Prefer backend/.env; optional repo-root .env fills only missing keys (e.g. Docker-compose split).
+load_dotenv(_BACKEND_ROOT / ".env")
+load_dotenv(_REPO_ROOT / ".env", override=False)
 
 _UNSAFE_SECRET = "change-this-in-production-super-secret-key"
 _UNSAFE_ADMIN_PASS = "admin123"
+
+
+def _resolve_sqlite_url(url: str) -> str:
+    """Anchor relative SQLite file paths to backend/, not process cwd."""
+    if not url.lower().startswith("sqlite"):
+        return url
+    prefix = "sqlite:///"
+    rest = url[len(prefix) :]
+    lower = rest.lower()
+    if lower.startswith(":memory:") or "mode=memory" in lower:
+        return url
+    path_part = rest.split("?", 1)[0]
+    try:
+        path_obj = Path(path_part)
+    except ValueError:
+        return url
+    if path_obj.is_absolute():
+        return url
+    abs_path = (_BACKEND_ROOT / path_part).resolve()
+    if "?" in rest:
+        qs = rest.split("?", 1)[1]
+        return f"sqlite:///{abs_path.as_posix()}?{qs}"
+    return f"sqlite:///{abs_path.as_posix()}"
 
 
 class Settings:
@@ -17,7 +48,11 @@ class Settings:
         or ENV == "test"
     )
     _DATABASE_URL_RAW: str = os.getenv("DATABASE_URL", "sqlite:///./smart_attendance.db")
-    DATABASE_URL: str = "sqlite:///./test.db" if TESTING else _DATABASE_URL_RAW
+    DATABASE_URL: str = (
+        _resolve_sqlite_url("sqlite:///./test.db")
+        if TESTING
+        else _resolve_sqlite_url(_DATABASE_URL_RAW)
+    )
     if TESTING and "postgresql" in _DATABASE_URL_RAW.lower():
         raise RuntimeError(
             "Unsafe test configuration: TESTING=true while DATABASE_URL points to PostgreSQL. "
@@ -35,10 +70,15 @@ class Settings:
     REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    CORS_ORIGINS: list = os.getenv(
-        "CORS_ORIGINS",
-        "http://localhost:3000,http://localhost:5173,http://localhost:8081"
-    ).split(",")
+    CORS_ORIGINS: list = [
+        o.strip()
+        for o in os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:3000,http://localhost:5173,http://localhost:8081,"
+            "http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8081",
+        ).split(",")
+        if o.strip()
+    ]
 
     # ── Face Recognition ─────────────────────────────────────────────────────
     FACE_SIMILARITY_THRESHOLD: float = float(os.getenv("FACE_SIMILARITY_THRESHOLD", "0.55"))
