@@ -43,6 +43,14 @@ class TestCourseCreate:
 
 
 class TestEnrollment:
+    def test_instructor_cannot_enroll_student(self, client, instructor_headers, course, student_user):
+        resp = client.post(
+            f"/api/v1/courses/{course.id}/enroll",
+            json={"student_id": student_user.id},
+            headers=instructor_headers,
+        )
+        assert resp.status_code == 403
+
     def test_enroll_student(self, client, admin_headers, course, db):
         from app.models.user import User
         from app.security.password import hash_password

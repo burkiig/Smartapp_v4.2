@@ -120,6 +120,22 @@ class TestListSessions:
         ids = [s["id"] for s in resp.json()]
         assert active_session.id in ids
 
+    def test_student_active_sessions_only_enrolled(
+        self, client, student_headers, active_session, enrollment
+    ):
+        resp = client.get("/api/v1/sessions/active", headers=student_headers)
+        assert resp.status_code == 200
+        ids = [s["id"] for s in resp.json()]
+        assert active_session.id in ids
+
+    def test_student_get_session_is_public_shape(
+        self, client, student_headers, active_session, enrollment
+    ):
+        resp = client.get(f"/api/v1/sessions/{active_session.id}", headers=student_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "qr_token" not in body
+
     def test_list_all_sessions(self, client, instructor_headers, active_session):
         resp = client.get("/api/v1/sessions/", headers=instructor_headers)
         assert resp.status_code == 200

@@ -5,7 +5,9 @@ from typing import List, Optional
 from app.database.connection import get_db
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.repositories.user_repo import UserRepository
+from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 from app.security.dependencies import get_current_user, require_admin, require_instructor
+from app.models.course import Course
 from app.models.user import User
 
 router = APIRouter()
@@ -27,13 +29,10 @@ def get_users(
 @router.post("/", response_model=UserResponse, status_code=201)
 def create_user(
     data: UserCreate,
-    current_user: User = Depends(require_instructor),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Create user — admin can create any role, instructor can only create students"""
-    if current_user.role == "instructor" and data.role not in ("student",):
-        raise HTTPException(status_code=403, detail="Öğretmenler yalnızca öğrenci hesabı oluşturabilir")
-
+    """Create user — admin only"""
     repo = UserRepository(db)
     if repo.get_by_email(data.email):
         raise HTTPException(status_code=409, detail="Bu e-posta adresi zaten kullanılıyor")
@@ -56,11 +55,29 @@ def get_students(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all students (admin & instructor)"""
+    """Öğrenci listesi: admin tüm öğrenciler; öğretmen yalnızca derslerine kayıtlı öğrenciler."""
     if current_user.role not in ("admin", "instructor"):
         raise HTTPException(status_code=403, detail="Yetki gerekli")
     repo = UserRepository(db)
-    return repo.get_all_list(role="student")
+    if current_user.role == "admin":
+        return repo.get_all_list(role="student")
+    course_repo = CourseRepository(db)
+    enroll_repo = EnrollmentRepository(db)
+    my_course_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
+    my_course_ids.update(
+        cid for cid, in db.query(Course.id).filter(Course.instructor_id == current_user.id)
+    )
+    student_ids = set()
+    for cid in my_course_ids:
+        for e in enroll_repo.get_by_course(cid):
+            student_ids.add(e.student_id)
+    if not student_ids:
+        return []
+    out = [repo.get_by_id(uid) for uid in student_ids]
+    return sorted(
+        [UserResponse.model_validate(u) for u in out if u],
+        key=lambda x: (x.name or x.username or "").lower(),
+    )
 
 
 @router.get("/instructors", response_model=List[UserResponse])
