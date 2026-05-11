@@ -12,6 +12,7 @@ import { WeeklySchedulePage } from '../../schedule/pages/WeeklySchedulePage';
 import { SettingsPage } from '../../settings/pages/SettingsPage';
 import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
 import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
+import { AuditLogPage } from '../../audit/AuditLogPage';
 import { FaceScan } from '../../attendance/components/FaceScan';
 import { QRScan } from '../../attendance/components/QRScan';
 import { ClassroomPage } from '../../classroom/ClassroomPage';
@@ -45,6 +46,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
     { id: 'attendance', label: t('nav.instructor.attendance') },
     { id: 'excuses',    label: t('nav.instructor.excuses')    },
     { id: 'disputes',   label: t('nav.instructor.disputes')   },
+    { id: 'audit-logs', label: t('nav.instructor.auditLogs')  },
     { id: 'reports',    label: t('nav.instructor.reports')    },
     { id: 'register',   label: t('nav.instructor.register')   },
     { id: 'students',   label: t('nav.instructor.students')   },
@@ -94,6 +96,8 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
         return <ExcusesPage />;
       case 'disputes':
         return <DisputeReviewPage />;
+      case 'audit-logs':
+        return <AuditLogPage />;
       case 'students':
         return <StudentsPage onManualAttendance={handleManualAttendance} />;
       case 'reports':

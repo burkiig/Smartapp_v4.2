@@ -84,6 +84,55 @@ export const getMe = async () => {
   }
 };
 
+export const forgotPassword = async (email) => {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) return { success: false, error: apiErrorMessage(data) };
+    return { success: true, message: data.message };
+  } catch {
+    return { success: false, error: 'Bağlantı hatası' };
+  }
+};
+
+export const resetPassword = async (token, new_password) => {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/v1/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password }),
+    });
+    const data = await response.json();
+    if (!response.ok) return { success: false, error: apiErrorMessage(data) };
+    return { success: true, message: data.message };
+  } catch {
+    return { success: false, error: 'Bağlantı hatası' };
+  }
+};
+
+export const changePassword = async (current_password, new_password) => {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/v1/auth/change-password`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password, new_password }),
+    });
+    const data = await response.json();
+    if (!response.ok) return { success: false, error: apiErrorMessage(data) };
+    return { success: true, message: data.message };
+  } catch {
+    return { success: false, error: 'Bağlantı hatası' };
+  }
+};
+
 /**
  * Refresh access token. The refresh_token cookie is sent automatically.
  * Server sets a new access_token cookie and returns a new refresh_token cookie.

@@ -186,18 +186,23 @@ def bulk_review_excuses(
         from app.repositories.course_repo import CourseRepository
         allowed_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
 
-    for excuse_id in data.ids:
-        excuse = repo.get_by_id(excuse_id)
-        if not excuse:
-            skipped.append(excuse_id)
-            continue
-        if allowed_course_ids is not None and excuse.course_id not in allowed_course_ids:
-            skipped.append(excuse_id)
-            continue
-        repo.update(excuse, status=data.status,
-                    instructor_notes=data.instructor_notes or excuse.instructor_notes)
-        _sync_attendance_for_excuse(db, excuse, data.status)
-        updated.append(excuse_id)
+    try:
+        for excuse_id in data.ids:
+            excuse = repo.get_by_id(excuse_id)
+            if not excuse:
+                skipped.append(excuse_id)
+                continue
+            if allowed_course_ids is not None and excuse.course_id not in allowed_course_ids:
+                skipped.append(excuse_id)
+                continue
+            repo.update(excuse, status=data.status,
+                        instructor_notes=data.instructor_notes or excuse.instructor_notes)
+            _sync_attendance_for_excuse(db, excuse, data.status)
+            updated.append(excuse_id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Toplu güncelleme başarısız, hiçbir değişiklik kaydedilmedi")
 
     return {
         "updated": len(updated),

@@ -40,13 +40,27 @@ class FaceEngine:
         if not INSIGHTFACE_AVAILABLE:
             print("WARNING: insightface not installed. Face recognition disabled.")
             return
-        try:
-            self._app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-            self._app.prepare(ctx_id=0, det_size=(640, 640))
-            self._initialized = True
-            print("FaceEngine: buffalo_l model loaded successfully.")
-        except Exception as e:
-            print(f"WARNING: FaceEngine init failed: {e}")
+        import threading
+        result = {"ok": False, "error": None}
+
+        def _load():
+            try:
+                app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+                app.prepare(ctx_id=0, det_size=(640, 640))
+                self._app = app
+                self._initialized = True
+                result["ok"] = True
+                print("FaceEngine: buffalo_l model loaded successfully.")
+            except Exception as e:
+                result["error"] = e
+
+        t = threading.Thread(target=_load, daemon=True)
+        t.start()
+        t.join(timeout=120)  # 2 dakikadan uzun sürerse sunucu bloke olmaz
+        if t.is_alive():
+            print("WARNING: FaceEngine init timed out (120s). Face recognition disabled.")
+        elif not result["ok"]:
+            print(f"WARNING: FaceEngine init failed: {result['error']}")
 
     @property
     def is_available(self) -> bool:

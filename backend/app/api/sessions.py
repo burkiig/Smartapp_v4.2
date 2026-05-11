@@ -144,18 +144,24 @@ def end_session(
     service = SessionService(db)
     session = service.end_session(session_id, current_user)
 
-    # Feature 7: Notify absent students asynchronously
+    # Feature 7: Notify absent students asynchronously via APScheduler
     try:
         from app.database.connection import SessionLocal
-        from app.services.notification_service import notify_absent_students
-        import threading
-        threading.Thread(
-            target=notify_absent_students,
-            args=(session_id, SessionLocal),
-            daemon=True,
-        ).start()
-    except Exception:
-        pass
+        from app.services.scheduler import schedule_notify_absent
+        if not schedule_notify_absent(session_id, SessionLocal):
+            # Fallback: scheduler not running (e.g. test mode)
+            from app.services.notification_service import notify_absent_students
+            import threading
+            threading.Thread(
+                target=notify_absent_students,
+                args=(session_id, SessionLocal),
+                daemon=True,
+            ).start()
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Could not schedule absent notification for session %s: %s", session_id, exc
+        )
 
     return {"success": True, "session": SessionResponse.model_validate(session)}
 

@@ -10,7 +10,107 @@ import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skel
 import apiClient from '../../../shared/services/apiClient';
 import { AuditLogPage } from '../../audit/AuditLogPage';
 import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
+import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
 import './AdminDashboardPage.css';
+
+// ── CsvImportModal ─────────────────────────────────────────────────────────────
+
+function CsvImportModal({ onClose, onSuccess }) {
+  const [file, setFile]       = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult]   = useState(null);
+  const [error, setError]     = useState('');
+  const baseUrl = window.__API_BASE_URL__ || (window.location.hostname === 'localhost'
+    ? 'http://localhost:8000/api/v1'
+    : '/api/v1');
+
+  const handleImport = async () => {
+    if (!file) { setError('Lütfen bir CSV dosyası seçin.'); return; }
+    setLoading(true); setError(''); setResult(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${baseUrl}/users/bulk-import`, {
+        method: 'POST',
+        credentials: 'include',
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'İçe aktarma başarısız');
+      setResult(data);
+      if (data.created_count > 0) onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally { setLoading(false); }
+  };
+
+  const downloadTemplate = () => {
+    const csv = 'username,email,password,name,role,department,student_number\njohn_doe,john@example.com,Sifre123!,John Doe,student,Bilgisayar Müh.,2021001\n';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'kullanici_sablonu.csv';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>CSV ile Toplu Kullanıcı Ekle</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ padding: '0 0 16px' }}>
+          <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
+            CSV dosyasında şu sütunlar bulunmalıdır:<br />
+            <code style={{ fontSize: 12, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
+              username, email, password, name, role, department*, student_number*
+            </code>
+            <br /><span style={{ fontSize: 11, color: '#94a3b8' }}>* isteğe bağlı</span>
+          </p>
+          <button
+            type="button"
+            className="btn-cancel"
+            onClick={downloadTemplate}
+            style={{ marginBottom: 16, fontSize: 13 }}
+          >
+            Şablon İndir (.csv)
+          </button>
+          <div className="form-group">
+            <label>CSV Dosyası</label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={e => { setFile(e.target.files[0]); setResult(null); setError(''); }}
+            />
+          </div>
+          {error && <div className="modal-error">{error}</div>}
+          {result && (
+            <div style={{ marginTop: 12, padding: 12, background: '#f0fdf4', borderRadius: 8, border: '1px solid #86efac' }}>
+              <p style={{ fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
+                {result.created_count} kullanıcı eklendi, {result.skipped_count} atlandı.
+              </p>
+              {result.skipped.length > 0 && (
+                <ul style={{ fontSize: 12, color: '#dc2626', margin: 0, paddingLeft: 16 }}>
+                  {result.skipped.map((s, i) => (
+                    <li key={i}>Satır {s.row} {s.username ? `(${s.username})` : ''}: {s.reason}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-buttons">
+          <button type="button" className="btn-cancel" onClick={onClose}>Kapat</button>
+          <button type="button" className="btn-save" onClick={handleImport} disabled={loading || !file}>
+            {loading ? 'İçe Aktarılıyor...' : 'İçe Aktar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── AddUserModal ───────────────────────────────────────────────────────────────
 
@@ -933,6 +1033,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
     { id: 'rooms',      label: t('nav.admin.rooms')      },
     { id: 'reports',    label: t('nav.admin.reports')    },
     { id: 'excuses',    label: t('nav.admin.excuses')    },
+    { id: 'disputes',   label: t('nav.admin.disputes')   },
     { id: 'audit-logs', label: t('nav.admin.auditLogs')  },
     { id: 'logout',     label: t('nav.admin.logout')     },
   ];
@@ -954,6 +1055,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   const [reportCourseFilter, setReportCourseFilter] = useState('');
 
   const [showAddUser,    setShowAddUser]    = useState(false);
+  const [showCsvImport,  setShowCsvImport]  = useState(false);
   const [editingUser,    setEditingUser]    = useState(null);
   const [showAddCourse,  setShowAddCourse]  = useState(false);
   const [editingCourse,  setEditingCourse]  = useState(null);
@@ -1151,7 +1253,10 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       <div className="admin-users">
         <div className="page-header">
           <h1>{t('admin.users.title')}</h1>
-          <button className="btn-primary" onClick={() => setShowAddUser(true)}>{t('admin.users.addUser')}</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-secondary" onClick={() => setShowCsvImport(true)}>CSV İçe Aktar</button>
+            <button className="btn-primary" onClick={() => setShowAddUser(true)}>{t('admin.users.addUser')}</button>
+          </div>
         </div>
         <div className="role-tabs">
           {[
@@ -1409,6 +1514,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       case 'rooms':       return renderRooms();
       case 'reports':     return renderReports();
       case 'excuses':     return <ExcusesPage />;
+      case 'disputes':    return <DisputeReviewPage />;
       case 'audit-logs':  return <AuditLogPage />;
       default:            return renderOverview();
     }
@@ -1416,6 +1522,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
 
   return (
     <div className="admin-dashboard-container">
+      {showCsvImport  && <CsvImportModal onClose={() => setShowCsvImport(false)} onSuccess={() => fetchData('users')} />}
       {showAddUser    && <AddUserModal onClose={() => setShowAddUser(false)} onSuccess={() => fetchData('users')} />}
       {editingUser    && <EditUserModal userData={editingUser} onClose={() => setEditingUser(null)} onSuccess={() => fetchData('users')} />}
       {showAddCourse  && <AddCourseModal instructors={instructors} onClose={() => setShowAddCourse(false)} onSuccess={() => fetchData('courses')} />}

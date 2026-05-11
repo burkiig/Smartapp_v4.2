@@ -9,6 +9,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '@/context/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Shadows } from '@/config/theme';
+import { auth } from '@/services/api';
+import { setupPushNotifications } from '@/services/notificationService';
 
 const SETTINGS_KEY = '@smart_attendance_settings';
 
@@ -17,9 +19,6 @@ const DEFAULT_SETTINGS = {
   notifyFlagged:     true,
   notifySessionEnds: true,
   notifyClassStart:  true,
-  faceRecognition:   true,
-  qrCode:            true,
-  gpsVerification:   true,
 };
 
 export default function SettingsScreen() {
@@ -36,10 +35,23 @@ export default function SettingsScreen() {
     }).catch(() => {});
   }, []);
 
-  const update = (key, value) => {
+  const update = async (key, value) => {
     const next = { ...settings, [key]: value };
     setSettings(next);
     AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next)).catch(() => {});
+
+    // pushNotifications toggle → backend'e push token kaydet veya sil
+    if (key === 'pushNotifications') {
+      try {
+        if (value) {
+          await setupPushNotifications();
+        } else {
+          await auth.savePushToken('');
+        }
+      } catch {
+        // Non-critical — local state already updated
+      }
+    }
   };
 
   const handleReset = () => {
@@ -90,12 +102,35 @@ export default function SettingsScreen() {
           <Row label="Ders Başlangıcı"          desc="Ders başlamak üzereyken bildirim"      value={settings.notifyClassStart}  onChange={v => update('notifyClassStart', v)} last />
         </Section>
 
-        {/* Yoklama Yöntemleri */}
-        <Section icon="shield-checkmark" iconColor={Colors.warning} title="Yoklama Yöntemleri">
-          <Row label="Yüz Tanıma"   desc="Face ID ile yoklama doğrulaması" value={settings.faceRecognition} onChange={v => update('faceRecognition', v)} accent={Colors.warning} last={false} />
-          <Row label="QR Kod"       desc="QR kod ile yoklama"              value={settings.qrCode}          onChange={v => update('qrCode', v)}          accent={Colors.warning} last={false} />
-          <Row label="GPS Doğrulama" desc="Konum ile doğrulama"           value={settings.gpsVerification} onChange={v => update('gpsVerification', v)} accent={Colors.warning} last />
-        </Section>
+        {/* Yoklama Yöntemleri — kurumsal zorunluluk */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionIconBox, { backgroundColor: Colors.warning + '18' }]}>
+              <Ionicons name="shield-checkmark" size={18} color={Colors.warning} />
+            </View>
+            <Text style={styles.sectionTitle}>Yoklama Yöntemleri</Text>
+          </View>
+          <View style={[styles.card, styles.infoCard]}>
+            <Ionicons name="information-circle-outline" size={20} color={Colors.warning} />
+            <Text style={styles.infoText}>
+              Yüz tanıma, QR kod ve GPS doğrulama kurumunuz tarafından zorunlu tutulmaktadır.
+              Bu ayarlar bireysel olarak değiştirilemez.
+            </Text>
+          </View>
+          {[
+            { icon: 'scan-outline',    label: 'QR Kod' },
+            { icon: 'eye-outline',     label: 'Yüz Tanıma' },
+            { icon: 'location-outline',label: 'GPS Doğrulama' },
+          ].map(({ icon, label }) => (
+            <View key={label} style={[styles.card, styles.methodRow]}>
+              <Ionicons name={icon} size={18} color={Colors.warning} />
+              <Text style={styles.methodLabel}>{label}</Text>
+              <View style={styles.requiredBadge}>
+                <Text style={styles.requiredText}>Zorunlu</Text>
+              </View>
+            </View>
+          ))}
+        </View>
 
         {/* Sıfırla */}
         <View style={styles.section}>
@@ -171,4 +206,11 @@ const styles = StyleSheet.create({
 
   resetBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 15, borderWidth: 1, borderColor: Colors.errorLight, ...Shadows.xs },
   resetBtnText: { fontSize: 14, fontWeight: '700', color: Colors.error },
+
+  infoCard:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, marginBottom: 8, backgroundColor: Colors.warning + '12', borderWidth: 1, borderColor: Colors.warning + '30' },
+  infoText:   { flex: 1, fontSize: 12, color: Colors.textMuted, lineHeight: 18 },
+  methodRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 6 },
+  methodLabel:{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.text },
+  requiredBadge: { backgroundColor: Colors.warning + '20', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  requiredText:  { fontSize: 11, fontWeight: '700', color: Colors.warning },
 });

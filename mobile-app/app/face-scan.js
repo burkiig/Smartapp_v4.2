@@ -39,20 +39,58 @@ export default function FaceScanScreen() {
     return () => clearTimeout(timer);
   }, [faceDetected, isScanning]);
 
-  const _getFaceErrorMessage = (errMessage = '') => {
-    if (errMessage.includes('yüz bulunamadı') || errMessage.includes('Görüntüde yüz')) {
-      return 'Yüzünüz çerçeve içinde algılanamadı. Kameraya doğrudan bakın ve tekrar deneyin.';
-    }
-    if (errMessage.includes('Liveness') || errMessage.includes('statik görüntü')) {
-      return 'Canlılık testi başarısız. Tarama sırasında hafifçe başınızı hareket ettirin.';
-    }
-    if (errMessage.includes('benzerlik') || errMessage.includes('similarity') || errMessage.includes('doğrulaması başarısız')) {
-      return 'Yüzünüz kayıtlı görüntüyle eşleşmedi. Iyi aydınlatılmış bir ortamda, gözlüksüz tekrar deneyin. Sorun devam ederse yüzünüzü yeniden kaydetmeniz gerekebilir.';
-    }
-    if (errMessage.includes('kayıt bulunamadı') || errMessage.includes('yüz kaydı')) {
-      return 'Kayıtlı yüz bulunamadı. Önce yüz kaydı yapmanız gerekiyor.';
-    }
-    return errMessage || 'Yüz tanıma sırasında bir hata oluştu. Tekrar deneyin.';
+  // Hata türünü backend mesajından çıkarır
+  const _classifyError = (msg = '') => {
+    if (msg.includes('kayıt bulunamadı') || msg.includes('yüz kaydı') || msg.includes('404'))
+      return 'no_reference';
+    if (msg.includes('yüz bulunamadı') || msg.includes('Görüntüde yüz') || msg.includes('detect'))
+      return 'no_face';
+    if (msg.includes('Liveness') || msg.includes('statik görüntü') || msg.includes('liveness'))
+      return 'liveness';
+    if (msg.includes('benzerlik') || msg.includes('similarity') || msg.includes('doğrulaması başarısız') || msg.includes('eşik'))
+      return 'similarity';
+    return 'unknown';
+  };
+
+  const _showFaceError = (errMessage = '') => {
+    const type = _classifyError(errMessage);
+
+    const MESSAGES = {
+      no_reference: {
+        title: 'Yüz Kaydı Bulunamadı',
+        body: 'Sisteme kayıtlı yüzünüz bulunamadı. Yoklamaya devam edebilmek için önce yüzünüzü kaydetmeniz gerekiyor.',
+        actions: [
+          { text: 'Yüzü Kaydet', onPress: () => router.replace('/register-face') },
+          { text: 'İptal', style: 'cancel' },
+        ],
+      },
+      no_face: {
+        title: 'Yüz Algılanamadı',
+        body: 'Yüzünüz çerçeve içinde algılanamadı. Kameraya doğrudan bakın, iyi aydınlatılmış bir ortamda tekrar deneyin.',
+        actions: [{ text: 'Tamam' }],
+      },
+      liveness: {
+        title: 'Canlılık Testi Başarısız',
+        body: 'Statik görüntü tespit edildi. Tarama sırasında hafifçe başınızı hareket ettirin ve tekrar deneyin.',
+        actions: [{ text: 'Tamam' }],
+      },
+      similarity: {
+        title: 'Yüz Eşleşmedi',
+        body: 'Yüzünüz kayıtlı görüntüyle eşleşmedi. İyi aydınlatılmış bir ortamda, gözlüksüz tekrar deneyin. Sorun devam ederse yüzünüzü yeniden kaydedin.',
+        actions: [
+          { text: 'Yeniden Kaydet', onPress: () => router.replace('/register-face') },
+          { text: 'Tekrar Dene', style: 'cancel' },
+        ],
+      },
+      unknown: {
+        title: 'Yüz Tanıma Başarısız',
+        body: errMessage || 'Yüz tanıma sırasında bir hata oluştu. Lütfen tekrar deneyin.',
+        actions: [{ text: 'Tamam' }],
+      },
+    };
+
+    const { title, body, actions } = MESSAGES[type];
+    Alert.alert(title, body, actions);
   };
 
   const handleStartScan = async () => {
@@ -108,10 +146,10 @@ export default function FaceScanScreen() {
           params: { session_id },
         });
       } else {
-        Alert.alert('Yüz Tanıma Başarısız', _getFaceErrorMessage(), [{ text: 'Tamam' }]);
+        _showFaceError(result?.detail || result?.message || '');
       }
     } catch (err) {
-      Alert.alert('Yüz Tanıma Başarısız', _getFaceErrorMessage(err?.message), [{ text: 'Tamam' }]);
+      _showFaceError(err?.message || '');
     } finally {
       setIsScanning(false);
     }

@@ -224,6 +224,24 @@ def start_scheduler():
     return _scheduler
 
 
+def schedule_notify_absent(session_id: int, db_factory) -> bool:
+    """Schedule a one-off job to notify absent students. Returns True if scheduled."""
+    if not _scheduler or not _scheduler.running:
+        return False
+    from datetime import datetime, timedelta, timezone
+    from app.services.notification_service import notify_absent_students
+    _scheduler.add_job(
+        notify_absent_students,
+        trigger="date",
+        run_date=datetime.now(timezone.utc) + timedelta(seconds=3),
+        args=[session_id, db_factory],
+        id=f"notify_absent_{session_id}",
+        replace_existing=True,
+    )
+    logger.info("[Scheduler] Absent notification job scheduled for session %s", session_id)
+    return True
+
+
 def stop_scheduler():
     global _scheduler
     if _scheduler and _scheduler.running:

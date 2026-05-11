@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { forgotPassword, resetPassword } from '../../services/authService';
 import './LoginForm.css';
 import './PasswordToggle.css';
 
@@ -37,16 +38,159 @@ const EyeIcon = ({ open }) =>
 /* ── Component ─────────────────────────────────────────────── */
 export const LoginForm = ({ onLogin, loading, error }) => {
   const { t } = useTranslation();
-  const [loginId, setLoginId]         = useState('');
-  const [password, setPassword]       = useState('');
+  const [loginId, setLoginId]           = useState('');
+  const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe]   = useState(false);
+  const [rememberMe, setRememberMe]     = useState(false);
+
+  // Şifre sıfırlama akışı: 'login' | 'forgot' | 'reset'
+  const [mode, setMode]               = useState('login');
+  const [resetEmail, setResetEmail]   = useState('');
+  const [resetToken, setResetToken]   = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetMsg, setResetMsg]       = useState('');
+  const [resetErr, setResetErr]       = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onLogin(loginId, password);
   };
 
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetErr('');
+    const result = await forgotPassword(resetEmail);
+    setResetLoading(false);
+    if (result.success) {
+      setResetMsg(result.message);
+      setMode('reset');
+    } else {
+      setResetErr(result.error);
+    }
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetErr('');
+    const result = await resetPassword(resetToken, newPassword);
+    setResetLoading(false);
+    if (result.success) {
+      setResetMsg('Şifreniz güncellendi. Giriş yapabilirsiniz.');
+      setTimeout(() => { setMode('login'); setResetMsg(''); }, 2000);
+    } else {
+      setResetErr(result.error);
+    }
+  };
+
+  /* ── Şifremi Unuttum Ekranı ─────────────────────────────── */
+  if (mode === 'forgot' || mode === 'reset') {
+    return (
+      <div className="login-form-inner">
+        <div className="lf-header">
+          <h1 className="lf-title">Şifre Sıfırlama</h1>
+          <p className="lf-subtitle">
+            {mode === 'forgot'
+              ? 'E-posta adresinizi girin, sıfırlama talimatları göndereceğiz.'
+              : 'E-posta ile gelen token ve yeni şifrenizi girin.'}
+          </p>
+        </div>
+
+        <form onSubmit={mode === 'forgot' ? handleForgot : handleReset} className="lf-form" noValidate>
+
+          {resetErr && (
+            <div className="lf-error" role="alert">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="7" stroke="#dc2626" strokeWidth="1.4"/>
+                <line x1="8" y1="5" x2="8" y2="9" stroke="#dc2626" strokeWidth="1.6" strokeLinecap="round"/>
+                <circle cx="8" cy="11.5" r="0.8" fill="#dc2626"/>
+              </svg>
+              <span>{resetErr}</span>
+            </div>
+          )}
+
+          {resetMsg && (
+            <div className="lf-error" role="status" style={{ background: '#f0fdf4', borderColor: '#16a34a', color: '#15803d' }}>
+              <span>{resetMsg}</span>
+            </div>
+          )}
+
+          {mode === 'forgot' && (
+            <div className="lf-field">
+              <label className="lf-label" htmlFor="lf-reset-email">E-posta</label>
+              <div className="lf-input-wrap">
+                <span className="lf-input-icon"><EmailIcon /></span>
+                <input
+                  id="lf-reset-email"
+                  type="email"
+                  className="lf-input"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+          )}
+
+          {mode === 'reset' && (
+            <>
+              <div className="lf-field">
+                <label className="lf-label" htmlFor="lf-reset-token">Sıfırlama Token</label>
+                <div className="lf-input-wrap">
+                  <input
+                    id="lf-reset-token"
+                    type="text"
+                    className="lf-input"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    placeholder="E-postanızdaki token"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="lf-field">
+                <label className="lf-label" htmlFor="lf-new-password">Yeni Şifre</label>
+                <div className="lf-input-wrap">
+                  <span className="lf-input-icon"><LockIcon /></span>
+                  <input
+                    id="lf-new-password"
+                    type="password"
+                    className="lf-input"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Yeni şifreniz"
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <button type="submit" className="lf-submit-btn" disabled={resetLoading}>
+            {resetLoading ? (
+              <><span className="lf-spinner" aria-hidden="true" /> Lütfen bekleyin...</>
+            ) : mode === 'forgot' ? 'Sıfırlama Talimatı Gönder' : 'Şifreyi Güncelle'}
+          </button>
+
+          <button
+            type="button"
+            className="lf-forgot"
+            style={{ display: 'block', marginTop: 12 }}
+            onClick={() => { setMode('login'); setResetErr(''); setResetMsg(''); }}
+          >
+            Giriş ekranına dön
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  /* ── Normal Giriş Ekranı ────────────────────────────────── */
   return (
     <div className="login-form-inner">
 
@@ -95,7 +239,13 @@ export const LoginForm = ({ onLogin, loading, error }) => {
         <div className="lf-field">
           <div className="lf-label-row">
             <label className="lf-label" htmlFor="lf-password">{t('auth.passwordLabel')}</label>
-            <button type="button" className="lf-forgot">{t('auth.forgotPassword')}</button>
+            <button
+              type="button"
+              className="lf-forgot"
+              onClick={() => setMode('forgot')}
+            >
+              {t('auth.forgotPassword')}
+            </button>
           </div>
           <div className="lf-input-wrap">
             <span className="lf-input-icon"><LockIcon /></span>
