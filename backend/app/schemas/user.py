@@ -3,6 +3,17 @@ from typing import Optional
 from datetime import datetime
 
 
+def _validate_password_strength(v: str) -> str:
+    """Minimum şifre politikası: en az 8 karakter, 1 rakam, 1 büyük harf."""
+    if len(v) < 8:
+        raise ValueError("Şifre en az 8 karakter olmalıdır")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Şifre en az 1 rakam içermelidir")
+    if not any(c.isupper() for c in v):
+        raise ValueError("Şifre en az 1 büyük harf içermelidir")
+    return v
+
+
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
@@ -19,6 +30,11 @@ class UserCreate(BaseModel):
         if v not in allowed:
             raise ValueError(f"role must be one of {allowed}")
         return v
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v):
+        return _validate_password_strength(v)
 
 
 class UserUpdate(BaseModel):
@@ -89,7 +105,17 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v):
+        return _validate_password_strength(v)
+
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v):
+        return _validate_password_strength(v)

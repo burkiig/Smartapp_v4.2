@@ -20,8 +20,9 @@ const CANCEL_REASONS = ['Öğretim görevlisi müsait değil', 'Teknik sorun', '
 
 export default function ClassDetailsScreen() {
   const router  = useRouter();
-  const params  = useLocalSearchParams();
-  const courseId = params.courseId ? Number(params.courseId) : null;
+  const params   = useLocalSearchParams();
+  const courseId  = params.courseId  ? Number(params.courseId)  : null;
+  const sessionId = params.sessionId ? Number(params.sessionId) : null;
 
   const [tab,           setTab]           = useState('overview');
   const [students,      setStudents]      = useState([]);
@@ -42,7 +43,8 @@ export default function ClassDetailsScreen() {
   useEffect(() => {
     if (courseId) {
       checkSession(courseId);
-      loadStudents(courseId);
+      // Belirli bir session_id paramı varsa o oturumun kayıtlarını yükle
+      loadStudents(courseId, sessionId || null);
     }
   }, []);
 

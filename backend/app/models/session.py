@@ -12,7 +12,7 @@ class AttendanceSession(Base):
     __tablename__ = "attendance_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
     date = Column(String, nullable=False)          # "YYYY-MM-DD"
     start_time = Column(String, nullable=True)     # "HH:MM"
     end_time = Column(String, nullable=True)
@@ -25,7 +25,7 @@ class AttendanceSession(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     geofence_radius = Column(Integer, nullable=True)  # odadan kopyalanır, NULL ise settings default kullanılır
-    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
     course = relationship("Course", back_populates="sessions")

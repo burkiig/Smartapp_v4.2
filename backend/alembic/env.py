@@ -18,6 +18,7 @@ from app.models import (  # noqa: F401,E402
     attendance,
     audit_log,
     course,
+    course_instructor,
     dispute,
     excuse,
     face_reference,

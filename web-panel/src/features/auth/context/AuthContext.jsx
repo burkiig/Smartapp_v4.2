@@ -24,11 +24,17 @@ export const AuthProvider = ({ children }) => {
       const profile = await getMe();
       if (profile) {
         setUser(profile);
-        localStorage.setItem('user', JSON.stringify(profile));
+        // Persist to whichever storage was already used (rememberMe-aware restore)
+        if (localStorage.getItem('user')) {
+          localStorage.setItem('user', JSON.stringify(profile));
+        } else {
+          sessionStorage.setItem('user', JSON.stringify(profile));
+        }
         syncStore(profile);
       } else {
         setUser(null);
         localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
         syncStore(null);
       }
       setIsLoading(false);
@@ -45,13 +51,14 @@ export const AuthProvider = ({ children }) => {
       if (!profile) {
         setUser(null);
         localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
         syncStore(null);
       }
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user]);
 
-  const login = async (loginIdentifier, password) => {
+  const login = async (loginIdentifier, password, rememberMe = false) => {
     setError('');
     setIsLoading(true);
 
@@ -61,6 +68,15 @@ export const AuthProvider = ({ children }) => {
       if (result.success) {
         setUser(result.user);
         syncStore(result.user);
+        // rememberMe=true → localStorage (tarayıcı kapanırsa bile kalır)
+        // rememberMe=false → sadece session için sessionStorage kullan
+        if (rememberMe) {
+          localStorage.setItem('user', JSON.stringify(result.user));
+          sessionStorage.removeItem('user');
+        } else {
+          sessionStorage.setItem('user', JSON.stringify(result.user));
+          localStorage.removeItem('user');
+        }
         return { success: true };
       } else {
         setError(result.error);
@@ -79,6 +95,7 @@ export const AuthProvider = ({ children }) => {
     await logoutUser();  // server clears httpOnly cookies
     setUser(null);
     localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     syncStore(null);
   };
 

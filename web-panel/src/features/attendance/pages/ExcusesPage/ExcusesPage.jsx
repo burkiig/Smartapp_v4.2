@@ -75,7 +75,7 @@ export const ExcusesPage = () => {
         status,
       });
       setMessage(
-        t(status === 'approved' ? 'excuses.bulkApproved' : 'excuses.bulkRejected', { count: res.updated }) +
+        t(status === 'approved' ? 'excuses.bulkApproveMsg' : 'excuses.bulkRejectMsg', { count: res.updated }) +
         (res.skipped > 0 ? ` ${t('excuses.skipped', { count: res.skipped })}` : '')
       );
       setSelected(new Set());
@@ -138,9 +138,9 @@ export const ExcusesPage = () => {
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="filter-select">
           <option value="">{t('excuses.allStatuses')}</option>
-          <option value="pending">{t('excuses.statusPending')}</option>
-          <option value="approved">{t('excuses.statusApproved')}</option>
-          <option value="rejected">{t('excuses.statusRejected')}</option>
+          <option value="pending">{t('excuses.statuses.pending')}</option>
+          <option value="approved">{t('excuses.statuses.approved')}</option>
+          <option value="rejected">{t('excuses.statuses.rejected')}</option>
         </select>
       </div>
 
@@ -234,7 +234,7 @@ export const ExcusesPage = () => {
                   </td>
                   <td>
                     <span className={`excuse-badge ${STATUS_CLS[e.status] || ''}`}>
-                      {t(`excuses.status${e.status.charAt(0).toUpperCase() + e.status.slice(1)}`, e.status)}
+                      {t(`excuses.statuses.${e.status}`, e.status)}
                     </span>
                   </td>
                   <td>

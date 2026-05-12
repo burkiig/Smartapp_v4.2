@@ -180,6 +180,19 @@ def submit_dispute(
     current_user: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
+    # Validate the student is enrolled in the course
+    from app.repositories.course_repo import EnrollmentRepository
+    if not EnrollmentRepository(db).student_can_attend_course(current_user.id, data.course_id):
+        raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
+
+    # Validate session belongs to the claimed course
+    from app.models.session import AttendanceSession
+    session_obj = db.query(AttendanceSession).filter(AttendanceSession.id == data.session_id).first()
+    if not session_obj:
+        raise HTTPException(status_code=404, detail="Oturum bulunamadı")
+    if session_obj.course_id != data.course_id:
+        raise HTTPException(status_code=400, detail="Oturum bu derse ait değil")
+
     # Prevent duplicate disputes for same session
     existing = db.query(AttendanceDispute).filter(
         AttendanceDispute.student_id == current_user.id,

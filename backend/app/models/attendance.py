@@ -29,8 +29,8 @@ class AttendanceAttempt(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("attendance_sessions.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    session_id = Column(Integer, ForeignKey("attendance_sessions.id", ondelete="CASCADE"), nullable=False)
 
     # Step states: pending | verified | failed
     qr_status = Column(String, default="pending")
@@ -56,9 +56,9 @@ class FinalAttendanceRecord(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("attendance_sessions.id"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    session_id = Column(Integer, ForeignKey("attendance_sessions.id", ondelete="CASCADE"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
 
     # present | absent | excused | pending_review
     status = Column(String, default="present")
@@ -79,9 +79,9 @@ class ClassCancellation(Base):
     __tablename__ = "class_cancellations"
 
     id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("attendance_sessions.id"), nullable=True)
-    instructor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
+    session_id = Column(Integer, ForeignKey("attendance_sessions.id", ondelete="SET NULL"), nullable=True)
+    instructor_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     date = Column(String, nullable=False)
     reason = Column(String, nullable=False)
     notified_at = Column(DateTime(timezone=True), nullable=True)

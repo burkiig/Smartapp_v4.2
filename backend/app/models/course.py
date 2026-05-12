@@ -16,7 +16,7 @@ class Course(Base):
     name = Column(String, nullable=False)
     # Primary instructor — geriye dönük uyumluluk + bildirim kısayolu.
     # Yetkilendirme için course_instructors join tablosunu kullanın.
-    instructor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    instructor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     # JSON: {"days": ["Monday","Wednesday"], "start_time": "09:00", "end_time": "10:30"}
     schedule = Column(JSON, nullable=True)
     # Session template: default duration in minutes for sessions of this course
@@ -49,8 +49,8 @@ class Enrollment(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
     enrolled_at = Column(DateTime(timezone=True), default=_utcnow)
 
     student = relationship("User", back_populates="enrollments")

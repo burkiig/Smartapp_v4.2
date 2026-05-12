@@ -32,6 +32,10 @@ class SessionService:
         if not course:
             raise HTTPException(status_code=404, detail="Ders bulunamadı")
 
+        # Instructor can only start sessions for their own courses
+        if created_by.role == "instructor" and not self.course_repo.is_instructor_of_course(created_by.id, course_id):
+            raise HTTPException(status_code=403, detail="Bu ders için oturum başlatma yetkiniz yok")
+
         # Oda seçildiyse GPS koordinatlarını ve geofence yarıçapını odadan al
         geofence_radius = None
         if room_id:
@@ -88,6 +92,10 @@ class SessionService:
             raise HTTPException(status_code=404, detail="Oturum bulunamadı")
         if session.status != "active":
             raise HTTPException(status_code=400, detail="Oturum zaten kapalı")
+
+        # Instructor can only end sessions for their own courses
+        if user.role == "instructor" and not self.course_repo.is_instructor_of_course(user.id, session.course_id):
+            raise HTTPException(status_code=403, detail="Bu oturumu kapatma yetkiniz yok")
         closed = self.session_repo.close(session)
         self.auto_mark_absent_students(closed.id)
         return closed

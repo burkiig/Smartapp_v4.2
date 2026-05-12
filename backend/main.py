@@ -105,6 +105,7 @@ def readiness_health():
     db_connected = False
     response_time_ms = 0.0
     db_error = None
+    db = None
     start = time.perf_counter()
     try:
         db = SessionLocal()
@@ -114,10 +115,11 @@ def readiness_health():
         db_error = str(exc)
     finally:
         response_time_ms = (time.perf_counter() - start) * 1000
-        try:
-            db.close()
-        except Exception:
-            pass
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
 
     checked_out = 0
     pool_size = 0

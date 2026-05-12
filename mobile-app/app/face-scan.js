@@ -21,7 +21,8 @@ const { width } = Dimensions.get('window');
 
 export default function FaceScanScreen() {
   const router = useRouter();
-  const { session_id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const session_id = Array.isArray(params.session_id) ? params.session_id[0] : params.session_id;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);

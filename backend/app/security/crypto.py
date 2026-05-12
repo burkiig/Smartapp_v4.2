@@ -20,8 +20,14 @@ class EmbeddingCrypto:
         if not settings.ENCRYPTION_KEY:
             return {}
         raw = settings.ENCRYPTION_KEY.encode("utf-8")
+        if len(raw) < 32:
+            raise KeyRotationError(
+                "ENCRYPTION_KEY must be at least 32 bytes. "
+                "Generate a secure key with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
         try:
-            fernet_key = base64.urlsafe_b64encode(raw[:32].ljust(32, b"0"))
+            # Use exactly 32 bytes — no predictable padding
+            fernet_key = base64.urlsafe_b64encode(raw[:32])
             return {"v1": Fernet(fernet_key)}
         except Exception as exc:
             raise KeyRotationError("Invalid ENCRYPTION_KEY format.") from exc

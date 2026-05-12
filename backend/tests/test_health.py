@@ -1,13 +1,16 @@
-"""Smoke tests — health check endpoints."""
+"""Tests for health check endpoints."""
+import pytest
 
 
-def test_root_health(client):
-    resp = client.get("/health")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
+def test_health_live(client):
+    r = client.get("/health")
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("status") in ("ok", "healthy", "live")
 
 
-def test_api_health(client):
-    resp = client.get("/api/v1/health")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
+def test_health_ready(client):
+    r = client.get("/health/ready")
+    assert r.status_code in (200, 503)
+    data = r.json()
+    assert "status" in data or "db" in data

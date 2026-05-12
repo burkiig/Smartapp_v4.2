@@ -8,13 +8,15 @@ export default function LiveClassCard({ liveClass, onStartAttendance }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1.4, duration: 800, useNativeDriver: true }),
         Animated.timing(pulse, { toValue: 1,   duration: 800, useNativeDriver: true }),
       ])
-    ).start();
-  }, []);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
 
   return (
     <View style={styles.wrapper}>

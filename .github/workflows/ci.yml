@@ -7,6 +7,7 @@ on:
     branches: [main, master, develop]
 
 jobs:
+  # ── Backend tests + coverage + Alembic head check ──────────────────────────
   backend-test:
     runs-on: ubuntu-latest
     defaults:
@@ -19,9 +20,44 @@ jobs:
           python-version: "3.11"
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
-      - name: Pytest
-        run: pytest tests/ -q --tb=short
+      - name: Pytest with coverage
+        run: pytest tests/ -q --tb=short --cov=app --cov-fail-under=60
+      - name: Alembic — check migrations are up to date
+        run: alembic check
+        env:
+          DATABASE_URL: sqlite:///./test_alembic.db
+        continue-on-error: true  # Non-blocking until migration history is clean
 
+  # ── Backend SAST / secret scan ─────────────────────────────────────────────
+  backend-sast:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit
+      - name: Bandit SAST scan
+        run: bandit -r app/ -ll -q
+        continue-on-error: true  # Report findings without blocking initially
+
+  # ── Secret scanning (Gitleaks) ─────────────────────────────────────────────
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # Log findings; harden to fail once repo is clean
+
+  # ── Web panel build ─────────────────────────────────────────────────────────
   web-build:
     runs-on: ubuntu-latest
     defaults:
@@ -35,6 +71,27 @@ jobs:
           cache: npm
           cache-dependency-path: web-panel/package-lock.json
       - run: npm ci
+      - name: ESLint
+        run: npx eslint src/ --max-warnings 0
+        continue-on-error: true
       - run: npm run build
         env:
           CI: "true"
+
+  # ── Mobile app lint ─────────────────────────────────────────────────────────
+  mobile-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile-app/package-lock.json
+      - run: npm ci
+      - name: ESLint
+        run: npx eslint app/ src/ --ext .js,.jsx,.ts,.tsx --max-warnings 0
+        continue-on-error: true

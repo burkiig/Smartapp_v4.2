@@ -33,9 +33,7 @@ export const loginUser = async (login, password) => {
       return { success: false, error: apiErrorMessage(data) };
     }
 
-    // Store only the user profile — NOT the tokens
-    localStorage.setItem('user', JSON.stringify(data.user));
-
+    // Storage is managed by AuthContext.login (rememberMe-aware) — do not write here
     return { success: true, user: data.user };
   } catch (error) {
     const msg = error.name === 'AbortError'
@@ -60,6 +58,7 @@ export const logoutUser = async () => {
     console.error('Logout error:', error);
   } finally {
     localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
   }
 };
 
@@ -134,8 +133,9 @@ export const changePassword = async (current_password, new_password) => {
 };
 
 /**
- * Refresh access token. The refresh_token cookie is sent automatically.
- * Server sets a new access_token cookie and returns a new refresh_token cookie.
+ * Refresh access token.
+ * Token refresh is handled automatically by apiClient.js on 401 responses.
+ * This export is kept for backward compatibility but delegates to the same logic.
  */
 export const refreshToken = async () => {
   try {
@@ -145,7 +145,6 @@ export const refreshToken = async () => {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     });
-
     return response.ok;
   } catch {
     return false;

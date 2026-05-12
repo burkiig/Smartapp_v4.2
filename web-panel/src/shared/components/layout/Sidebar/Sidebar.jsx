@@ -75,7 +75,7 @@ export const Sidebar = ({
             <div className="sidebar-user-section">
               <div className="user-info">
                 <div className="user-avatar">
-                  {user.name.split(' ').map(n => n[0]).join('')}
+                  {user.name ? user.name.split(' ').map(n => n[0]).join('') : (user.email?.[0] ?? '?').toUpperCase()}
                 </div>
                 <div className="user-details">
                   <div className="user-name">{user.name}</div>

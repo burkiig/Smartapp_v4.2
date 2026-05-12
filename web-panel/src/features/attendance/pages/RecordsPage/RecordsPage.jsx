@@ -5,6 +5,7 @@ import {
   MdDownload, MdCheckCircle, MdCancel, MdAssignment,
 } from 'react-icons/md';
 import apiClient from '../../../../shared/services/apiClient';
+import { getApiBaseUrl } from '../../../../shared/services/apiBaseUrl';
 import { SkeletonStatCard, SkeletonTable } from '../../../../shared/components/Skeleton';
 import './RecordsPage.css';
 
@@ -82,7 +83,7 @@ export const RecordsPage = () => {
       const params = new URLSearchParams({ format });
       if (courseFilter) params.set('course_id', courseFilter);
       const response = await fetch(
-        `/api/v1/attendance/export?${params.toString()}`,
+        `${getApiBaseUrl()}/api/v1/attendance/export?${params.toString()}`,
         { method: 'GET', credentials: 'include' }
       );
       if (!response.ok) throw new Error(t('records.exportError'));
@@ -122,7 +123,7 @@ export const RecordsPage = () => {
         r.id === record.id ? { ...r, status: newStatus, is_flagged: false, flag_reason: null } : r
       ));
     } catch (err) {
-      alert(err?.response?.data?.detail || err?.message || t('records.overrideError'));
+      alert(err?.message || t('records.overrideError'));
     } finally {
       setOverriding(prev => { const n = new Set(prev); n.delete(record.id); return n; });
     }

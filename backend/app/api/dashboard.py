@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -9,7 +10,6 @@ from app.models.attendance import FinalAttendanceRecord
 from app.models.session import AttendanceSession
 from app.models.course import Course, Enrollment
 from app.models.course_instructor import CourseInstructor
-from app.models.audit_log import AuditLog
 from app.security.dependencies import get_current_user, require_instructor, require_admin
 
 router = APIRouter()
@@ -144,16 +144,43 @@ def course_performance(
             .all()
         )
 
+    if not courses:
+        return []
+
+    course_ids = [c.id for c in courses]
+
+    # Tek GROUP BY sorgusuyla tüm derslerin enrollment sayılarını çek
+    enrollment_counts = dict(
+        db.query(Enrollment.course_id, func.count(Enrollment.student_id))
+        .filter(Enrollment.course_id.in_(course_ids))
+        .group_by(Enrollment.course_id)
+        .all()
+    )
+
+    # Tek GROUP BY sorgusuyla tüm derslerin oturum sayılarını çek
+    session_counts = dict(
+        db.query(AttendanceSession.course_id, func.count(AttendanceSession.id))
+        .filter(AttendanceSession.course_id.in_(course_ids))
+        .group_by(AttendanceSession.course_id)
+        .all()
+    )
+
+    # Tek GROUP BY sorgusuyla present kayıt sayılarını çek
+    present_counts = dict(
+        db.query(FinalAttendanceRecord.course_id, func.count(FinalAttendanceRecord.id))
+        .filter(
+            FinalAttendanceRecord.course_id.in_(course_ids),
+            FinalAttendanceRecord.status == "present",
+        )
+        .group_by(FinalAttendanceRecord.course_id)
+        .all()
+    )
+
     result = []
     for course in courses:
-        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course.id).count()
-        total_sessions = db.query(AttendanceSession).filter(
-            AttendanceSession.course_id == course.id
-        ).count()
-        present_records = db.query(FinalAttendanceRecord).filter(
-            FinalAttendanceRecord.course_id == course.id,
-            FinalAttendanceRecord.status == "present",
-        ).count()
+        enrolled = enrollment_counts.get(course.id, 0)
+        total_sessions = session_counts.get(course.id, 0)
+        present_records = present_counts.get(course.id, 0)
         if total_sessions > 0 and enrolled > 0:
             rate = round((present_records / (total_sessions * enrolled)) * 100, 1)
         else:
@@ -204,41 +231,6 @@ def recent_activity(
     return {"activities": activities}
 
 
-@router.get("/audit-logs")
-def get_audit_logs(
-    action: Optional[str] = None,
-    actor_id: Optional[int] = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Paginated audit log (admin only)"""
-    from math import ceil
-    q = db.query(AuditLog)
-    if action:
-        q = q.filter(AuditLog.action == action)
-    if actor_id:
-        q = q.filter(AuditLog.actor_id == actor_id)
-    total = q.count()
-    logs = q.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": ceil(total / page_size) if page_size else 1,
-        "logs": [
-            {
-                "id": l.id,
-                "actor_id": l.actor_id,
-                "actor_role": l.actor_role,
-                "action": l.action,
-                "resource": l.resource,
-                "resource_id": l.resource_id,
-                "detail": l.detail,
-                "ip_address": l.ip_address,
-                "created_at": l.created_at.isoformat() if l.created_at else None,
-            }
-            for l in logs
-        ],
-    }
+# Audit-log endpoint removed from dashboard router.
+# Use the dedicated GET /api/v1/audit-logs/ endpoint (audit_logs.py) instead —
+# it supports resource filtering and case-insensitive action matching.

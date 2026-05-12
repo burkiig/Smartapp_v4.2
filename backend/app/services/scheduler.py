@@ -12,6 +12,8 @@ import logging
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.exc import IntegrityError
+
 logger = logging.getLogger(__name__)
 
 # Tek tanım — her fonksiyonda tekrar yazılmaz
@@ -90,7 +92,17 @@ def _open_scheduled_sessions():
                 qr_token_issued_at=datetime.now(_utc.utc),  # DB'ye UTC kaydedilir
             )
             db.add(session)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                # Race condition: another scheduler tick already created this session
+                db.rollback()
+                logger.debug(
+                    "[Scheduler] Session for course %s on %s already created (race), skipping.",
+                    course.code,
+                    today_date,
+                )
+                continue
             logger.info(
                 "[Scheduler] Auto-opened session for course %s at %s",
                 course.code,

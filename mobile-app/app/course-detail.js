@@ -43,6 +43,10 @@ export default function CourseDetailScreen() {
   const [refreshing,    setRefreshing]    = useState(false);
   const [error,         setError]         = useState('');
 
+  // Genel Devam sekmesi için tüm kurs kayıtları
+  const [allCourseRecords, setAllCourseRecords] = useState([]);
+  const [summaryLoading,   setSummaryLoading]   = useState(false);
+
   // Oturum detay modal
   const [modalVisible,  setModalVisible]  = useState(false);
   const [selSession,    setSelSession]    = useState(null);
@@ -123,25 +127,39 @@ export default function CourseDetailScreen() {
     }
   }, [saving, sessRecords, selSession, cId]);
 
+  // Genel Devam sekmesi açıldığında kurs kayıtlarını çek
+  useEffect(() => {
+    if (tab !== 'summary' || allCourseRecords.length > 0 || summaryLoading) return;
+    setSummaryLoading(true);
+    attendanceApi.getRecords({ course_id: cId, page_size: 1000 })
+      .then(res => {
+        const raw = Array.isArray(res) ? res : (res?.records || []);
+        setAllCourseRecords(raw);
+      })
+      .catch(() => {})
+      .finally(() => setSummaryLoading(false));
+  }, [tab, cId, allCourseRecords.length, summaryLoading]);
+
   // ── Genel Devam hesapla ──────────────────────────────────────────────────────
   const attendanceSummary = useMemo(() => {
     if (enrolledStudents.length === 0) return [];
     const closedSessions = sessionList.filter(s => s.status === 'closed' || s.status === 'active');
     const totalSessions  = closedSessions.length;
 
-    const allRecords = sessionList.flatMap(s => []); // placeholder – records tüm oturumlar için ayrıca çekilmeli
-    // Basit yaklaşım: her enrolled student için API'den gelen records'ı kullan
     return enrolledStudents.map(stu => {
+      const stuRecords = allCourseRecords.filter(r => r.student_id === stu.id);
+      const presentCount = stuRecords.filter(r => r.status === 'present' || r.status === 'excused').length;
+      const rate = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : null;
       return {
         id: stu.id,
         name: stu.name || stu.username || `Öğrenci ${stu.id}`,
         number: stu.student_number || stu.username || '',
         totalSessions,
-        present: 0,    // allRecords ile doldurulabilir
-        rate: null,    // null = henüz hesaplanmadı (full records çekilmedi)
+        present: presentCount,
+        rate,
       };
     });
-  }, [enrolledStudents, sessionList]);
+  }, [enrolledStudents, sessionList, allCourseRecords]);
 
   // Oturum listesi render
   const renderSession = ({ item }) => {
@@ -283,37 +301,56 @@ export default function CourseDetailScreen() {
         />
       ) : (
         /* Genel Devam sekmesi */
-        <FlatList
-          data={enrolledStudents}
-          keyExtractor={item => item.id.toString()}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-          ListHeaderComponent={
-            <View style={styles.listHdr}>
-              <Text style={styles.listHdrText}>{enrolledStudents.length} öğrenci</Text>
-              <Text style={styles.listHdrSub}>{sessionList.filter(s => s.status === 'closed').length} tamamlanan oturum</Text>
-            </View>
-          }
-          renderItem={({ item: stu }) => (
-            <View style={styles.sumRow}>
-              <View style={styles.stuAvatar}>
-                <Text style={styles.stuAvatarText}>{initials(stu.name || stu.username)}</Text>
+        summaryLoading ? (
+          <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        ) : (
+          <FlatList
+            data={attendanceSummary}
+            keyExtractor={item => item.id.toString()}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            ListHeaderComponent={
+              <View style={styles.listHdr}>
+                <Text style={styles.listHdrText}>{enrolledStudents.length} öğrenci</Text>
+                <Text style={styles.listHdrSub}>{sessionList.filter(s => s.status === 'closed').length} tamamlanan oturum</Text>
               </View>
-              <View style={styles.stuInfo}>
-                <Text style={styles.stuName} numberOfLines={1}>{stu.name || stu.username || `#${stu.id}`}</Text>
-                {(stu.student_number || stu.username) && <Text style={styles.stuNo}>{stu.student_number || stu.username}</Text>}
+            }
+            renderItem={({ item: stu }) => {
+              const low = stu.rate !== null && stu.rate < 70;
+              return (
+                <View style={styles.sumRow}>
+                  <View style={[styles.stuAvatar, low && { backgroundColor: Colors.errorLight }]}>
+                    <Text style={styles.stuAvatarText}>{initials(stu.name)}</Text>
+                  </View>
+                  <View style={styles.stuInfo}>
+                    <Text style={styles.stuName} numberOfLines={1}>{stu.name}</Text>
+                    {stu.number ? <Text style={styles.stuNo}>{stu.number}</Text> : null}
+                  </View>
+                  <View style={styles.sumRateBox}>
+                    {stu.rate === null ? (
+                      <Text style={styles.sumNote}>—</Text>
+                    ) : (
+                      <>
+                        <Text style={[styles.sumRate, low && { color: Colors.error }]}>
+                          %{stu.rate}
+                        </Text>
+                        <Text style={styles.sumDetail}>{stu.present}/{stu.totalSessions}</Text>
+                        {low && <Text style={styles.sumWarn}>⚠ Düşük</Text>}
+                      </>
+                    )}
+                  </View>
+                </View>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.centered}>
+                <Ionicons name="people-outline" size={52} color={Colors.border} />
+                <Text style={styles.emptyText}>Kayıtlı öğrenci yok</Text>
               </View>
-              <Text style={styles.sumNote}>Detay için oturum sekmesini kullanın</Text>
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Ionicons name="people-outline" size={52} color={Colors.border} />
-              <Text style={styles.emptyText}>Kayıtlı öğrenci yok</Text>
-            </View>
-          }
-        />
+            }
+          />
+        )
       )}
 
       {/* Oturum Detay Modalı */}
@@ -432,6 +469,8 @@ const styles = StyleSheet.create({
 
   sumRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card, borderRadius: 14, padding: 12, marginBottom: 8, ...Shadows.xs },
   sumNote: { fontSize: 11, color: Colors.textMuted, flexShrink: 1 },
+  // stuSumRow: list-row variant used in the modal student summary list
+  stuSumRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
 
   emptyText: { fontSize: 14, color: Colors.textMuted, marginTop: 10, textAlign: 'center' },
   errorText: { fontSize: 14, color: Colors.error, marginTop: 12, textAlign: 'center', paddingHorizontal: 24 },
@@ -465,4 +504,10 @@ const styles = StyleSheet.create({
   stuNo:         { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
   overrideBtns:  { flexDirection: 'row', gap: 6 },
   overrideBtn:   { width: 32, height: 32, borderRadius: 9, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bgAlt },
+
+  sumNote:    { fontSize: 11, color: Colors.textMuted, fontStyle: 'italic' },
+  sumRateBox: { alignItems: 'flex-end', minWidth: 56 },
+  sumRate:    { fontSize: 16, fontWeight: '800', color: Colors.success },
+  sumDetail:  { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  sumWarn:    { fontSize: 10, color: Colors.error, fontWeight: '700', marginTop: 2 },
 });

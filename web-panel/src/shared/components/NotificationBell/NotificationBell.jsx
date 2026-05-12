@@ -59,7 +59,7 @@ function buildNavTarget(n) {
         : '/?tab=attendance&filter=flagged';
     }
     case 'class_cancelled':
-      return '/?tab=sessions';
+      return '/?tab=classroom';
     case 'session_started': {
       const sid = safeId(d.session_id);
       return sid ? `/?tab=attendance&session_id=${sid}` : '/?tab=attendance';

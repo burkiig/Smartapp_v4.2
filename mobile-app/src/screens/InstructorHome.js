@@ -74,10 +74,15 @@ export default function InstructorHome() {
   const onRefresh = () => { setRefresh(true); fetchData(); };
 
   const startSession = async (course) => {
+    // Use room_id from course metadata if available (set during course setup)
+    const room_id = course.room_id || course.default_room_id || null;
     setStarting(course.id);
     try {
-      await sessions.start(course.id);
-      Alert.alert('Oturum Başlatıldı', `${course.code} için yoklama oturumu açıldı.`);
+      await sessions.start(course.id, room_id ? { room_id } : {});
+      Alert.alert(
+        'Oturum Başlatıldı',
+        `${course.code} için yoklama oturumu açıldı.${room_id ? '' : '\n(Oda seçilmedi — coğrafi konum doğrulaması devre dışı)'}`,
+      );
       fetchData();
     } catch (err) { Alert.alert('Hata', err?.message || 'Oturum başlatılamadı.'); }
     finally { setStarting(null); }

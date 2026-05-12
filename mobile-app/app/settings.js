@@ -10,7 +10,7 @@ import { useUser } from '@/context/UserContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Shadows } from '@/config/theme';
 import { auth } from '@/services/api';
-import { setupPushNotifications } from '@/services/notificationService';
+import { setupPushNotifications, updateNotificationPreferences } from '@/services/notificationService';
 
 const SETTINGS_KEY = '@smart_attendance_settings';
 
@@ -40,6 +40,9 @@ export default function SettingsScreen() {
     setSettings(next);
     AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next)).catch(() => {});
 
+    // Bildirim servisini anlık güncelle (ön plan filtresi için)
+    updateNotificationPreferences(next);
+
     // pushNotifications toggle → backend'e push token kaydet veya sil
     if (key === 'pushNotifications') {
       try {
@@ -60,6 +63,8 @@ export default function SettingsScreen() {
       { text: 'Sıfırla', style: 'destructive', onPress: () => {
         setSettings(DEFAULT_SETTINGS);
         AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS)).catch(() => {});
+        // Sync in-memory notification filter with reset defaults
+        updateNotificationPreferences(DEFAULT_SETTINGS);
       }},
     ]);
   };

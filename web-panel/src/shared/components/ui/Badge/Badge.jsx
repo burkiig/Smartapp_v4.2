@@ -6,14 +6,19 @@ export const Badge = ({
   variant = 'default',
   size = 'medium',
   icon,
-  className = ''
+  className = '',
+  label,
 }) => {
   const variantClass = `badge--${variant}`;
   const sizeClass = `badge--${size}`;
 
   return (
-    <span className={`badge ${variantClass} ${sizeClass} ${className}`}>
-      {icon && <span className="badge-icon">{icon}</span>}
+    <span
+      className={`badge ${variantClass} ${sizeClass} ${className}`}
+      role="status"
+      aria-label={label || (typeof children === 'string' ? children : undefined)}
+    >
+      {icon && <span className="badge-icon" aria-hidden="true">{icon}</span>}
       {children}
     </span>
   );

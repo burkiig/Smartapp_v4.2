@@ -54,7 +54,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onLogin(loginId, password);
+    onLogin(loginId, password, rememberMe);
   };
 
   const handleForgot = async (e) => {
@@ -90,11 +90,11 @@ export const LoginForm = ({ onLogin, loading, error }) => {
     return (
       <div className="login-form-inner">
         <div className="lf-header">
-          <h1 className="lf-title">Şifre Sıfırlama</h1>
+          <h1 className="lf-title">{t('auth.resetTitle', 'Şifre Sıfırlama')}</h1>
           <p className="lf-subtitle">
             {mode === 'forgot'
-              ? 'E-posta adresinizi girin, sıfırlama talimatları göndereceğiz.'
-              : 'E-posta ile gelen token ve yeni şifrenizi girin.'}
+              ? t('auth.forgotSubtitle', 'E-posta adresinizi girin, sıfırlama talimatları göndereceğiz.')
+              : t('auth.resetSubtitle', 'E-posta ile gelen token ve yeni şifrenizi girin.')}
           </p>
         </div>
 
@@ -119,7 +119,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
 
           {mode === 'forgot' && (
             <div className="lf-field">
-              <label className="lf-label" htmlFor="lf-reset-email">E-posta</label>
+              <label className="lf-label" htmlFor="lf-reset-email">{t('auth.emailLabel', 'E-posta')}</label>
               <div className="lf-input-wrap">
                 <span className="lf-input-icon"><EmailIcon /></span>
                 <input
@@ -139,7 +139,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
           {mode === 'reset' && (
             <>
               <div className="lf-field">
-                <label className="lf-label" htmlFor="lf-reset-token">Sıfırlama Token</label>
+                <label className="lf-label" htmlFor="lf-reset-token">{t('auth.resetTokenLabel', 'Sıfırlama Token')}</label>
                 <div className="lf-input-wrap">
                   <input
                     id="lf-reset-token"
@@ -147,13 +147,13 @@ export const LoginForm = ({ onLogin, loading, error }) => {
                     className="lf-input"
                     value={resetToken}
                     onChange={(e) => setResetToken(e.target.value)}
-                    placeholder="E-postanızdaki token"
+                    placeholder={t('auth.resetTokenPlaceholder', 'E-postanızdaki token')}
                     required
                   />
                 </div>
               </div>
               <div className="lf-field">
-                <label className="lf-label" htmlFor="lf-new-password">Yeni Şifre</label>
+                <label className="lf-label" htmlFor="lf-new-password">{t('auth.newPasswordLabel', 'Yeni Şifre')}</label>
                 <div className="lf-input-wrap">
                   <span className="lf-input-icon"><LockIcon /></span>
                   <input
@@ -162,7 +162,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
                     className="lf-input"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Yeni şifreniz"
+                    placeholder={t('auth.newPasswordPlaceholder', 'Yeni şifreniz')}
                     required
                     autoComplete="new-password"
                   />
@@ -173,8 +173,8 @@ export const LoginForm = ({ onLogin, loading, error }) => {
 
           <button type="submit" className="lf-submit-btn" disabled={resetLoading}>
             {resetLoading ? (
-              <><span className="lf-spinner" aria-hidden="true" /> Lütfen bekleyin...</>
-            ) : mode === 'forgot' ? 'Sıfırlama Talimatı Gönder' : 'Şifreyi Güncelle'}
+              <><span className="lf-spinner" aria-hidden="true" /> {t('common.processing', 'Lütfen bekleyin...')}</>
+            ) : mode === 'forgot' ? t('auth.sendResetBtn', 'Sıfırlama Talimatı Gönder') : t('auth.updatePasswordBtn', 'Şifreyi Güncelle')}
           </button>
 
           <button
@@ -183,7 +183,7 @@ export const LoginForm = ({ onLogin, loading, error }) => {
             style={{ display: 'block', marginTop: 12 }}
             onClick={() => { setMode('login'); setResetErr(''); setResetMsg(''); }}
           >
-            Giriş ekranına dön
+            {t('auth.backToLogin', 'Giriş ekranına dön')}
           </button>
         </form>
       </div>

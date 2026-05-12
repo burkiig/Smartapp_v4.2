@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { ScrollView, StyleSheet, Alert, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
@@ -9,7 +9,7 @@ import LiveClassCard from '../components/home/LiveClassCard';
 import QuickActions from '../components/home/QuickActions';
 import MonthStats from '../components/home/MonthStats';
 import RecentActivity from '../components/home/RecentActivity';
-import { dashboard, courses } from '@/services/api';
+import { dashboard, courses, notifications as notificationsApi } from '@/services/api';
 import { useActiveSessionsQuery } from '@/query/hooks/useActiveSessionsQuery';
 
 // ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
@@ -25,6 +25,8 @@ function StudentHomeScreen() {
   const [stats, setStats] = useState({ percentage: 0, totalDays: 0, present: 0, absent: 0 });
   const [recentActivity, setRecentActivity] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [hasNotification, setHasNotification] = useState(false);
 
   const { data: activeSessions = [], refetch: refetchSessions } = useActiveSessionsQuery({
     refetchInterval: 30_000,
@@ -32,11 +34,14 @@ function StudentHomeScreen() {
   const liveSession = activeSessions[0] ?? null;
 
   const fetchData = useCallback(async () => {
+    setLoadError(null);
     try {
       await refetchSessions();
-      const [coursesRes, statRes] = await Promise.allSettled([
+      const [coursesRes, statRes, activityRes, notifRes] = await Promise.allSettled([
         courses.list(),
         dashboard.stats(),
+        dashboard.recentActivity(),
+        notificationsApi.count(),
       ]);
 
       // Ders haritası
@@ -56,8 +61,27 @@ function StudentHomeScreen() {
           absent: (s.total_sessions ?? 0) - (s.total_sessions_attended ?? 0),
         });
       }
+
+      // Son aktiviteler — component tek obje bekler: { course, time, status }
+      if (activityRes.status === 'fulfilled' && activityRes.value?.activities?.length > 0) {
+        const STATUS_TR = { present: 'Katıldı', absent: 'Katılmadı', late: 'İncelemede', excused: 'İncelemede' };
+        const first = activityRes.value.activities[0];
+        const cInfo = cMap[first.course_id];
+        setRecentActivity({
+          course: cInfo?.code || cInfo?.name || `Ders #${first.course_id}`,
+          time: first.timestamp ? new Date(first.timestamp).toLocaleDateString('tr-TR') : '',
+          status: STATUS_TR[first.status] || 'Katılmadı',
+        });
+      }
+
+      // Okunmamış bildirim sayısı
+      if (notifRes.status === 'fulfilled') {
+        const cnt = notifRes.value?.unread_count ?? notifRes.value?.count ?? 0;
+        setHasNotification(cnt > 0);
+      }
     } catch (err) {
       console.error('[HomeScreen] fetchData error:', err?.message || err);
+      setLoadError(err?.message || 'Veriler yüklenemedi');
     } finally {
       setRefreshing(false);
     }
@@ -93,7 +117,13 @@ function StudentHomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <Header userName={userName} onRefresh={onRefresh} />
+        <Header userName={userName} hasNotification={hasNotification} onRefresh={onRefresh} />
+
+        {loadError && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{loadError}</Text>
+          </View>
+        )}
 
         {liveClass && (
           <LiveClassCard
@@ -150,4 +180,14 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F1F5F9' },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+  },
+  errorText: { color: '#991B1B', fontSize: 14 },
 });

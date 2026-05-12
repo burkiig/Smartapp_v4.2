@@ -13,14 +13,14 @@ class AttendanceDispute(Base):
     __tablename__ = "attendance_disputes"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("attendance_sessions.id"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    session_id = Column(Integer, ForeignKey("attendance_sessions.id", ondelete="RESTRICT"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
     reason = Column(Text, nullable=False)
     # status: pending | approved | rejected
     status = Column(String, default="pending", nullable=False)
     instructor_notes = Column(Text, nullable=True)
-    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Direkt FK — itiraz hangi yoklama kaydını hedefliyor?
     # NULL: öğrencinin o oturum için yoklama kaydı henüz yoksa

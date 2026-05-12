@@ -2,65 +2,93 @@
 JWT token yönetimi — oluşturma, doğrulama ve iptal (blacklist).
 
 Blacklist stratejisi:
-  - Depolama : Dict[jti, expire_unix_timestamp]
-  - Temizlik  : is_token_revoked() her çağrıldığında süresi dolmuş
-                girişleri siler (lazy / amortized O(n)).
-  - Kapsam    : Tek süreç için yeterli. Çok sunucu ortamında
-                bu dict'i Redis ile değiştir; arayüz aynı kalır.
-
-Neden Set değil Dict?
-  - Set sonsuz büyür: logout edilen her token süresi dolduktan
-    sonra da kümede kalır. 30 günlük refresh token varken bu
-    ciddi bellek sızıntısı yaratır.
-  - Dict + expire timestamp ile süresi dolmuş tokenlar otomatik
-    silinir; bellek kullanımı hiçbir zaman "aktif token sayısı"nı
-    geçmez.
+  - Depolama : REDIS_URL tanımlıysa Redis (çok worker/pod için güvenli),
+               yoksa in-memory Dict[jti, expire_unix_timestamp] (tek süreç).
+  - Temizlik  : In-memory modda lazy O(n); Redis modda TTL otomatik expire.
+  - Kapsam    : Üretimde birden fazla Gunicorn worker çalıştırıldığında
+                REDIS_URL zorunludur — aksi hâlde her worker kendi
+                blacklist'ini tutar ve logout revocation tutarsız olur.
 """
 
+import os
 import time
 import uuid
+import warnings
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from typing import Dict, Optional
 
 from jose import jwt
 
 from app.config.settings import settings
 
-# ── Token blacklist: {jti: expire_unix_timestamp} ────────────────────────────
-_revoked_jtis: Dict[str, float] = {}
+
+# ── Blacklist backend seçimi ─────────────────────────────────────────────────
+
+class _InMemoryBlacklist:
+    """Tek süreç için yeterli in-memory blacklist."""
+
+    def __init__(self) -> None:
+        self._store: Dict[str, float] = {}
+
+    def add(self, jti: str, expire_unix_ts: float) -> None:
+        self._store[jti] = expire_unix_ts
+
+    def contains(self, jti: str) -> bool:
+        now = time.time()
+        expired_keys = [k for k, exp in self._store.items() if exp <= now]
+        for k in expired_keys:
+            del self._store[k]
+        return jti in self._store
 
 
-def revoke_token(jti: str, expire_unix_ts: float | None = None) -> None:
-    """
-    JTI'yi blacklist'e ekle.
+class _RedisBlacklist:
+    """Redis tabanlı blacklist — çok worker/pod ortamında tutarlı logout revocation."""
 
-    expire_unix_ts: token'ın kendi 'exp' claim değeri (unix timestamp).
-    Verilmezse maks. refresh TTL kadar tutulur (en kötü durum).
-    Bu değeri her zaman token payload'ından alıp geçirmek tercih edilir;
-    böylece tokenlar tam sürelerinde silinir, daha erken veya geç değil.
-    """
+    def __init__(self, url: str) -> None:
+        import redis as redis_lib  # type: ignore[import]
+        self._r = redis_lib.from_url(url, decode_responses=True)
+
+    def add(self, jti: str, expire_unix_ts: float) -> None:
+        ttl = max(1, int(expire_unix_ts - time.time()))
+        self._r.setex(f"bl:{jti}", ttl, "1")
+
+    def contains(self, jti: str) -> bool:
+        return bool(self._r.exists(f"bl:{jti}"))
+
+
+def _build_blacklist():
+    redis_url = os.getenv("REDIS_URL", "")
+    if redis_url:
+        try:
+            bl = _RedisBlacklist(redis_url)
+            return bl
+        except Exception:
+            pass  # Redis bağlantısı başarısız → in-memory'e düş
+    return _InMemoryBlacklist()
+
+
+_blacklist = _build_blacklist()
+
+# Üretimde Redis yoksa ve birden fazla worker varsa uyar
+if isinstance(_blacklist, _InMemoryBlacklist) and not settings.TESTING:
+    warnings.warn(
+        "\n⚠️  JWT BLACKLIST UYARISI: REDIS_URL tanımlı değil, in-memory blacklist kullanılıyor.\n"
+        "   Birden fazla Gunicorn worker çalıştırıldığında logout revocation tutarsız olabilir.\n"
+        "   Üretim için REDIS_URL ortam değişkenini ayarlayın.",
+        stacklevel=2,
+    )
+
+
+def revoke_token(jti: str, expire_unix_ts: Optional[float] = None) -> None:
+    """JTI'yi blacklist'e ekle. expire_unix_ts token'ın 'exp' claim değeri (unix timestamp)."""
     if expire_unix_ts is None:
-        # Güvenli fallback: refresh token ömrü kadar tut
         expire_unix_ts = time.time() + (settings.REFRESH_TOKEN_EXPIRE_DAYS * 86_400)
-    _revoked_jtis[jti] = expire_unix_ts
+    _blacklist.add(jti, expire_unix_ts)
 
 
 def is_token_revoked(jti: str) -> bool:
-    """
-    Token'ın revoke edilip edilmediğini kontrol et.
-
-    Aynı zamanda lazy cleanup yapar: süresi dolmuş tüm girişleri
-    tek bir geçişte siler. Bu işlem request başına bir kez çalışır
-    ve amortized O(1) maliyetlidir.
-    """
-    now = time.time()
-
-    # Süresi dolmuş girişleri temizle — bellek sızıntısını önler
-    expired_keys = [k for k, exp in _revoked_jtis.items() if exp <= now]
-    for k in expired_keys:
-        del _revoked_jtis[k]
-
-    return jti in _revoked_jtis
+    """Token'ın revoke edilip edilmediğini kontrol et."""
+    return _blacklist.contains(jti)
 
 
 # ── Token oluşturma ───────────────────────────────────────────────────────────

@@ -30,9 +30,23 @@ const readTriageContextFromUrl = () => {
   return { tab, filter, sessionId: String(sessionId) };
 };
 
+/** Reads the ?tab= query param for direct deep-link navigation from notifications. */
+const readTabFromUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const validTabs = [
+    'dashboard', 'schedule', 'classroom', 'qr-scan', 'face-scan',
+    'attendance', 'excuses', 'disputes', 'audit-logs', 'reports',
+    'students', 'settings',
+  ];
+  return validTabs.includes(tab) ? tab : null;
+};
+
 export const InstructorDashboardPage = ({ user, onLogout }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const initialTab = useMemo(() => readTabFromUrl() || 'dashboard', []);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [preselectedStudent, setPreselectedStudent] = useState(null);
   const triageContext = useMemo(() => readTriageContextFromUrl(), []);
 

@@ -66,7 +66,7 @@ def login(
     data: LoginRequest,
     request: Request,
     response: Response,
-    _: None = Depends(rate_limit("10/minute", key_prefix="auth:login")),
+    _: None = Depends(rate_limit(settings.LOGIN_RATE_LIMIT, key_prefix="auth:login")),
     db: Session = Depends(get_db),
 ):
     """Login with email or username + password. Sets httpOnly auth cookies."""
@@ -161,7 +161,7 @@ def logout(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Logout — revokes access token and clears auth cookies."""
+    """Logout — revokes both access and refresh tokens, clears auth cookies."""
     # Revoke access token (from header or cookie)
     token = None
     auth_header = request.headers.get("Authorization", "")
@@ -176,9 +176,21 @@ def logout(
                 token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
             )
             jti = payload.get("jti")
-            exp = payload.get(
-                "exp"
-            )  # unix timestamp — blacklist'te tam süresine kadar tutulur
+            exp = payload.get("exp")
+            if jti:
+                revoke_token(jti, expire_unix_ts=exp)
+        except JWTError:
+            pass
+
+    # Also revoke the refresh token so it cannot be used after logout
+    refresh_token_val = request.cookies.get("refresh_token")
+    if refresh_token_val:
+        try:
+            payload = jwt.decode(
+                refresh_token_val, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
+            jti = payload.get("jti")
+            exp = payload.get("exp")
             if jti:
                 revoke_token(jti, expire_unix_ts=exp)
         except JWTError:
@@ -217,12 +229,19 @@ def forgot_password(
             f"<p><code>{token}</code></p>",
         )
         if not sent:
-            # SMTP yapılandırılmamış — geliştirme modunda token'ı logla
             import logging
-            logging.getLogger(__name__).info(
-                "[ForgotPassword] SMTP not configured. Reset token for %s: %s",
-                user.email, token,
-            )
+            _auth_log = logging.getLogger(__name__)
+            if settings.DEBUG:
+                # DEBUG modunda token'ı logla — sadece geliştirme ortamı için
+                _auth_log.debug(
+                    "[ForgotPassword] SMTP not configured. Reset token for %s: %s",
+                    user.email, token,
+                )
+            else:
+                _auth_log.warning(
+                    "[ForgotPassword] SMTP not configured — reset email not sent for user id=%s",
+                    user.id,
+                )
         log_action(db, "password_reset_requested", actor_id=user.id,
                    actor_role=user.role, resource="user", resource_id=user.id)
     return {"success": True, "message": "E-posta adresi kayıtlıysa sıfırlama talimatları gönderildi"}

@@ -93,6 +93,11 @@ def get_excuse(
         raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
     if current_user.role == "student" and excuse.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Yetki gerekli")
+    if current_user.role == "instructor":
+        from app.repositories.course_repo import CourseRepository
+        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        if excuse.course_id not in my_ids:
+            raise HTTPException(status_code=403, detail="Bu mazerete erişim yetkiniz yok")
     return excuse
 
 
@@ -129,6 +134,11 @@ def review_excuse(
     excuse = repo.get_by_id(excuse_id)
     if not excuse:
         raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
+    if current_user.role == "instructor":
+        from app.repositories.course_repo import CourseRepository
+        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        if excuse.course_id not in my_ids:
+            raise HTTPException(status_code=403, detail="Bu mazereti inceleme yetkiniz yok")
     updated = repo.update(excuse, **data.model_dump(exclude_none=True))
     _sync_attendance_for_excuse(db, excuse, data.status)
     return updated
@@ -145,6 +155,13 @@ def get_excuse_document(
     excuse = repo.get_by_id(excuse_id)
     if not excuse:
         raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
+    if current_user.role == "student" and excuse.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Bu belgeye erişim yetkiniz yok")
+    if current_user.role == "instructor":
+        from app.repositories.course_repo import CourseRepository
+        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        if excuse.course_id not in my_ids:
+            raise HTTPException(status_code=403, detail="Bu belgeye erişim yetkiniz yok")
     if not excuse.storage_path:
         raise HTTPException(status_code=404, detail="Bu mazeret icin belge yuklenmemis")
     signed_url = get_excuse_signed_url(
@@ -195,10 +212,13 @@ def bulk_review_excuses(
             if allowed_course_ids is not None and excuse.course_id not in allowed_course_ids:
                 skipped.append(excuse_id)
                 continue
-            repo.update(excuse, status=data.status,
-                        instructor_notes=data.instructor_notes or excuse.instructor_notes)
+            # Directly set attributes without per-row commit — single atomic transaction
+            excuse.status = data.status
+            if data.instructor_notes is not None:
+                excuse.instructor_notes = data.instructor_notes
             _sync_attendance_for_excuse(db, excuse, data.status)
             updated.append(excuse_id)
+        # Single commit covers all updates — fully atomic
         db.commit()
     except Exception:
         db.rollback()

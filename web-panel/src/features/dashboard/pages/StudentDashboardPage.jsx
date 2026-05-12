@@ -521,8 +521,12 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
           break;
         }
         case 'disputes': {
-          const res = await apiClient.get('/disputes/');
-          setDisputes(res || []);
+          const [disputesRes, coursesRes] = await Promise.allSettled([
+            apiClient.get('/disputes/'),
+            apiClient.get('/courses/'),
+          ]);
+          if (disputesRes.status === 'fulfilled') setDisputes(disputesRes.value || []);
+          if (coursesRes.status === 'fulfilled') setCourses(coursesRes.value || []);
           break;
         }
         default: break;
@@ -597,9 +601,28 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     const grouped = {};
     DAYS_ORDER.forEach(d => { grouped[d] = []; });
     courses.forEach(c => {
-      if (c.schedule?.days) {
-        c.schedule.days.forEach(day => {
-          if (grouped[day] !== undefined) grouped[day].push(c);
+      const sch = c.schedule;
+      if (!sch) return;
+
+      // slots[] formatı: [{ day: 'Monday', start_time: '09:00', end_time: '10:00' }]
+      if (Array.isArray(sch.slots) && sch.slots.length > 0) {
+        sch.slots.forEach(slot => {
+          if (grouped[slot.day] !== undefined) {
+            grouped[slot.day].push({
+              ...c,
+              _slotTime: slot.start_time && slot.end_time ? `${slot.start_time} – ${slot.end_time}` : null,
+            });
+          }
+        });
+      // days[] formatı: { days: ['Monday'], start_time: '09:00', end_time: '10:00' }
+      } else if (Array.isArray(sch.days)) {
+        sch.days.forEach(day => {
+          if (grouped[day] !== undefined) {
+            grouped[day].push({
+              ...c,
+              _slotTime: sch.start_time && sch.end_time ? `${sch.start_time} – ${sch.end_time}` : null,
+            });
+          }
         });
       }
     });
@@ -635,10 +658,8 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                           <div key={c.id} className="sch-course-cell">
                             <div className="sch-code">{c.code}</div>
                             <div className="sch-name">{c.name}</div>
-                            {c.schedule?.start_time && (
-                              <div className="sch-time">
-                                {c.schedule.start_time} – {c.schedule.end_time}
-                              </div>
+                            {c._slotTime && (
+                              <div className="sch-time">{c._slotTime}</div>
                             )}
                           </div>
                         ))
@@ -648,7 +669,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                 </tr>
               </tbody>
             </table>
-            {courses.every(c => !c.schedule?.days?.length) && (
+            {courses.every(c => !c.schedule?.days?.length && !c.schedule?.slots?.length) && (
               <p className="empty-text" style={{ textAlign: 'center', marginTop: '32px' }}>
                 {t('studentDashboard.schedule.noSchedule')}
               </p>

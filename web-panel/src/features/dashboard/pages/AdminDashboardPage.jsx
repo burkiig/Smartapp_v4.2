@@ -804,7 +804,7 @@ function CourseStudentsModal({ course, onClose }) {
 function AddRoomModal({ onClose, onSuccess }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
-    name: '', capacity: '', type: 'Fakulte Binasi', equipment: '',
+    name: '', capacity: '', type: 'faculty', equipment: '',
     latitude: '', longitude: '', geofence_radius: '100',
   });
   const [loading, setLoading] = useState(false);
@@ -914,7 +914,7 @@ function EditRoomModal({ room, onClose, onSuccess }) {
   const [form, setForm] = useState({
     name: room.name || '',
     capacity: room.capacity ?? '',
-    type: room.type || 'Fakulte Binasi',
+    type: room.type || 'faculty',
     equipment: room.equipment || '',
     latitude: room.latitude ?? '',
     longitude: room.longitude ?? '',
@@ -1049,6 +1049,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   const [rooms, setRooms] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('all');
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -1072,6 +1073,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
 
   const fetchData = useCallback(async (tab) => {
     setLoading(true);
+    setFetchError('');
     try {
       switch (tab) {
         case 'overview': {
@@ -1080,6 +1082,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             apiClient.get('/dashboard/recent-activity'),
           ]);
           if (s.status === 'fulfilled') setStats(s.value);
+          else setFetchError(s.reason?.message || t('common.loadError', 'Veriler yüklenemedi'));
           if (a.status === 'fulfilled') setRecentActivity(a.value?.activities || []);
           break;
         }
@@ -1094,6 +1097,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             apiClient.get('/users?role=instructor'),
           ]);
           if (c.status === 'fulfilled') setCourses(c.value || []);
+          else setFetchError(c.reason?.message || t('common.loadError', 'Dersler yüklenemedi'));
           if (u.status === 'fulfilled') {
             const raw = u.value;
             const all = Array.isArray(raw) ? raw : (raw?.users || []);
@@ -1117,6 +1121,8 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
           if (rec.status === 'fulfilled') {
             const v = rec.value;
             setAttendanceRecords(Array.isArray(v) ? v : (v?.records || []));
+          } else {
+            setFetchError(rec.reason?.message || t('common.loadError', 'Kayıtlar yüklenemedi'));
           }
           if (crs.status === 'fulfilled') setCourses(crs.value || []);
           break;
@@ -1125,8 +1131,9 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       }
     } catch (err) {
       console.error('fetchData error:', err);
+      setFetchError(err?.message || t('common.loadError', 'Veriler yüklenemedi'));
     } finally { setLoading(false); }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchData(activeTab); }, [activeTab, fetchData]);
 
@@ -1545,6 +1552,11 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
           <div className="top-bar-spacer" />
           <LanguageSwitcher compact />
         </div>
+        {fetchError && (
+          <div className="error-banner" role="alert" style={{ margin: '0 0 16px' }}>
+            {fetchError}
+          </div>
+        )}
         <main className="main-content">{renderContent()}</main>
       </div>
     </div>

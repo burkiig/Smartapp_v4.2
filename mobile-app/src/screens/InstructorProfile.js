@@ -55,7 +55,9 @@ export default function InstructorProfile() {
           </View>
           <Text style={styles.heroName}>{name}</Text>
           <View style={styles.rolePill}>
-            <Text style={styles.roleText}>Öğretim Görevlisi</Text>
+            <Text style={styles.roleText}>
+              {user?.role === 'admin' ? 'Yönetici' : 'Öğretim Görevlisi'}
+            </Text>
           </View>
         </LinearGradient>
 
