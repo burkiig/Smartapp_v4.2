@@ -2,50 +2,39 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main, master, develop]
   pull_request:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [main, master, develop]
 
 jobs:
-  test-backend:
+  backend-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Build the backend image once, using GitHub Actions layer cache.
-      # Subsequent pushes reuse cached layers — heavy packages (insightface,
-      # onnxruntime) are only re-downloaded when requirements.txt changes.
-      - name: Build backend image (cache-enabled)
-        uses: docker/build-push-action@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          context: backend
-          file: backend/Dockerfile
-          load: true
-          tags: smart-attendance-backend:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+      - name: Pytest
+        run: pytest tests/ -q --tb=short
 
-      # Run pytest directly in the pre-built image — no docker-compose rebuild.
-      # SQLite is used so no database service is needed.
-      - name: Run backend tests
-        run: |
-          docker run --rm \
-            -e ENV=test \
-            -e TESTING=true \
-            -e DATABASE_URL=sqlite:///./test.db \
-            -e SECRET_KEY=ci-test-secret-key-not-used-in-prod \
-            -e ADMIN_PASSWORD=ci-admin-password \
-            smart-attendance-backend:ci \
-            python -m pytest -v --tb=short
+  web-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-panel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web-panel/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          CI: "true"

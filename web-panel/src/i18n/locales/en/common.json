@@ -624,7 +624,12 @@
       "errorNeedPhoto": "Please take a photo first",
       "errorNeedGps": "Please get your location first",
       "errorGps": "Could not get location. Check browser location permission.",
-      "errorSubmit": "Could not submit attendance"
+      "errorSubmit": "Could not submit attendance",
+      "gpsVerifiedTitle": "Location verified",
+      "gpsVerifiedBody": "Your position matched the class geofence; you are recorded as being in the safe zone.",
+      "gpsDistanceHint": "About {{m}} m from the class location.",
+      "gpsAccuracyHint": "GPS accuracy about ±{{m}} m.",
+      "gpsSkippedHint": "No class GPS was set for this session, so distance was not checked."
     },
     "attendance": {
       "flaggedLoadError": "Could not load flagged records",
@@ -892,6 +897,8 @@
     "pdfTitle": "Download as PDF",
     "exportError": "Export error",
     "exportFailed": "Export failed",
+    "exportTruncatedTitle": "Partial download",
+    "exportTruncatedBody": "For system performance, only the first {{limit}} rows were exported. Use course or date filters to download more.",
     "updateFailed": "Update failed",
     "statCards": {
       "totalCourses": "Total Courses",

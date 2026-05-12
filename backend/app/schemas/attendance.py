@@ -188,6 +188,8 @@ class WebAttendanceResponse(BaseModel):
     flag_reason: Optional[str] = None
     face_ok: bool
     location_ok: bool
+    location_distance_m: Optional[float] = None
+    location_skipped: Optional[bool] = None
 
 
 class CancellationCreate(BaseModel):

@@ -624,7 +624,12 @@
       "errorNeedPhoto": "Önce kameranızdan fotoğraf çekin",
       "errorNeedGps": "Önce konum bilginizi alın",
       "errorGps": "Konum alınamadı. Tarayıcı konum iznini kontrol edin.",
-      "errorSubmit": "Yoklama gönderilemedi"
+      "errorSubmit": "Yoklama gönderilemedi",
+      "gpsVerifiedTitle": "Konum doğrulandı",
+      "gpsVerifiedBody": "Konumunuz sınıf alanıyla eşleşti; güvenli bölgede olduğunuz kaydedildi.",
+      "gpsDistanceHint": "Ders konumuna yaklaşık {{m}} m mesafedesiniz.",
+      "gpsAccuracyHint": "GPS doğruluğu yaklaşık ±{{m}} m.",
+      "gpsSkippedHint": "Bu oturumda sınıf GPS’i tanımlı olmadığı için konum mesafesi kontrol edilmedi."
     },
     "attendance": {
       "flaggedLoadError": "Bayraklı kayıtlar yüklenemedi",
@@ -892,6 +897,8 @@
     "pdfTitle": "PDF olarak indir",
     "exportError": "Export hatası",
     "exportFailed": "Export başarısız",
+    "exportTruncatedTitle": "Kısmi indirme",
+    "exportTruncatedBody": "Sistem performansı için yalnızca ilk {{limit}} kayıt indirildi. Daha fazlası için lütfen ders veya tarih filtresi kullanın.",
     "updateFailed": "Güncelleme başarısız",
     "statCards": {
       "totalCourses": "Toplam Ders",

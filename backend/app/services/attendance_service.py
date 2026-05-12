@@ -553,6 +553,8 @@ class AttendancePipelineService:
             "flag_reason": flag_reason,
             "face_ok": face_ok,
             "location_ok": location_ok or location_skipped,
+            "location_distance_m": distance_m,
+            "location_skipped": location_skipped,
             "status": record_status,
         }
 
