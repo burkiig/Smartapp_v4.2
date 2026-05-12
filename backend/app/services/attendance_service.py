@@ -78,24 +78,8 @@ class AttendancePipelineService:
                     detail="QR kodunun süresi dolmuş. Lütfen yeni kodu taratın.",
                 )
 
-        # Enrollment check — paralel ders desteği:
-        # Öğrenci, oturumun açıldığı derse ya da aynı shared_class_id'deki
-        # herhangi bir paralel derse kayıtlıysa yoklama yapabilir.
-        enrollment = self.enrollment_repo.get(student.id, session.course_id)
-        if not enrollment:
-            course_repo = CourseRepository(self.db)
-            course = course_repo.get_by_id(session.course_id)
-            if course and course.shared_class_id is not None:
-                parallel_ids = {
-                    c.id for c in course_repo.get_parallel_courses(course.shared_class_id)
-                }
-                enrolled_in_parallel = any(
-                    self.enrollment_repo.get(student.id, cid) for cid in parallel_ids
-                )
-                if not enrolled_in_parallel:
-                    raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
-            else:
-                raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
+        if not self.enrollment_repo.student_can_attend_course(student.id, session.course_id):
+            raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
 
         # Duplicate final record check
         existing_final = self.final_repo.get_by_student_session(student.id, session_id)
@@ -379,6 +363,9 @@ class AttendancePipelineService:
                 status_code=409, detail="Bu öğrenci için yoklama zaten kaydedildi"
             )
 
+        if not self.enrollment_repo.student_can_attend_course(student_id, session.course_id):
+            raise HTTPException(status_code=403, detail="Bu öğrenci bu derse kayıtlı değil")
+
         face_used = False
         confidence = 0.0
         is_flagged = True
@@ -452,8 +439,7 @@ class AttendancePipelineService:
         if not session or session.status != "active":
             raise HTTPException(status_code=404, detail="Aktif oturum bulunamadı")
 
-        enrollment = self.enrollment_repo.get(student.id, session.course_id)
-        if not enrollment:
+        if not self.enrollment_repo.student_can_attend_course(student.id, session.course_id):
             raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
 
         existing = self.final_repo.get_by_student_session(student.id, session_id)

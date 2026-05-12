@@ -4,7 +4,6 @@ import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import DashboardView from '../components/DashboardView';
-import StudentRegistration from '../../students/components/StudentRegistration';
 import { AttendancePage } from '../../attendance/pages';
 import { StudentsPage } from '../../attendance/pages/StudentsPage';
 import { RecordsPage } from '../../attendance/pages/RecordsPage';
@@ -46,7 +45,6 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
     { id: 'excuses',    label: t('nav.instructor.excuses')    },
     { id: 'disputes',   label: t('nav.instructor.disputes')   },
     { id: 'reports',    label: t('nav.instructor.reports')    },
-    { id: 'register',   label: t('nav.instructor.register')   },
     { id: 'students',   label: t('nav.instructor.students')   },
     { id: 'settings',   label: t('nav.instructor.settings')   },
   ];
@@ -86,8 +84,6 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
         );
       case 'qr-scan':
         return <QRScan onClose={() => setActiveTab('dashboard')} />;
-      case 'register':
-        return <StudentRegistration />;
       case 'attendance':
         return <AttendancePage triageContext={triageContext} />;
       case 'excuses':

@@ -34,7 +34,15 @@ def get_sessions(
     repo = SessionRepository(db)
     sessions = repo.get_all(course_id=course_id, status=status)
     if current_user.role == "student":
-        return [SessionPublicResponse.model_validate(s) for s in sessions]
+        from app.repositories.course_repo import EnrollmentRepository
+
+        enroll_repo = EnrollmentRepository(db)
+        filtered = [
+            s
+            for s in sessions
+            if enroll_repo.student_can_attend_course(current_user.id, s.course_id)
+        ]
+        return [SessionPublicResponse.model_validate(s) for s in filtered]
     return [SessionResponse.model_validate(s) for s in sessions]
 
 
@@ -46,7 +54,16 @@ def get_active_sessions(
     repo = SessionRepository(db)
     sessions = repo.get_active()
     if current_user.role == "student":
-        return [SessionPublicResponse.model_validate(s) for s in sessions]
+        # Kayıtlı (veya paralel şube) derslerin aktif oturumları; QR liste sızıntısı olmasın
+        from app.repositories.course_repo import EnrollmentRepository
+
+        enroll_repo = EnrollmentRepository(db)
+        filtered_sessions = [
+            s
+            for s in sessions
+            if enroll_repo.student_can_attend_course(current_user.id, s.course_id)
+        ]
+        return [SessionPublicResponse.model_validate(s) for s in filtered_sessions]
     return [SessionResponse.model_validate(s) for s in sessions]
 
 
@@ -160,7 +177,7 @@ def end_session(
     return {"success": True, "session": SessionResponse.model_validate(session)}
 
 
-@router.get("/{session_id}", response_model=SessionResponse)
+@router.get("/{session_id}")
 def get_session(
     session_id: int,
     current_user: User = Depends(get_current_user),
@@ -170,7 +187,14 @@ def get_session(
     session = repo.get_by_id(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Oturum bulunamadı")
-    return session
+    if current_user.role == "student":
+        from app.repositories.course_repo import EnrollmentRepository
+
+        enroll_repo = EnrollmentRepository(db)
+        if not enroll_repo.student_can_attend_course(current_user.id, session.course_id):
+            raise HTTPException(status_code=403, detail="Bu oturuma erişim yetkiniz yok")
+        return SessionPublicResponse.model_validate(session)
+    return SessionResponse.model_validate(session)
 
 
 @router.get("/{session_id}/static-qr")

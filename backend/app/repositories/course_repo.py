@@ -145,6 +145,19 @@ class EnrollmentRepository:
     def get_by_course(self, course_id: int) -> List[Enrollment]:
         return self.db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
 
+    def student_can_attend_course(self, student_id: int, course_id: int) -> bool:
+        """Öğrenci bu oturum dersinde veya paralel ortak şubede kayıtlıysa True (QR / yoklama ile uyumlu)."""
+        if self.get(student_id, course_id):
+            return True
+        course_repo = CourseRepository(self.db)
+        course = course_repo.get_by_id(course_id)
+        if course and course.shared_class_id is not None:
+            parallel_ids = {
+                c.id for c in course_repo.get_parallel_courses(course.shared_class_id)
+            }
+            return any(self.get(student_id, cid) for cid in parallel_ids)
+        return False
+
     def create(self, student_id: int, course_id: int) -> Enrollment:
         enrollment = Enrollment(student_id=student_id, course_id=course_id)
         self.db.add(enrollment)

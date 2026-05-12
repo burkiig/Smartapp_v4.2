@@ -143,10 +143,10 @@ def delete_course(
 def enroll_student(
     course_id: int,
     data: EnrollmentCreate,
-    current_user: User = Depends(require_instructor),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Enroll a student to a course (instructor/admin only)"""
+    """Derse öğrenci kaydı yalnızca admin tarafından yapılabilir."""
     course_repo = CourseRepository(db)
     enroll_repo = EnrollmentRepository(db)
 
