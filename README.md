@@ -325,11 +325,21 @@ pip install -r requirements.txt
 cp .env.example .env
 # .env içinde SECRET_KEY'i değiştir!
 
-# Başlat
+# Başlat (sadece localhost — web panel için yeterli)
 python -m uvicorn main:app --reload
+
+# Başlat (0.0.0.0 — mobil uygulamanın ağdan erişebilmesi için ZORUNLU)
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Backend `http://localhost:8000` adresinde çalışır.
+> **Mobil uygulama bağlanamıyorsa:** Backend mutlaka `--host 0.0.0.0` ile başlatılmalıdır.
+> `127.0.0.1` ile başlatılırsa telefon ağdan erişemez → "İstek zaman aşımına uğradı" hatası alınır.
+> Windows'ta ayrıca port 8000'i güvenlik duvarından açmak gerekir:
+> ```powershell
+> New-NetFirewallRule -DisplayName "Smart Attendance API 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+> ```
+
+Backend `http://0.0.0.0:8000` adresinde çalışır (her ağ arayüzünden erişilebilir).
 API dokümantasyonu: `http://localhost:8000/docs` *(yalnızca DEBUG=true)*
 
 #### 2. Web Panel
@@ -1070,3 +1080,89 @@ WHERE static_qr_token IS NULL
 | 17 | `backend/app/config/settings.py` + `backend/.env` | Benzerlik eşiği `0.4` → `0.55` |
 | 18 | `web-panel/.../QRScan.js` | Statik/Dinamik QR sekmeleri, indirme butonu, projektör modu |
 | 19 | `web-panel/.../QRScan.css` | Sekme, indirme, projektör overlay stilleri |
+
+---
+
+## Serkan-77 Yapılanlar
+
+Bu bölüm, `Serkan-77` branch'inde yapılan tüm geliştirme ve hata düzeltmelerini özetler.
+
+### Güvenlik Düzeltmeleri
+
+| # | Sorun | Çözüm |
+|---|-------|-------|
+| 1 | `datetime.utcnow()` kullanımı (deprecated) | `datetime.now(timezone.utc)` ile değiştirildi — `excuse.py`, `notification_service.py`, `attendance.py` |
+| 2 | QR Token `NULL` bypass | `qr_token_issued_at` boşsa `400` hatası döner, TTL atlanamaz |
+| 3 | Face engine yokken yoklama sahte geçiyordu | `face_simulated` flag'i → kayıt `pending_review` olarak işaretlenir |
+| 4 | Mazeret bulk review atomik değildi | Tüm güncellemeler tek transaction'a alındı, hata halinde rollback |
+
+### Yeni Backend Endpoint'leri
+
+| Endpoint | Açıklama |
+|----------|----------|
+| `POST /auth/forgot-password` | Şifre sıfırlama e-postası gönder (enumeration korumalı) |
+| `POST /auth/reset-password` | JWT token ile yeni şifre belirle |
+| `PATCH /auth/change-password` | Giriş yapmış kullanıcı şifre değiştirme |
+| `POST /users/bulk-import` | CSV ile toplu kullanıcı ekleme (admin only) |
+
+### Backend İyileştirmeleri
+
+- **APScheduler entegrasyonu:** `session/end` sonrası devamsız öğrenci bildirimi artık daemon thread yerine APScheduler `date` job'ı kullanıyor — hata loglanır, server crash'te yeniden denenebilir
+- **N+1 sorgu düzeltmesi:** Öğrenci ders listesi artık her ders için `get_by_id` iki kez çağırmıyor
+- **Face engine timeout:** Model yüklemesi 120 saniye sonra timeout alır, sunucu bloke olmaz
+- **`create_password_reset_token()` JWT:** 15 dakika geçerliliği olan özel token türü
+
+### Web Panel Geliştirmeleri
+
+- **"Şifremi Unuttum" akışı:** Login formuna e-posta → token → yeni şifre adımları eklendi
+- **Admin paneli — İtirazlar sekmesi:** Disputes sayfası admin menüsüne eklendi
+- **Admin paneli — CSV İçe Aktar:** Kullanıcılar sekmesine CSV import butonu + modal (şablon indirme, hata raporu)
+- **Instructor paneli — Sistem Kayıtları sekmesi:** Audit log sayfası instructor menüsüne eklendi
+- **i18n düzeltmeleri:** `dashboard.*`, `register.*`, `settings.*` eksik anahtarlar eklendi — ham anahtar görünümü düzeltildi
+
+### Mobil Uygulama Geliştirmeleri
+
+- **"Şifremi Unuttum" modal:** Giriş ekranına 2 adımlı şifre sıfırlama akışı eklendi
+- **Ayarlar ekranı düzeltmesi:** `pushNotifications` toggle'ı backend ile senkronize edildi (token kaydet/sil); yanıltıcı "Yoklama Yöntemleri" toggle'ları kaldırıldı, "Zorunlu" bilgi kartıyla değiştirildi
+- **Yüz tarama hata mesajları:** 4 ayrı hata türü ile aksiyon butonları — "Yüz Kaydı Bulunamadı → Yüzü Kaydet", "Yüz Eşleşmedi → Yeniden Kaydet"
+- **Şifre sıfırlama API:** `auth.forgotPassword`, `auth.resetPassword`, `auth.changePassword` mobil API servisine eklendi
+
+### Altyapı & Dokümantasyon
+
+- **`mobile-app/.env.example`** oluşturuldu
+- **`web-panel/.env.example`** oluşturuldu
+- **Backend başlatma komutu düzeltildi:** `--host 0.0.0.0` eklendi, mobil cihazlardan erişim için zorunlu
+- **Windows Firewall kuralı:** Port 8000 için inbound kuralı eklendi
+- **Test dosyası:** `backend/tests/test_new_features.py` — 31 test, tüm yeni özellikler kapsanıyor (31/31 geçiyor)
+
+### Değiştirilen Dosyalar
+
+| Dosya | Değişiklik |
+|-------|------------|
+| `backend/app/api/auth.py` | `forgot-password`, `reset-password`, `change-password` endpoint'leri |
+| `backend/app/api/users.py` | `bulk-import` CSV endpoint'i |
+| `backend/app/api/courses.py` | N+1 sorgu düzeltmesi |
+| `backend/app/api/excuses.py` | Bulk review transaction-safe |
+| `backend/app/api/sessions.py` | Thread → APScheduler date job |
+| `backend/app/api/attendance.py` | `datetime.utcnow()` → `datetime.now(timezone.utc)` |
+| `backend/app/models/excuse.py` | `datetime.utcnow` → `datetime.now(timezone.utc)` |
+| `backend/app/schemas/user.py` | `ForgotPasswordRequest`, `ResetPasswordRequest`, `ChangePasswordRequest` |
+| `backend/app/security/jwt.py` | `create_password_reset_token()` |
+| `backend/app/services/scheduler.py` | `schedule_notify_absent()` helper |
+| `backend/app/services/notification_service.py` | Scheduler timezone fix |
+| `backend/app/integrations/face_engine.py` | 120s init timeout |
+| `backend/tests/test_new_features.py` | 31 yeni test (yeni özellikler) |
+| `web-panel/src/features/auth/components/LoginForm/LoginForm.jsx` | Şifremi unuttum akışı |
+| `web-panel/src/features/auth/services/authService.js` | `forgotPassword`, `resetPassword`, `changePassword` |
+| `web-panel/src/features/dashboard/pages/AdminDashboardPage.jsx` | Disputes sekmesi, CSV import |
+| `web-panel/src/features/dashboard/pages/InstructorDashboardPage.jsx` | Audit logs sekmesi |
+| `web-panel/src/features/attendance/hooks/useAttendance.js` | i18n düzeltmesi |
+| `web-panel/src/i18n/locales/tr/common.json` | 30+ eksik anahtar eklendi |
+| `web-panel/src/i18n/locales/en/common.json` | 30+ eksik anahtar eklendi |
+| `mobile-app/app/index.js` | Şifremi unuttum modal, API import |
+| `mobile-app/app/settings.js` | Push token backend sync, "Zorunlu" kartı |
+| `mobile-app/app/face-scan.js` | 4 ayrı hata türü + aksiyon butonları |
+| `mobile-app/src/services/api.js` | `forgotPassword`, `resetPassword`, `changePassword` |
+| `mobile-app/.env.example` | Oluşturuldu |
+| `web-panel/.env.example` | Oluşturuldu |
+| `README.md` | Backend başlatma komutu düzeltmesi, Serkan-77 bölümü |

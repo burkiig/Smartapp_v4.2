@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   fetchFlaggedRecords,
   approveFlaggedRecord,
@@ -7,6 +8,7 @@ import {
 } from '../services/attendanceService';
 
 export const useAttendance = () => {
+  const { t } = useTranslation();
   const [flaggedRecords, setFlaggedRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,7 +22,7 @@ export const useAttendance = () => {
       if (result.success) {
         setFlaggedRecords(result.data);
       } else {
-        setError('Bayraklı kayıtlar yüklenemedi');
+        setError(t('attendance.flaggedLoadError') || 'Bayraklı kayıtlar yüklenemedi');
       }
     } catch (err) {
       setError(err.message);

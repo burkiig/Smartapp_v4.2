@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '@/context/UserContext';
-import { face } from '@/services/api';
+import { face, auth } from '@/services/api';
 import { Colors, Shadows, Radius, Spacing } from '@/config/theme';
 
 export default function LoginScreen() {
@@ -22,8 +22,15 @@ export default function LoginScreen() {
   const [loading, setLoading]           = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  /** Same-meaning as `isRedirecting` but readable inside async `finally` (state would be stale). */
   const isRedirectingRef = useRef(false);
+
+  // Şifre sıfırlama modal durumu: null | 'forgot' | 'reset'
+  const [resetMode, setResetMode]           = useState(null);
+  const [resetEmail, setResetEmail]         = useState('');
+  const [resetToken, setResetToken]         = useState('');
+  const [resetNewPass, setResetNewPass]     = useState('');
+  const [resetLoading, setResetLoading]     = useState(false);
+  const [resetMsg, setResetMsg]             = useState('');
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
@@ -35,6 +42,48 @@ export default function LoginScreen() {
       Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 0,  duration: 60, useNativeDriver: true }),
     ]).start();
+  };
+
+  const openForgot = () => {
+    setResetEmail('');
+    setResetToken('');
+    setResetNewPass('');
+    setResetMsg('');
+    setResetMode('forgot');
+  };
+
+  const handleForgot = async () => {
+    if (!resetEmail.trim()) {
+      Alert.alert('Hata', 'E-posta adresinizi girin.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await auth.forgotPassword(resetEmail.trim());
+      setResetMsg('E-posta gönderildi. Token\'ınızı alın ve aşağıya girin.');
+      setResetMode('reset');
+    } catch (err) {
+      Alert.alert('Hata', err?.message || 'Bir sorun oluştu.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetToken.trim() || !resetNewPass.trim()) {
+      Alert.alert('Hata', 'Token ve yeni şifreyi girin.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await auth.resetPassword(resetToken.trim(), resetNewPass.trim());
+      setResetMode(null);
+      Alert.alert('Başarılı', 'Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.');
+    } catch (err) {
+      Alert.alert('Hata', err?.message || 'Token geçersiz veya süresi dolmuş.');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const handleSignIn = async () => {
@@ -142,7 +191,7 @@ export default function LoginScreen() {
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Şifre</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Şifre Sıfırlama', 'Sistem yöneticinizle iletişime geçin.')}>
+                <TouchableOpacity onPress={openForgot}>
                   <Text style={styles.forgotText}>Şifremi unuttum</Text>
                 </TouchableOpacity>
               </View>
@@ -196,6 +245,98 @@ export default function LoginScreen() {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Şifre Sıfırlama Modal */}
+      <Modal
+        visible={resetMode !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setResetMode(null)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalBackdrop}>
+          <View style={styles.resetModal}>
+            {/* Header */}
+            <View style={styles.resetModalHeader}>
+              <Text style={styles.resetModalTitle}>
+                {resetMode === 'forgot' ? 'Şifremi Unuttum' : 'Yeni Şifre Belirle'}
+              </Text>
+              <TouchableOpacity onPress={() => setResetMode(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.resetModalSub}>
+              {resetMode === 'forgot'
+                ? 'Kayıtlı e-posta adresinizi girin. Sıfırlama talimatları gönderilecek.'
+                : resetMsg || 'E-posta ile aldığınız token ve yeni şifrenizi girin.'}
+            </Text>
+
+            {resetMode === 'forgot' && (
+              <View style={styles.resetField}>
+                <Ionicons name="mail-outline" size={18} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.resetInput}
+                  placeholder="E-posta adresiniz"
+                  placeholderTextColor={Colors.textMuted}
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+
+            {resetMode === 'reset' && (
+              <>
+                <View style={styles.resetField}>
+                  <Ionicons name="key-outline" size={18} color={Colors.textMuted} />
+                  <TextInput
+                    style={styles.resetInput}
+                    placeholder="Sıfırlama token'ı"
+                    placeholderTextColor={Colors.textMuted}
+                    value={resetToken}
+                    onChangeText={setResetToken}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.resetField}>
+                  <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} />
+                  <TextInput
+                    style={styles.resetInput}
+                    placeholder="Yeni şifreniz"
+                    placeholderTextColor={Colors.textMuted}
+                    value={resetNewPass}
+                    onChangeText={setResetNewPass}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={[styles.resetSubmitBtn, resetLoading && { opacity: 0.7 }]}
+              onPress={resetMode === 'forgot' ? handleForgot : handleResetPassword}
+              disabled={resetLoading}
+            >
+              {resetLoading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.resetSubmitText}>
+                    {resetMode === 'forgot' ? 'Gönder' : 'Şifreyi Güncelle'}
+                  </Text>
+              }
+            </TouchableOpacity>
+
+            {resetMode === 'reset' && (
+              <TouchableOpacity onPress={() => setResetMode('forgot')} style={{ marginTop: 12, alignItems: 'center' }}>
+                <Text style={styles.forgotText}>E-postayı yeniden gönder</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Modal overlay — native layer, sits above navigation transitions */}
       <Modal
@@ -261,6 +402,17 @@ const styles = StyleSheet.create({
   signupRow:  { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
   signupText: { fontSize: 14, color: Colors.textMuted },
   signupLink: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+
+  // Şifre sıfırlama modal
+  modalBackdrop:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  resetModal:      { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.xl, paddingBottom: Spacing['3xl'] },
+  resetModalHeader:{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  resetModalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  resetModalSub:   { fontSize: 13, color: Colors.textMuted, marginBottom: Spacing.lg, lineHeight: 19 },
+  resetField:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.bgAlt, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
+  resetInput:      { flex: 1, fontSize: 15, color: Colors.text },
+  resetSubmitBtn:  { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 4 },
+  resetSubmitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
   // Redirect overlay (inside Modal — fills entire screen)
   redirectOverlay: {

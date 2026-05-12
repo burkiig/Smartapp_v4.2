@@ -183,13 +183,13 @@ def schedule_session_reminder_jobs(scheduler, db_factory) -> None:
 
     def check_upcoming_classes():
         try:
-            from datetime import datetime, timedelta
+            from datetime import datetime, timezone, timedelta
             from app.models.course import Course
             from app.models.user import User
             from app.utils.push import send_expo_push
 
             db = db_factory()
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             day_name = now.strftime("%A")  # e.g. "Monday"
             current_minutes = now.hour * 60 + now.minute
 

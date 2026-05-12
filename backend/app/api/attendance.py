@@ -502,7 +502,7 @@ def set_attendance_status(
     """
     from app.models.session import AttendanceSession
     from app.models.attendance import FinalAttendanceRecord
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     session = db.query(AttendanceSession).filter(
         AttendanceSession.id == data.session_id
@@ -553,7 +553,7 @@ def set_attendance_status(
             is_flagged=False,
             flag_reason=None,
             verification_steps=verification_steps if verification_steps else None,
-            marked_at=datetime.utcnow(),
+            marked_at=datetime.now(timezone.utc),
         )
         db.add(record)
         db.commit()

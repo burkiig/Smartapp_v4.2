@@ -93,3 +93,7 @@ def create_refresh_token(user_id: int) -> str:
         "refresh",
         timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
+
+
+def create_password_reset_token(user_id: int) -> str:
+    return _create_token(user_id, "password_reset", timedelta(minutes=15))

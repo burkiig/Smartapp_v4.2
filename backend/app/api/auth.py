@@ -8,9 +8,12 @@ from app.config.settings import settings
 from app.database.connection import get_db
 from app.models.user import User
 from app.repositories.user_repo import UserRepository
-from app.schemas.user import LoginRequest, PushTokenUpdate, TokenResponse, UserResponse
+from app.schemas.user import (
+    LoginRequest, PushTokenUpdate, TokenResponse, UserResponse,
+    ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest,
+)
 from app.security.dependencies import get_current_user, get_current_user_from_refresh
-from app.security.jwt import revoke_token
+from app.security.jwt import revoke_token, create_password_reset_token
 from app.security.rate_limit import get_client_ip, rate_limit
 from app.services.audit_service import log_action
 from app.services.auth_service import AuthService
@@ -192,3 +195,81 @@ def logout(
         ip_address=get_client_ip(request),
     )
     return {"success": True, "message": "Çıkış başarılı, token iptal edildi"}
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    data: ForgotPasswordRequest,
+    _: None = Depends(rate_limit("5/minute", key_prefix="auth:forgot")),
+    db: Session = Depends(get_db),
+):
+    """Şifre sıfırlama linki gönder. Kullanıcı bulunsun ya da bulunmasın
+    aynı mesajı döner (enumeration koruması)."""
+    user = UserRepository(db).get_by_email(data.email)
+    if user and user.is_active:
+        token = create_password_reset_token(user.id)
+        from app.services.notification_service import send_email
+        reset_link = f"Sıfırlama token'ınız: {token}"
+        sent = send_email(
+            [user.email],
+            "Şifre Sıfırlama",
+            f"<p>Şifrenizi sıfırlamak için aşağıdaki token'ı kullanın (15 dakika geçerli):</p>"
+            f"<p><code>{token}</code></p>",
+        )
+        if not sent:
+            # SMTP yapılandırılmamış — geliştirme modunda token'ı logla
+            import logging
+            logging.getLogger(__name__).info(
+                "[ForgotPassword] SMTP not configured. Reset token for %s: %s",
+                user.email, token,
+            )
+        log_action(db, "password_reset_requested", actor_id=user.id,
+                   actor_role=user.role, resource="user", resource_id=user.id)
+    return {"success": True, "message": "E-posta adresi kayıtlıysa sıfırlama talimatları gönderildi"}
+
+
+@router.post("/reset-password")
+def reset_password(
+    data: ResetPasswordRequest,
+    _: None = Depends(rate_limit("5/minute", key_prefix="auth:reset")),
+    db: Session = Depends(get_db),
+):
+    """Token ile yeni şifre belirle."""
+    from jose import JWTError
+    try:
+        payload = jwt.decode(data.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Geçersiz veya süresi dolmuş token")
+
+    if payload.get("type") != "password_reset":
+        raise HTTPException(status_code=400, detail="Geçersiz token türü")
+
+    user_id = int(payload.get("sub", 0))
+    repo = UserRepository(db)
+    user = repo.get_by_id(user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+
+    from app.security.password import hash_password
+    user.hashed_password = hash_password(data.new_password)
+    db.commit()
+    log_action(db, "password_reset", actor_id=user.id, actor_role=user.role,
+               resource="user", resource_id=user.id)
+    return {"success": True, "message": "Şifre başarıyla güncellendi"}
+
+
+@router.patch("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Giriş yapmış kullanıcının şifresini değiştir."""
+    from app.security.password import verify_password, hash_password
+    if not verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mevcut şifre hatalı")
+    current_user.hashed_password = hash_password(data.new_password)
+    db.commit()
+    log_action(db, "password_changed", actor_id=current_user.id,
+               actor_role=current_user.role, resource="user", resource_id=current_user.id)
+    return {"success": True, "message": "Şifre başarıyla değiştirildi"}

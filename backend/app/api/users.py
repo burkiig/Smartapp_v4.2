@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import csv
+import io
 
 from app.database.connection import get_db
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
@@ -145,3 +147,77 @@ def delete_user(
         return {"success": True, "message": "Kullanıcı kalıcı olarak silindi"}
     repo.deactivate(user)
     return {"success": True, "message": "Kullanıcı pasifleştirildi (soft delete)"}
+
+
+@router.post("/bulk-import")
+async def bulk_import_users(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """CSV ile toplu kullanıcı ekleme (admin only).
+
+    CSV başlık satırı: username,email,password,name,role,department,student_number
+    role değerleri: student | instructor | admin
+    department ve student_number isteğe bağlıdır.
+    """
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Sadece .csv dosyası kabul edilir")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")  # BOM'lu UTF-8 de desteklenir
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Dosya UTF-8 formatında olmalıdır")
+
+    reader = csv.DictReader(io.StringIO(text))
+    required_cols = {"username", "email", "password", "name", "role"}
+    if not reader.fieldnames or not required_cols.issubset(set(reader.fieldnames)):
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV başlık satırı eksik. Gerekli sütunlar: {', '.join(sorted(required_cols))}",
+        )
+
+    repo = UserRepository(db)
+    created, skipped = [], []
+
+    for i, row in enumerate(reader, start=2):
+        username = (row.get("username") or "").strip()
+        email    = (row.get("email")    or "").strip()
+        password = (row.get("password") or "").strip()
+        name     = (row.get("name")     or "").strip()
+        role     = (row.get("role")     or "student").strip().lower()
+
+        if not all([username, email, password, name]):
+            skipped.append({"row": i, "reason": "Zorunlu alan boş (username/email/password/name)"})
+            continue
+
+        if role not in ("student", "instructor", "admin"):
+            skipped.append({"row": i, "username": username, "reason": f"Geçersiz rol: {role}"})
+            continue
+
+        if repo.get_by_email(email) or repo.get_by_username(username):
+            skipped.append({"row": i, "username": username, "reason": "Kullanıcı zaten mevcut"})
+            continue
+
+        try:
+            user = repo.create(
+                username=username,
+                email=email,
+                password=password,
+                name=name,
+                role=role,
+                department=(row.get("department") or "").strip() or None,
+                student_number=(row.get("student_number") or "").strip() or None,
+            )
+            created.append({"id": user.id, "username": user.username, "role": user.role})
+        except Exception as exc:
+            skipped.append({"row": i, "username": username, "reason": str(exc)})
+
+    return {
+        "success": True,
+        "created_count": len(created),
+        "skipped_count": len(skipped),
+        "created": created,
+        "skipped": skipped,
+    }

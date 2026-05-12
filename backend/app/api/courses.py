@@ -28,7 +28,7 @@ def get_courses(
     if current_user.role == "student":
         enrollments = enroll_repo.get_by_student(current_user.id)
         course_ids = [e.course_id for e in enrollments]
-        courses = [repo.get_by_id(cid) for cid in course_ids if repo.get_by_id(cid)]
+        courses = [c for cid in course_ids if (c := repo.get_by_id(cid)) is not None]
     else:
         courses = repo.get_all(instructor_id=instructor_id)
 

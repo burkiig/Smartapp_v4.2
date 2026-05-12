@@ -25,6 +25,18 @@ export const auth = {
   /** POST /api/v1/auth/push-token */
   savePushToken: (push_token) =>
     apiAdapter.post('/auth/push-token', { push_token }),
+
+  /** POST /api/v1/auth/forgot-password */
+  forgotPassword: (email) =>
+    apiAdapter.post('/auth/forgot-password', { email }),
+
+  /** POST /api/v1/auth/reset-password */
+  resetPassword: (token, new_password) =>
+    apiAdapter.post('/auth/reset-password', { token, new_password }),
+
+  /** PATCH /api/v1/auth/change-password */
+  changePassword: (current_password, new_password) =>
+    apiAdapter.patch('/auth/change-password', { current_password, new_password }),
 };
 
 // ==================== SESSIONS ====================
