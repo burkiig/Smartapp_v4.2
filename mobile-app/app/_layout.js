@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserProvider, useUser } from '@/context/UserContext';
 import { isAuthenticated } from '@/services/authService';
+import { QueryProvider } from '@/query/QueryProvider';
 import InAppBanner from '@/components/InAppBanner';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import NetworkToast from '@/components/NetworkToast';
@@ -359,10 +360,12 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <UserProvider>
-        <StatusBar style="light" />
-        <AppShell />
-      </UserProvider>
+      <QueryProvider>
+        <UserProvider>
+          <StatusBar style="light" />
+          <AppShell />
+        </UserProvider>
+      </QueryProvider>
     </ErrorBoundary>
   );
 }

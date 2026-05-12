@@ -9,7 +9,8 @@ import LiveClassCard from '../components/home/LiveClassCard';
 import QuickActions from '../components/home/QuickActions';
 import MonthStats from '../components/home/MonthStats';
 import RecentActivity from '../components/home/RecentActivity';
-import { sessions, dashboard, courses } from '@/services/api';
+import { dashboard, courses } from '@/services/api';
+import { useActiveSessionsQuery } from '@/query/hooks/useActiveSessionsQuery';
 
 // ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
 function StudentHomeScreen() {
@@ -20,24 +21,23 @@ function StudentHomeScreen() {
   // expo-camera v17 hook-based permission API
 
 
-  const [liveSession, setLiveSession] = useState(null);
   const [courseMap, setCourseMap] = useState({});
   const [stats, setStats] = useState({ percentage: 0, totalDays: 0, present: 0, absent: 0 });
   const [recentActivity, setRecentActivity] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const { data: activeSessions = [], refetch: refetchSessions } = useActiveSessionsQuery({
+    refetchInterval: 30_000,
+  });
+  const liveSession = activeSessions[0] ?? null;
+
   const fetchData = useCallback(async () => {
     try {
-      const [sessRes, coursesRes, statRes] = await Promise.allSettled([
-        sessions.getActive(),
+      await refetchSessions();
+      const [coursesRes, statRes] = await Promise.allSettled([
         courses.list(),
         dashboard.stats(),
       ]);
-
-      // Aktif oturum
-      const activeSessions = sessRes.status === 'fulfilled' && Array.isArray(sessRes.value)
-        ? sessRes.value : [];
-      setLiveSession(activeSessions.length > 0 ? activeSessions[0] : null);
 
       // Ders haritası
       let cMap = {};
@@ -61,25 +61,9 @@ function StudentHomeScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [refetchSessions]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  // Aktif oturumu 30 saniyede bir kontrol et — sadece sessions/active, diğer endpoint'ler değil
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const result = await sessions.getActive();
-        const active = Array.isArray(result) ? result : [];
-        setLiveSession(prev => {
-          const newId = active[0]?.id ?? null;
-          const oldId = prev?.id ?? null;
-          return newId === oldId ? prev : (active[0] || null);
-        });
-      } catch { }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 

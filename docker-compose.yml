@@ -1,104 +1,15 @@
-
+# Local / staging stack — adjust env_file paths for your machine.
 services:
-
-  # ── PostgreSQL Database ────────────────────────────────────────────────────
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: smartapp
-      POSTGRES_USER: smartapp
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U smartapp"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    # ⚠️  Port 5432 is only exposed for local development (e.g. pgAdmin).
-    # In production, remove or restrict this to avoid exposing the database.
-    ports:
-      - "127.0.0.1:5432:5432"
-
-  # ── FastAPI Backend ────────────────────────────────────────────────────────
-  backend:
+  api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      # ── Database ────────────────────────────────────────────────────────────
-      # Runtime URL: use pooler (6543) if PgBouncer is in front; else direct.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://smartapp:${POSTGRES_PASSWORD:-changeme}@db:5432/smartapp}
-      # Migration URL: always direct connection (port 5432) — poolers block Alembic.
-      MIGRATION_DATABASE_URL: postgresql://smartapp:${POSTGRES_PASSWORD:-changeme}@db:5432/smartapp
-      # ── Security ────────────────────────────────────────────────────────────
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
-      # ── Admin seed ──────────────────────────────────────────────────────────
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@smartapp.local}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_NAME: ${ADMIN_NAME:-System Administrator}
-      # ── Supabase (optional — leave blank for local-only mode) ───────────────
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
-      # ── App ─────────────────────────────────────────────────────────────────
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
-      DEBUG: ${DEBUG:-false}
-      ENV: ${ENV:-development}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
-      FACE_SIMILARITY_THRESHOLD: ${FACE_SIMILARITY_THRESHOLD:-0.4}
-      FACE_LIVENESS_THRESHOLD: ${FACE_LIVENESS_THRESHOLD:-0.5}
-      DEFAULT_GEOFENCE_RADIUS_M: ${DEFAULT_GEOFENCE_RADIUS_M:-50}
-      MAX_GPS_ACCURACY_M: ${MAX_GPS_ACCURACY_M:-80.0}
-      QR_TOKEN_TTL_SECONDS: ${QR_TOKEN_TTL_SECONDS:-60}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
     ports:
       - "8000:8000"
-    volumes:
-      - face_models:/root/.insightface
-      - sqlite_data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
-
-  # ── React Web Panel ────────────────────────────────────────────────────────
-  frontend:
-    build:
-      context: ./web-panel
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "3000:80"
+    env_file:
+      - ./backend/.env
     environment:
-      REACT_APP_API_URL: http://backend:8000/api/v1
-
-  # ── Adminer (DB UI — remove in production) ────────────────────────────────
-  adminer:
-    image: adminer:latest
+      - UVICORN_HOST=0.0.0.0
     restart: unless-stopped
-    depends_on:
-      - db
-    ports:
-      - "8080:8080"
-    profiles:
-      - dev   # only starts with: docker compose --profile dev up
 
-volumes:
-  postgres_data:
-  face_models:
-  sqlite_data:
+  # Optional: add PostgreSQL + DATABASE_URL when migrating off SQLite.

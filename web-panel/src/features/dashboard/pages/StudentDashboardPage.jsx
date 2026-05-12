@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import Webcam from 'react-webcam';
 import { MdSchool, MdCheckCircle, MdWarning, MdHistory, MdRefresh, MdReportProblem } from 'react-icons/md';
 import { Bar } from 'react-chartjs-2';
@@ -10,6 +11,7 @@ import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
+import { useActiveSessionsQuery, activeSessionsQueryKey } from '../../../shared/query/hooks/useActiveSessionsQuery';
 import './StudentDashboardPage.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -126,11 +128,10 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
 // ── Web Attendance Component ─────────────────────────────────────────────────
 function WebAttendance() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const webcamRef = useRef(null);
   const [step, setStep] = useState('session');   // session | face | location | done | error
-  const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState('');
-  const [loadingSessions, setLoadingSessions] = useState(true);
   const [capturedImage, setCapturedImage] = useState(null);
   const [hasCamera, setHasCamera] = useState(null);
   const [gpsStatus, setGpsStatus] = useState('idle');  // idle | loading | ok | error
@@ -139,19 +140,12 @@ function WebAttendance() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await apiClient.get('/sessions/active');
-        setSessions(data || []);
-      } catch (e) {
-        setError(t('studentDashboard.takeAttendance.errorLoadSessions'));
-      } finally {
-        setLoadingSessions(false);
-      }
-    };
-    load();
-  }, []);
+  const {
+    data: sessions = [],
+    isPending: loadingSessions,
+    isError: sessionsQueryError,
+    error: sessionsLoadError,
+  } = useActiveSessionsQuery();
 
   useEffect(() => {
     if (step === 'face') {
@@ -208,6 +202,7 @@ function WebAttendance() {
       });
       setResult(res);
       setStep('done');
+      queryClient.invalidateQueries({ queryKey: activeSessionsQueryKey });
     } catch (e) {
       setError(e.message || t('studentDashboard.takeAttendance.errorSubmit'));
     } finally {
@@ -233,12 +228,42 @@ function WebAttendance() {
   ];
 
   if (step === 'done' && result) {
+    const showGpsCelebration = !result.is_flagged && result.location_ok;
+    const distM = result.location_distance_m;
+    const accM = gpsData?.accuracy;
+
     return (
       <div className="wa-container">
         <div className={`wa-result ${result.is_flagged ? 'flagged' : 'success'}`}>
-          <div className="wa-result-icon">{result.is_flagged ? '!' : 'OK'}</div>
+          <div className={`wa-result-icon-wrap${showGpsCelebration ? ' wa-result-icon-wrap--pulse' : ''}`}>
+            <div className="wa-result-icon">{result.is_flagged ? '!' : '✓'}</div>
+          </div>
           <h2>{result.is_flagged ? t('studentDashboard.takeAttendance.resultFlagged') : t('studentDashboard.takeAttendance.resultSuccess')}</h2>
           <p>{result.message}</p>
+
+          {showGpsCelebration && (
+            <div className="wa-gps-feedback" role="status">
+              <div className="wa-gps-feedback-title">{t('studentDashboard.takeAttendance.gpsVerifiedTitle')}</div>
+              <p className="wa-gps-feedback-text">{t('studentDashboard.takeAttendance.gpsVerifiedBody')}</p>
+              {result.location_skipped ? (
+                <p className="wa-gps-feedback-meta">{t('studentDashboard.takeAttendance.gpsSkippedHint')}</p>
+              ) : (
+                <>
+                  {typeof distM === 'number' && !Number.isNaN(distM) && (
+                    <p className="wa-gps-feedback-meta">
+                      {t('studentDashboard.takeAttendance.gpsDistanceHint', { m: Math.round(distM) })}
+                    </p>
+                  )}
+                  {typeof accM === 'number' && !Number.isNaN(accM) && (
+                    <p className="wa-gps-feedback-meta">
+                      {t('studentDashboard.takeAttendance.gpsAccuracyHint', { m: Math.round(accM) })}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {result.is_flagged && (
             <div className="wa-flag-detail">
               <p>{t('studentDashboard.takeAttendance.flaggedInfo')}</p>
@@ -258,7 +283,7 @@ function WebAttendance() {
               <span className="wa-check ok">{t('studentDashboard.takeAttendance.locationCheck')}: {t('common.success')}</span>
             </div>
           )}
-          <button className="wa-btn primary" onClick={reset} style={{ marginTop: '20px' }}>
+          <button type="button" className="wa-btn primary" onClick={reset} style={{ marginTop: '20px' }}>
             {t('studentDashboard.takeAttendance.newAttendance')}
           </button>
         </div>
@@ -286,6 +311,11 @@ function WebAttendance() {
       </div>
 
       {error && <div className="wa-error">{error}</div>}
+      {sessionsQueryError && (
+        <div className="wa-error" role="alert">
+          {sessionsLoadError?.message || t('studentDashboard.takeAttendance.errorLoadSessions')}
+        </div>
+      )}
 
       {step === 'session' && (
         <div className="wa-card">

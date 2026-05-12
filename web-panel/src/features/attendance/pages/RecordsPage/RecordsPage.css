@@ -456,3 +456,43 @@
 .override-btn-present:not(.active):hover:not(:disabled) { background: #d1fae5; color: #059669; border-color: #6ee7b7; }
 .override-btn-absent:not(.active):hover:not(:disabled)  { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 .override-btn-excused:not(.active):hover:not(:disabled) { background: #fef3c7; color: #d97706; border-color: #fcd34d; }
+
+.records-export-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 16px;
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd;
+  color: #1e3a8a;
+}
+.records-export-banner strong {
+  display: block;
+  width: 100%;
+  font-size: 0.95rem;
+}
+.records-export-banner p {
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #1e40af;
+}
+.records-export-banner-dismiss {
+  margin-left: auto;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #3b82f6;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.records-export-banner-dismiss:hover {
+  background: #eff6ff;
+}

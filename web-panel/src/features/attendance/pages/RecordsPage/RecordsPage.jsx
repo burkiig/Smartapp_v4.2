@@ -16,6 +16,7 @@ export const RecordsPage = () => {
   const [courseFilter, setCourseFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState(null);
   const [overriding, setOverriding] = useState(new Set()); // record IDs being saved
 
   const loadData = useCallback(async () => {
@@ -76,6 +77,7 @@ export const RecordsPage = () => {
 
   const handleExport = async (format) => {
     setExporting(true);
+    setExportNotice(null);
     try {
       const params = new URLSearchParams({ format });
       if (courseFilter) params.set('course_id', courseFilter);
@@ -84,6 +86,15 @@ export const RecordsPage = () => {
         { method: 'GET', credentials: 'include' }
       );
       if (!response.ok) throw new Error(t('records.exportError'));
+      const truncated = String(response.headers.get('X-Export-Truncated') || '').toLowerCase() === 'true';
+      const limitRaw = response.headers.get('X-Export-Limit');
+      const limit = limitRaw && /^\d+$/.test(limitRaw) ? limitRaw : '5000';
+      if (truncated) {
+        setExportNotice({
+          title: t('records.exportTruncatedTitle'),
+          body: t('records.exportTruncatedBody', { limit }),
+        });
+      }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -141,6 +152,16 @@ export const RecordsPage = () => {
           </button>
         </div>
       </div>
+
+      {exportNotice && (
+        <div className="records-export-banner" role="status">
+          <strong>{exportNotice.title}</strong>
+          <p>{exportNotice.body}</p>
+          <button type="button" className="records-export-banner-dismiss" onClick={() => setExportNotice(null)}>
+            {t('common.close')}
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="records-loading">
