@@ -346,31 +346,11 @@ function InstructorSchedule() {
           </LinearGradient>
         )}
 
-        {/* Gün seçici */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll} contentContainerStyle={styles.dayScrollContent}>
-          {[0,1,2,3,4,5,6].map(idx => {
-            const isActive  = selectedDay === idx;
-            const isToday   = idx === today;
-            const cnt       = allCourses.filter(c => getCourseDayIndices(c).includes(idx)).length;
-            return (
-              <TouchableOpacity
-                key={idx}
-                style={[styles.dayBtn, isActive && styles.dayBtnActive, isToday && !isActive && styles.dayBtnToday]}
-                onPress={() => handleDaySelect(idx)}
-              >
-                <Text style={[styles.dayName, isActive && styles.dayNameActive, isToday && !isActive && styles.dayNameToday]}>
-                  {DAY_TR[idx]}
-                </Text>
-                {cnt > 0 && <View style={[styles.dayDot, isActive && styles.dayDotActive]} />}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
         {loading ? (
           <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
         ) : (
           <FlatList
+            style={styles.list}
             data={showAll ? allCourses : todayClasses}
             renderItem={({ item }) => renderCourseCard({ item })}
             keyExtractor={item => item.id.toString()}
@@ -378,17 +358,45 @@ function InstructorSchedule() {
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             ListHeaderComponent={
-              <View style={styles.listHeader}>
-                <Text style={styles.listHeaderText}>
-                  {showAll
-                    ? `Tüm Derslerim (${allCourses.length})`
-                    : `${DAY_FULL[selectedDay]} Dersleri (${todayClasses.length})`}
-                </Text>
-                <TouchableOpacity style={styles.toggleBtn} onPress={() => setShowAll(v => !v)}>
-                  <Ionicons name={showAll ? 'calendar-outline' : 'list-outline'} size={14} color={Colors.primary} />
-                  <Text style={styles.toggleBtnText}>{showAll ? 'Güne Göre' : 'Tümünü Gör'}</Text>
-                </TouchableOpacity>
-              </View>
+              <>
+                {/* Gün seçici — FlatList header içinde; dışarıda ScrollView dikey uzayıp kapsül görünümü veriyordu */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.dayScroll}
+                  contentContainerStyle={styles.dayScrollContent}
+                >
+                  {[0, 1, 2, 3, 4, 5, 6].map(idx => {
+                    const isActive = selectedDay === idx;
+                    const isToday  = idx === today;
+                    const cnt      = allCourses.filter(c => getCourseDayIndices(c).includes(idx)).length;
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[styles.dayBtn, isActive && styles.dayBtnActive, isToday && !isActive && styles.dayBtnToday]}
+                        onPress={() => handleDaySelect(idx)}
+                      >
+                        <Text style={[styles.dayName, isActive && styles.dayNameActive, isToday && !isActive && styles.dayNameToday]}>
+                          {DAY_TR[idx]}
+                        </Text>
+                        {cnt > 0 && <View style={[styles.dayDot, isActive && styles.dayDotActive]} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <View style={styles.listHeader}>
+                  <Text style={styles.listHeaderText}>
+                    {showAll
+                      ? `Tüm Derslerim (${allCourses.length})`
+                      : `${DAY_FULL[selectedDay]} Dersleri (${todayClasses.length})`}
+                  </Text>
+                  <TouchableOpacity style={styles.toggleBtn} onPress={() => setShowAll(v => !v)}>
+                    <Ionicons name={showAll ? 'calendar-outline' : 'list-outline'} size={14} color={Colors.primary} />
+                    <Text style={styles.toggleBtnText}>{showAll ? 'Güne Göre' : 'Tümünü Gör'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
             }
             ListEmptyComponent={
               <View style={styles.emptyBox}>
@@ -570,9 +578,10 @@ const styles = StyleSheet.create({
   liveBanner:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10 },
   liveBannerText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  dayScroll:        { marginVertical: 14 },
-  dayScrollContent: { paddingHorizontal: 16, gap: 8 },
-  dayBtn:       { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14, backgroundColor: Colors.card, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border, ...Shadows.xs },
+  list:             { flex: 1 },
+  dayScroll:        { marginTop: 16, flexGrow: 0 },
+  dayScrollContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  dayBtn:       { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.border, ...Shadows.xs },
   dayBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   dayBtnToday:  { borderColor: Colors.primary },
   dayName:      { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
