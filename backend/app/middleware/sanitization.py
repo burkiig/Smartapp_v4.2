@@ -75,7 +75,13 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
                 )
 
         # ── 3. Suspicious pattern scan (JSON bodies only, best-effort) ────────
-        if request.method in ("POST", "PUT", "PATCH"):
+        # Yüz kaydı/doğrulama ve konum gibi büyük base64 body içeren path'leri
+        # pattern taramasından muaf tut — gereksiz CPU/bellek kullanımını önler.
+        _IMAGE_PATHS = ("/face/", "/attendance/verify-face", "/attendance/web-attend")
+        _skip_scan = any(request.url.path.startswith(p) or request.url.path.endswith(p)
+                         for p in _IMAGE_PATHS)
+
+        if not _skip_scan and request.method in ("POST", "PUT", "PATCH"):
             ct = request.headers.get("content-type", "")
             if "application/json" in ct:
                 # Read body — Starlette caches it so downstream handlers still get it

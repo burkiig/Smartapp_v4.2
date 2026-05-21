@@ -1,3 +1,6 @@
+import time
+import threading
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -16,6 +19,24 @@ _DEFAULTS = {
     "geofence_radius_m": ("50", "Konum doğrulama yarıçapı (metre)"),
     "fake_gps_max_attempts": ("3", "Sahte GPS denemesi eşiği — bu sayıya ulaşınca öğretmene bildirim gönderilir"),
 }
+
+# ── In-memory TTL cache — her QR taramasında DB'ye gitmemek için ─────────────
+# Sistem ayarları nadiren değiştiğinden 60 saniyelik cache yeterlidir.
+_SETTINGS_CACHE_TTL = 60  # saniye
+_settings_cache: dict = {}          # {key: value}
+_settings_cache_ts: float = 0.0     # son dolum zamanı (monotonic)
+_settings_cache_lock = threading.Lock()
+
+
+def _is_cache_valid() -> bool:
+    return (time.monotonic() - _settings_cache_ts) < _SETTINGS_CACHE_TTL
+
+
+def _invalidate_cache() -> None:
+    """Ayar değiştiğinde cache'i sıfırla — update_setting() tarafından çağrılır."""
+    global _settings_cache_ts
+    with _settings_cache_lock:
+        _settings_cache_ts = 0.0
 
 
 def _get_or_create(db: Session, key: str) -> SystemSetting:
@@ -65,6 +86,7 @@ def update_setting(
     setting.value = data.value
     db.commit()
     db.refresh(setting)
+    _invalidate_cache()  # Yeni değer hemen geçerli olsun
     return {
         "key": setting.key,
         "value": setting.value,
@@ -74,8 +96,21 @@ def update_setting(
 
 
 def get_setting_value(db: Session, key: str, default: str = "") -> str:
-    """Helper used by other services to read a setting at runtime."""
-    s = db.query(SystemSetting).filter(SystemSetting.key == key).first()
-    if s:
-        return s.value
+    """Sistem ayarını döndürür — TTL cache ile her QR taramasında DB sorgusu atılmaz."""
+    global _settings_cache_ts
+
+    with _settings_cache_lock:
+        if _is_cache_valid() and key in _settings_cache:
+            return _settings_cache[key]
+
+    # Cache süresi dolmuş veya boş — DB'den tüm ayarları bir seferde çek
+    rows = db.query(SystemSetting).all()
+    now = time.monotonic()
+    with _settings_cache_lock:
+        for row in rows:
+            _settings_cache[row.key] = row.value
+        _settings_cache_ts = now
+
+    if key in _settings_cache:
+        return _settings_cache[key]
     return _DEFAULTS.get(key, (default, ""))[0]

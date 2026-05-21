@@ -113,12 +113,21 @@ function DashboardView({ onNavigate }) {
         fetchAll();
     }, [fetchAll]);
 
+    const [endSessionError, setEndSessionError] = useState('');
+    const [endingSessionId, setEndingSessionId] = useState(null);
+
     const handleEndSession = async (sessionId) => {
+        setEndSessionError('');
+        setEndingSessionId(sessionId);
         try {
             await apiClient.post(`/sessions/${sessionId}/end`);
             fetchAll();
         } catch (err) {
+            const msg = err?.message || t('common.actionFailed');
+            setEndSessionError(msg);
             console.error('End session error:', err);
+        } finally {
+            setEndingSessionId(null);
         }
     };
 
@@ -150,9 +159,9 @@ function DashboardView({ onNavigate }) {
         <div className="dashboard">
             <div className="dashboard-header">
                 <div className="header-left">
-                    <h1 className="page-title">Dashboard</h1>
+                    <h1 className="page-title">{t('dashboard.title', 'Dashboard')}</h1>
                     <p className="page-subtitle">
-                        {new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                 </div>
                 <button className="refresh-btn" onClick={fetchAll} title={t('common.refresh')}><MdRefresh size={18} style={{marginRight:5}}/>{t('common.refresh')}</button>
@@ -252,8 +261,10 @@ function DashboardView({ onNavigate }) {
                                         <button
                                             className="end-session-btn"
                                             onClick={e => { e.stopPropagation(); handleEndSession(session.id); }}
+                                            disabled={endingSessionId === session.id}
+                                            style={endingSessionId === session.id ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
                                         >
-                                            {t('dashboard.endSession')}
+                                            {endingSessionId === session.id ? '...' : t('dashboard.endSession')}
                                         </button>
                                     </div>
                                 </div>
@@ -263,6 +274,26 @@ function DashboardView({ onNavigate }) {
                         <div className="empty-sessions">
                             <p>{t('dashboard.noActiveSessions')}</p>
                             <p className="hint">{t('dashboard.startSessionHint')}</p>
+                        </div>
+                    )}
+
+                    {endSessionError && (
+                        <div
+                            className="error-banner"
+                            role="alert"
+                            style={{
+                                marginTop: 8, padding: '10px 14px', borderRadius: 8,
+                                backgroundColor: '#fef2f2', border: '1px solid #fca5a5',
+                                color: '#dc2626', fontSize: 13, display: 'flex',
+                                alignItems: 'center', gap: 8,
+                            }}
+                        >
+                            <span>⚠</span>
+                            <span>{endSessionError}</span>
+                            <button
+                                style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}
+                                onClick={() => setEndSessionError('')}
+                            >✕</button>
                         </div>
                     )}
 

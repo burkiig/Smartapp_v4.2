@@ -14,6 +14,7 @@ import NetworkToast from '@/components/NetworkToast';
 import eventBus from '@/utils/eventBus';
 import {
   setupPushNotifications,
+  loadNotificationPreferences,
   addNotificationListeners,
   removeNotificationListeners,
 } from '@/services/notificationService';
@@ -61,8 +62,8 @@ function AuthGuard() {
         );
       }
     } else {
-      // Not authenticated — push back to login if inside the app
-      if (routeGroup === 'tabs') router.replace('/');
+      // Not authenticated — redirect to login from any non-login screen
+      if (routeGroup !== 'login') router.replace('/');
     }
   }, [isLoggedIn, isLoading, isFaceVerified, routeGroup, role]);
 
@@ -269,6 +270,9 @@ function NotificationManager() {
 
   useEffect(() => {
     if (!isLoggedIn) return;
+
+    // Load saved notification preferences into memory on login
+    loadNotificationPreferences();
 
     // Skip push notification setup in Expo Go — not supported since SDK 53
     if (!IS_EXPO_GO) {

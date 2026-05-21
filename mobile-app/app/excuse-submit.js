@@ -41,7 +41,11 @@ const EXCUSE_TYPES = [
 
 export default function ExcuseSubmitScreen() {
   const router = useRouter();
-  const { course_id, session_id, session_date, course_name } = useLocalSearchParams();
+  const rawParams = useLocalSearchParams();
+  const course_id = Array.isArray(rawParams.course_id) ? rawParams.course_id[0] : rawParams.course_id;
+  const session_id = Array.isArray(rawParams.session_id) ? rawParams.session_id[0] : rawParams.session_id;
+  const session_date = Array.isArray(rawParams.session_date) ? rawParams.session_date[0] : rawParams.session_date;
+  const course_name = Array.isArray(rawParams.course_name) ? rawParams.course_name[0] : rawParams.course_name;
 
   const today = new Date().toISOString().slice(0, 10);
 

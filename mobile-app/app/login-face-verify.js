@@ -34,6 +34,11 @@ export default function LoginFaceVerifyScreen() {
   /** False until expo CameraView reports ready — avoids empty/black preview gap after login. */
   const [isCameraReady, setIsCameraReady] = useState(false);
   const cameraRef = useRef(null);
+  const navTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (navTimerRef.current) clearTimeout(navTimerRef.current); };
+  }, []);
 
   useEffect(() => {
     if (permission?.granted) setIsCameraReady(false);
@@ -99,7 +104,7 @@ export default function LoginFaceVerifyScreen() {
         const dest = (user?.role === 'instructor' || user?.role === 'admin')
           ? '/(tabs)/dashboard'
           : '/(tabs)/home';
-        setTimeout(() => router.replace(dest), 600);
+        navTimerRef.current = setTimeout(() => router.replace(dest), 600);
       } else {
         const remaining = MAX_RETRIES - (retryCount + 1);
         setRetryCount(prev => prev + 1);

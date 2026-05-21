@@ -468,12 +468,14 @@ class AttendancePipelineService:
         distance_m = None
         location_skipped = False
         if session.latitude is not None and session.longitude is not None:
+            # Use session-level geofence radius (set from room) with settings fallback
+            effective_radius = session.geofence_radius or settings.DEFAULT_GEOFENCE_RADIUS_M
             location_ok, distance_m = verify_location(
                 latitude,
                 longitude,
                 session.latitude,
                 session.longitude,
-                radius_m=settings.DEFAULT_GEOFENCE_RADIUS_M,
+                radius_m=effective_radius,
                 accuracy_m=accuracy,
                 max_accuracy_m=settings.MAX_GPS_ACCURACY_M,
             )

@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { face } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
+import { useUser } from '@/context/UserContext';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ const STEPS = [
 
 export default function RegisterFaceScreen() {
   const router  = useRouter();
+  const { user } = useUser();
   const { onboarding, login_flow } = useLocalSearchParams();
   // login_flow: came from login screen → must complete face registration then verify
   // onboarding: legacy param, treated same as login_flow for back-compat
@@ -130,6 +132,12 @@ export default function RegisterFaceScreen() {
         const result = await face.enrollMulti(newPhotos);
 
         if (result?.success === true) {
+          // Onboarding sonrası hedef: öğrenci → home, öğretmen/admin → dashboard
+          const role = user?.role;
+          const onboardingTarget = (role === 'instructor' || role === 'admin')
+            ? '/(tabs)/dashboard'
+            : '/(tabs)/home';
+
           Alert.alert(
             'Kayıt Başarılı',
             'Yüzünüz sisteme kaydedildi. Şimdi kimliğinizi doğrulayın.',
@@ -138,7 +146,7 @@ export default function RegisterFaceScreen() {
               onPress: () => isLoginFlow
                 ? router.replace('/login-face-verify')
                 : isOnboarding
-                  ? router.replace('/(tabs)/home')
+                  ? router.replace(onboardingTarget)
                   : router.back(),
             }]
           );
@@ -295,7 +303,13 @@ export default function RegisterFaceScreen() {
         {isOnboarding && !isLoginFlow && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={() => {
+              const role = user?.role;
+              const target = (role === 'instructor' || role === 'admin')
+                ? '/(tabs)/dashboard'
+                : '/(tabs)/home';
+              router.replace(target);
+            }}
           >
             <Text style={styles.skipText}>Sonra Yap</Text>
             <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />

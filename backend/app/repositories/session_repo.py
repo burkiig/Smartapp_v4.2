@@ -17,6 +17,22 @@ class SessionRepository:
             q = q.filter(AttendanceSession.course_id == course_id)
         return q.all()
 
+    def get_active_for_student(self, course_ids: set) -> List[AttendanceSession]:
+        """Verilen ders ID setine ait aktif oturumları tek sorguda döndürür.
+
+        N+1 yerine tek IN sorgusu kullanır — öğrenci oturum listesi için optimize edilmiştir.
+        """
+        if not course_ids:
+            return []
+        return (
+            self.db.query(AttendanceSession)
+            .filter(
+                AttendanceSession.status == "active",
+                AttendanceSession.course_id.in_(course_ids),
+            )
+            .all()
+        )
+
     def get_all(self, course_id: Optional[int] = None, status: Optional[str] = None) -> List[AttendanceSession]:
         q = self.db.query(AttendanceSession)
         if course_id:

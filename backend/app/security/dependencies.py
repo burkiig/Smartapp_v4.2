@@ -55,7 +55,11 @@ def get_current_user(
     if jti and is_token_revoked(jti):
         raise HTTPException(status_code=401, detail="Token iptal edilmiş, lütfen tekrar giriş yapın")
 
-    user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Token geçersiz")
+    user = db.query(User).filter(User.id == uid, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı")
     return user
@@ -77,7 +81,11 @@ def get_current_user_from_refresh(
     if jti and is_token_revoked(jti):
         raise HTTPException(status_code=401, detail="Refresh token iptal edilmiş")
 
-    user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Refresh token geçersiz")
+    user = db.query(User).filter(User.id == uid, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı")
     return user

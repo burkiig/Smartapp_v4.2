@@ -184,7 +184,7 @@ function InstructorDashboard() {
                     </View>
                     <View>
                       <Text style={styles.bannerLabel}>
-                        {nextClass.daysAhead === 0 ? 'SIRADAKI DERS — BUGÜN' : `SIRADAKI DERS — ${DAY_FULL[new Date().getDay() + nextClass.daysAhead % 7]?.toUpperCase()}`}
+                        {nextClass.daysAhead === 0 ? 'SIRADAKI DERS — BUGÜN' : `SIRADAKI DERS — ${DAY_FULL[(new Date().getDay() + nextClass.daysAhead) % 7]?.toUpperCase()}`}
                       </Text>
                       <Text style={styles.bannerCode}>{nextClass.course.code}</Text>
                       <Text style={styles.bannerName} numberOfLines={1}>

@@ -18,6 +18,7 @@ import {
   getCurrentLocation,
 } from '@/services/locationService';
 import { attendance } from '@/services/api';
+import { useUser } from '@/context/UserContext';
 
 /**
  * GPS Dogrulama Ekrani — 3'lu guvenlik zincirinin 3. ve son adimi.
@@ -29,7 +30,9 @@ import { attendance } from '@/services/api';
  */
 export default function GPSVerifyScreen() {
   const router = useRouter();
-  const { session_id } = useLocalSearchParams();
+  const { user } = useUser();
+  const params = useLocalSearchParams();
+  const session_id = Array.isArray(params.session_id) ? params.session_id[0] : params.session_id;
 
   const [step, setStep] = useState('idle'); // idle | requesting | checking | success | denied | outside | error
   const [result, setResult] = useState(null);
@@ -106,14 +109,15 @@ export default function GPSVerifyScreen() {
     }
   }, [session_id]);
 
-  // Auto-start verification on mount
+  // Auto-start verification on mount (veya session_id değişirse yeniden başlat)
   useEffect(() => {
     startVerification();
-  }, []);
+  }, [startVerification]);
 
   const handleContinue = useCallback(() => {
-    router.replace('/(tabs)/home');
-  }, [router]);
+    const role = user?.role;
+    router.replace(role === 'instructor' || role === 'admin' ? '/(tabs)/dashboard' : '/(tabs)/home');
+  }, [router, user]);
 
   // Auto-redirect to home 2.5s after success
   useEffect(() => {

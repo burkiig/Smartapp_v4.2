@@ -53,8 +53,9 @@ async function request(method, path, { body, params } = {}) {
         }
         return await retryResponse.json();
       }
-      // Refresh failed — clear user profile and reload to login screen
+      // Refresh failed — clear user profile from both storages and reload to login screen
       localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
       window.location.reload();
       throw new Error('Oturum süresi doldu, lütfen tekrar giriş yapın');
     }

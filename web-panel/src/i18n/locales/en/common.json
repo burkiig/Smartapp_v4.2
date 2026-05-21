@@ -1,7 +1,7 @@
 {
   "common": {
     "loading": "Loading...",
-    "noData": "No data",
+    "noData": "No records found",
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel",
@@ -24,19 +24,21 @@
     "inactive": "Inactive",
     "status": "Status",
     "actions": "Actions",
-    "noData": "No records found",
     "error": "Error",
     "success": "Success",
     "failed": "Failed",
     "continue": "Continue",
     "approve": "Approve",
     "reject": "Reject",
+    "undo": "Undo",
+    "retry": "Retry",
     "actionFailed": "The action could not be completed.",
     "actionSuccess": "Action completed successfully.",
     "apply": "Apply",
     "show": "Show",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "processing": "Processing..."
   },
   "app": {
     "name": "Attendance System",
@@ -55,7 +57,21 @@
     "loginButton": "Sign In",
     "loggingIn": "Signing in…",
     "hidePassword": "Hide password",
-    "showPassword": "Show password"
+    "showPassword": "Show password",
+    "loginPanel": {
+      "appName": "Smart Attendance System",
+      "tagline": "Welcome back. Sign in to continue to your workspace."
+    },
+    "resetTitle": "Password Reset",
+    "forgotSubtitle": "Enter your email address and we will send reset instructions.",
+    "resetSubtitle": "Enter the token from your email and your new password.",
+    "resetTokenLabel": "Reset Token",
+    "resetTokenPlaceholder": "Token from your email",
+    "newPasswordLabel": "New Password",
+    "newPasswordPlaceholder": "Your new password",
+    "sendResetBtn": "Send Reset Instructions",
+    "updatePasswordBtn": "Update Password",
+    "backToLogin": "Back to login"
   },
   "nav": {
     "systemTitle": "Attendance System",
@@ -870,14 +886,26 @@
   },
   "students": {
     "title": "Students",
+    "subtitle": "{{count}} students registered",
     "totalCount": "Total {{count}} students",
     "searchPlaceholder": "Name, username, email, number or department...",
     "allDepartments": "All Departments",
     "noResults": "No search results found",
+    "noSearchResults": "No results match your search",
     "noStudents": "No students registered yet",
     "manualAttendance": "Manual Attendance",
     "confirmDelete": "Are you sure you want to delete this student?",
+    "deleteConfirm": "Are you sure you want to delete this student?",
+    "active": "Active",
+    "inactive": "Inactive",
     "retry": "Retry",
+    "fullName": "Full Name",
+    "username": "Username",
+    "email": "Email",
+    "studentNo": "Student No",
+    "department": "Department",
+    "status": "Status",
+    "actions": "Actions",
     "tableHeaders": {
       "fullName": "Full Name",
       "username": "Username",
@@ -989,6 +1017,16 @@
   "attendancePage": {
     "title": "Attendance Management",
     "subtitle": "Review flagged records and excuses",
+    "recordDetail": {
+      "title": "Attendance Record Detail",
+      "student": "Student",
+      "course": "Course",
+      "date": "Date/Time",
+      "status": "Status",
+      "flagReason": "Flag Reason",
+      "method": "Verification Method",
+      "location": "Location"
+    },
     "pendingReview": "Pending Review",
     "triageBanner": "Opened from notification: Session {{sessionId}} — reviewing suspicious records",
     "noExcuses": "No excuse requests found",

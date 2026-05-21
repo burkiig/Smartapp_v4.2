@@ -1,6 +1,10 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database.connection import Base
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
 
 
 class Room(Base):
@@ -15,4 +19,4 @@ class Room(Base):
     longitude = Column(Float, nullable=True)
     geofence_radius = Column(Integer, default=50)
     status = Column(String, default="available")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)

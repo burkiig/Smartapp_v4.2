@@ -90,14 +90,16 @@ class FaceService:
         if not ref:
             raise HTTPException(status_code=404, detail="Bu kullanıcı için yüz kaydı bulunamadı")
 
-        # Liveness check (if second frame provided)
+        # Liveness check — emb1 döndürülür böylece aşağıda tekrar hesaplanmaz
+        embedding = None
         if image_base64_2:
-            is_live, _ = self.engine.check_liveness(image_base64, image_base64_2)
+            is_live, _, embedding = self.engine.check_liveness(image_base64, image_base64_2)
             if not is_live:
                 raise HTTPException(status_code=400, detail="Liveness kontrolü başarısız — statik görüntü tespiti")
 
-        # Extract embedding from incoming frame
-        embedding = self.engine.extract_embedding(image_base64)
+        # Embedding henüz çıkarılmadıysa (liveness atlandıysa) çıkar
+        if embedding is None:
+            embedding = self.engine.extract_embedding(image_base64)
         if embedding is None:
             raise HTTPException(status_code=400, detail="Görüntüde yüz bulunamadı")
 

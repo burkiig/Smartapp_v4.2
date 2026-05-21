@@ -10,9 +10,14 @@ async def on_startup():
     logger.info("Smart Attendance System v3.0.0 starting up...")
 
     if not (settings.TESTING or settings.ENV == "test"):
-        # Create all DB tables
-        create_all_tables()
-        logger.info("Database tables created/verified.")
+        # Skip create_all in production — Alembic migrations manage the schema.
+        # create_all is safe only for SQLite dev/local setups.
+        is_sqlite = "sqlite" in settings.DATABASE_URL.lower()
+        if is_sqlite:
+            create_all_tables()
+            logger.info("Database tables created/verified (SQLite dev mode).")
+        else:
+            logger.info("PostgreSQL detected — skipping create_all_tables; use Alembic migrations.")
 
         # Seed default admin
         _seed_admin()

@@ -34,12 +34,14 @@ from fastapi import HTTPException, Request
 def get_client_ip(request: Request) -> str:
     """
     Gerçek istemci IP'sini al.
-    Reverse proxy (nginx, Traefik) arkasında X-Forwarded-For header'ını,
-    doğrudan bağlantılarda socket adresini kullanır.
+    TRUST_PROXY_HEADERS=true ortam değişkeni ayarlandığında ve reverse proxy
+    (nginx, Traefik) arkasında çalışıldığında X-Forwarded-For header'ını kullanır.
+    Aksi hâlde doğrudan bağlantının socket adresini kullanır.
     """
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    if os.getenv("TRUST_PROXY_HEADERS", "").lower() == "true":
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -83,6 +85,10 @@ class _FixedWindowStore:
         self._store: Dict[str, Tuple[int, float]] = {}
         self._lock = threading.Lock()
 
+    # Periyodik temizlik: her N istekte bir tüm store taranır
+    _CLEANUP_INTERVAL = 500  # istek sayısı
+    _request_count: int = 0
+
     def is_allowed(
         self, key: str, max_requests: int, window_seconds: int
     ) -> Tuple[bool, int]:
@@ -97,13 +103,17 @@ class _FixedWindowStore:
         now = time.monotonic()
 
         with self._lock:
-            # Lazy cleanup: süresi dolmuş tüm pencereleri sil
-            expired = [
-                k for k, (_, ws) in self._store.items()
-                if now - ws >= window_seconds
-            ]
-            for k in expired:
-                del self._store[k]
+            # Periyodik temizlik: her 500 istekte bir süresi dolmuş girişleri sil
+            # (her istekte O(n) tarama yerine amortized düşük maliyet)
+            self._request_count += 1
+            if self._request_count >= self._CLEANUP_INTERVAL:
+                self._request_count = 0
+                expired = [
+                    k for k, (_, ws) in self._store.items()
+                    if now - ws >= window_seconds
+                ]
+                for k in expired:
+                    del self._store[k]
 
             if key not in self._store:
                 self._store[key] = (1, now)

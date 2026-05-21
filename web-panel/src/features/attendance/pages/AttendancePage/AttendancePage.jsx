@@ -14,7 +14,7 @@ import './AttendancePage.css';
 export const AttendancePage = ({ triageContext = null }) => {
   const { t } = useTranslation();
   const {
-    flaggedRecords, filteredRecords, loading, activeTab, setActiveTab, tabCounts, approve, reject, undo,
+    flaggedRecords, filteredRecords, loading, error: attendanceError, activeTab, setActiveTab, tabCounts, approve, reject, undo,
   } = useAttendance();
 
   const {
@@ -23,6 +23,9 @@ export const AttendancePage = ({ triageContext = null }) => {
 
   const [showExcuseModal, setShowExcuseModal] = useState(false);
   const [selectedExcuse, setSelectedExcuse] = useState(null);
+  // Yoklama kaydı detay modalı (flagged listeden açılır — excuse modal değil)
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const [focusedRecordId, setFocusedRecordId] = useState(null);
   const triageSessionId = triageContext?.sessionId ? String(triageContext.sessionId) : null;
   const isFlaggedTriage = Boolean(triageContext?.filter === 'flagged' && triageSessionId);
@@ -123,6 +126,12 @@ export const AttendancePage = ({ triageContext = null }) => {
     setShowExcuseModal(true);
   }, []);
 
+  // Flagged yoklama kaydı detay — excuse modal değil, ayrı basit modal
+  const handleViewRecord = useCallback((record) => {
+    setSelectedRecord(record);
+    setShowRecordModal(true);
+  }, []);
+
   const getInitials = (name) => {
     if (!name || name.startsWith('Öğrenci #')) return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -203,6 +212,12 @@ export const AttendancePage = ({ triageContext = null }) => {
         </div>
       </div>
 
+      {attendanceError && (
+        <div className="error-banner" role="alert">
+          {attendanceError}
+        </div>
+      )}
+
       {isFlaggedTriage && (
         <div className="triage-context-banner" role="status" aria-live="polite">
           {t('attendancePage.triageBanner', { sessionId: triageSessionId })}
@@ -229,7 +244,7 @@ export const AttendancePage = ({ triageContext = null }) => {
           onApprove={handleApprove}
           onReject={handleReject}
           onUndo={handleUndo}
-          onViewDetails={(record) => handleViewExcuse(record)}
+          onViewDetails={handleViewRecord}
           loading={loading}
           focusedRecordId={focusedRecordId}
         />
@@ -242,6 +257,37 @@ export const AttendancePage = ({ triageContext = null }) => {
           onApprove={handleExcuseApprove}
           onReject={handleExcuseReject}
         />
+      )}
+
+      {showRecordModal && selectedRecord && (
+        <div className="modal-overlay" onClick={() => setShowRecordModal(false)}>
+          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <h3>{t('attendancePage.recordDetail.title', 'Yoklama Kaydı Detayı')}</h3>
+              <button className="modal-close" onClick={() => setShowRecordModal(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div><strong>{t('attendancePage.recordDetail.student', 'Öğrenci')}:</strong> {selectedRecord.studentName} (#{selectedRecord.studentId})</div>
+              <div><strong>{t('attendancePage.recordDetail.course', 'Ders')}:</strong> {selectedRecord.courseTitle}</div>
+              <div><strong>{t('attendancePage.recordDetail.date', 'Tarih/Saat')}:</strong> {selectedRecord.timestamp}</div>
+              <div><strong>{t('attendancePage.recordDetail.status', 'Durum')}:</strong> {selectedRecord.status}</div>
+              {selectedRecord.reason && (
+                <div><strong>{t('attendancePage.recordDetail.flagReason', 'İşaretlenme Sebebi')}:</strong> {selectedRecord.reason}</div>
+              )}
+              {selectedRecord.method && (
+                <div><strong>{t('attendancePage.recordDetail.method', 'Yöntem')}:</strong> {selectedRecord.method}</div>
+              )}
+              {selectedRecord.location && (
+                <div><strong>{t('attendancePage.recordDetail.location', 'Konum')}:</strong> {selectedRecord.location}</div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowRecordModal(false)}>
+                {t('common.close', 'Kapat')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

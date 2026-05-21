@@ -19,7 +19,7 @@ class User(Base):
     # role: admin | instructor | student
     role = Column(String, nullable=False, default="student")
     department = Column(String, nullable=True)
-    student_number = Column(String, nullable=True)
+    student_number = Column(String, nullable=True, unique=True, index=True)
     push_token = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)

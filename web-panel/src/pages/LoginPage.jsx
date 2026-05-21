@@ -1,14 +1,16 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { LoginForm } from '../features/auth/components/LoginForm';
 import { useAuth } from '../features/auth/hooks';
 import { LanguageSwitcher } from '../shared/components/LanguageSwitcher/LanguageSwitcher';
 import './LoginPage.css';
 
 export const LoginPage = () => {
+  const { t } = useTranslation();
   const { login, isLoading, error } = useAuth();
 
-  const handleLogin = async (username, password) => {
-    await login(username, password);
+  const handleLogin = async (username, password, rememberMe = false) => {
+    await login(username, password, rememberMe);
   };
 
   return (
@@ -29,9 +31,9 @@ export const LoginPage = () => {
                 <rect x="24" y="24" width="17" height="17" rx="4" fill="white" fillOpacity="0.42"/>
               </svg>
             </div>
-            <h2 className="left-app-name">Smart Attendance System</h2>
+            <h2 className="left-app-name">{t('auth.loginPanel.appName')}</h2>
             <p className="left-tagline">
-              Welcome back. Sign in to continue to your workspace.
+              {t('auth.loginPanel.tagline')}
             </p>
           </div>
         </div>

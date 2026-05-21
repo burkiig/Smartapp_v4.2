@@ -54,10 +54,16 @@ def create_course(
     # shared_class_id doğrulama: değer verilmişse pozitif olmalı
     if data.shared_class_id is not None and data.shared_class_id <= 0:
         raise HTTPException(status_code=400, detail="shared_class_id pozitif bir tamsayı olmalı")
+    # Instructor can only create courses for themselves; admin may assign any instructor_id
+    if current_user.role == "instructor":
+        assigned_instructor_id = current_user.id
+    else:
+        assigned_instructor_id = data.instructor_id or current_user.id
+
     return repo.create(
         code=data.code,
         name=data.name,
-        instructor_id=data.instructor_id or current_user.id,
+        instructor_id=assigned_instructor_id,
         schedule=data.schedule,
         default_duration_minutes=data.default_duration_minutes,
         shared_class_id=data.shared_class_id,
@@ -168,6 +174,11 @@ def unenroll_student(
     current_user: User = Depends(require_instructor),
     db: Session = Depends(get_db),
 ):
+    course_repo = CourseRepository(db)
+    if not course_repo.get_by_id(course_id):
+        raise HTTPException(status_code=404, detail="Ders bulunamadı")
+    if current_user.role == "instructor" and not course_repo.is_instructor_of_course(current_user.id, course_id):
+        raise HTTPException(status_code=403, detail="Bu dersten öğrenci çıkarma yetkiniz yok")
     enroll_repo = EnrollmentRepository(db)
     enrollment = enroll_repo.get(student_id, course_id)
     if not enrollment:
@@ -184,6 +195,11 @@ def get_course_students(
 ):
     if current_user.role not in ("admin", "instructor"):
         raise HTTPException(status_code=403, detail="Yetki gerekli")
+    course_repo = CourseRepository(db)
+    if not course_repo.get_by_id(course_id):
+        raise HTTPException(status_code=404, detail="Ders bulunamadı")
+    if current_user.role == "instructor" and not course_repo.is_instructor_of_course(current_user.id, course_id):
+        raise HTTPException(status_code=403, detail="Bu dersin öğrenci listesine erişim yetkiniz yok")
     enroll_repo = EnrollmentRepository(db)
     enrollments = enroll_repo.get_by_course(course_id)
     from app.repositories.user_repo import UserRepository

@@ -7,12 +7,13 @@ export const Table = ({
   emptyMessage = 'Veri bulunamadı',
   emptyIcon = '📋',
   onRowClick,
-  className = ''
+  className = '',
+  caption,
 }) => {
   if (data.length === 0) {
     return (
-      <div className="table-empty-state">
-        <div className="table-empty-icon">{emptyIcon}</div>
+      <div className="table-empty-state" role="status">
+        <div className="table-empty-icon" aria-hidden="true">{emptyIcon}</div>
         <p className="table-empty-message">{emptyMessage}</p>
       </div>
     );
@@ -20,11 +21,12 @@ export const Table = ({
 
   return (
     <div className={`table-wrapper ${className}`}>
-      <table className="data-table">
+      <table className="data-table" role="table">
+        {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
-          <tr>
+          <tr role="row">
             {columns.map((column, index) => (
-              <th key={column.key || index} style={column.style}>
+              <th key={column.key || index} style={column.style} scope="col">
                 {column.label}
               </th>
             ))}
@@ -36,9 +38,13 @@ export const Table = ({
               key={row.id || rowIndex} 
               onClick={() => onRowClick && onRowClick(row)}
               className={onRowClick ? 'table-row-clickable' : ''}
+              role="row"
+              tabIndex={onRowClick ? 0 : undefined}
+              onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onRowClick(row); } : undefined}
+              aria-label={onRowClick ? `Row ${rowIndex + 1}` : undefined}
             >
               {columns.map((column, colIndex) => (
-                <td key={column.key || colIndex} style={column.style}>
+                <td key={column.key || colIndex} style={column.style} role="cell">
                   {column.render 
                     ? column.render(row[column.key], row, rowIndex)
                     : row[column.key]

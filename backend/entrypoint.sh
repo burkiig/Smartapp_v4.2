@@ -27,7 +27,7 @@ fi
 # ── Application ──────────────────────────────────────────────────────────────
 echo "[entrypoint] Starting Gunicorn..."
 exec gunicorn main:app \
-    -w 2 \
+    -w 4 \
     -k uvicorn.workers.UvicornWorker \
     -b 0.0.0.0:8000 \
     --timeout 120 \

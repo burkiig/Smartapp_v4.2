@@ -15,9 +15,9 @@ class Excuse(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("attendance_sessions.id"), nullable=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
+    session_id = Column(Integer, ForeignKey("attendance_sessions.id", ondelete="SET NULL"), nullable=True)
     session_date = Column(String, nullable=False)   # "YYYY-MM-DD"
     excuse_type = Column(String, default="other")   # medical | family | other
     description = Column(Text, nullable=True)

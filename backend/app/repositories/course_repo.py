@@ -158,6 +158,43 @@ class EnrollmentRepository:
             return any(self.get(student_id, cid) for cid in parallel_ids)
         return False
 
+    def get_attendable_course_ids(self, student_id: int) -> set:
+        """Öğrencinin katılabileceği tüm ders ID'lerini tek sorgu setiyle döndürür.
+
+        Doğrudan kayıtlı olunan dersler + paralel şube dersleri dahil.
+        N+1 yerine sabit 2-3 sorguyla oturum listelerini filtrelemek için kullanılır.
+        """
+        from app.models.course import Course
+
+        enrollments = (
+            self.db.query(Enrollment.course_id)
+            .filter(Enrollment.student_id == student_id)
+            .all()
+        )
+        direct_ids = {e.course_id for e in enrollments}
+        if not direct_ids:
+            return set()
+
+        courses_with_shared = (
+            self.db.query(Course.shared_class_id)
+            .filter(
+                Course.id.in_(direct_ids),
+                Course.shared_class_id.isnot(None),
+            )
+            .all()
+        )
+        shared_class_ids = {c.shared_class_id for c in courses_with_shared}
+        if not shared_class_ids:
+            return direct_ids
+
+        parallel_ids = {
+            row.id
+            for row in self.db.query(Course.id)
+            .filter(Course.shared_class_id.in_(shared_class_ids))
+            .all()
+        }
+        return direct_ids | parallel_ids
+
     def create(self, student_id: int, course_id: int) -> Enrollment:
         enrollment = Enrollment(student_id=student_id, course_id=course_id)
         self.db.add(enrollment)

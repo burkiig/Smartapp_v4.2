@@ -17,12 +17,16 @@ from app.security.rate_limit import reset_for_testing
 from app.security.jwt import create_access_token
 from app.models.user import User
 from app.models.course import Course, Enrollment
+from app.models.course_instructor import CourseInstructor  # noqa: F401 — ensures table is created
 from app.models.room import Room
 from app.models.session import AttendanceSession
 from app.models.attendance import AttendanceAttempt, FinalAttendanceRecord, ClassCancellation
 from app.models.face_reference import FaceReference
 from app.models.excuse import Excuse
 from app.models.audit_log import AuditLog
+from app.models.notification import Notification  # noqa: F401 — ensures table is created
+from app.models.system_setting import SystemSetting  # noqa: F401 — ensures table is created
+from app.models.dispute import Dispute  # noqa: F401 — ensures table is created
 from main import app
 
 # ── In-memory test database ───────────────────────────────────────────────────

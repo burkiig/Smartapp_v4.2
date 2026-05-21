@@ -12,6 +12,12 @@ class UserRepository:
     def get_by_id(self, user_id: int) -> Optional[User]:
         return self.db.query(User).filter(User.id == user_id).first()
 
+    def get_by_ids(self, user_ids: list) -> List[User]:
+        """Birden fazla kullanıcıyı tek IN sorgusuyla çeker — N+1 yerine kullan."""
+        if not user_ids:
+            return []
+        return self.db.query(User).filter(User.id.in_(user_ids)).all()
+
     def get_by_email(self, email: str) -> Optional[User]:
         return self.db.query(User).filter(User.email == email).first()
 

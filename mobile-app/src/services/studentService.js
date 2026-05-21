@@ -7,8 +7,8 @@ import apiAdapter from '@/utils/apiAdapter';
 export const studentService = {
     async getStudents() {
         try {
-            const response = await apiAdapter.get('/api/students');
-            return response.students || [];
+            const response = await apiAdapter.get('/api/v1/users?role=student');
+            return Array.isArray(response) ? response : (response.users || []);
         } catch (error) {
             console.error('[StudentService] getStudents error:', error);
             throw error;
@@ -17,8 +17,8 @@ export const studentService = {
 
     async getStudent(studentId) {
         try {
-            const response = await apiAdapter.get(`/api/students/${studentId}`);
-            return response.student;
+            const response = await apiAdapter.get(`/api/v1/users/${studentId}`);
+            return response;
         } catch (error) {
             console.error('[StudentService] getStudent error:', error);
             throw error;
@@ -27,7 +27,7 @@ export const studentService = {
 
     async registerStudent(studentData) {
         try {
-            const response = await apiAdapter.post('/api/register', studentData);
+            const response = await apiAdapter.post('/api/v1/users/', studentData);
             return response;
         } catch (error) {
             console.error('[StudentService] registerStudent error:', error);
@@ -37,7 +37,7 @@ export const studentService = {
 
     async deleteStudent(studentId) {
         try {
-            const response = await apiAdapter.delete(`/api/students/${studentId}`);
+            const response = await apiAdapter.delete(`/api/v1/users/${studentId}`);
             return response;
         } catch (error) {
             console.error('[StudentService] deleteStudent error:', error);

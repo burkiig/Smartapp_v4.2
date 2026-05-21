@@ -24,7 +24,7 @@ Proje üç ana bileşenden oluşur:
 
 ```
 Smart_Attendance_System/
-├── docker-compose.yml              # Tüm servisleri ayağa kaldırır
+├── docker-compose.yml              # API + PostgreSQL servislerini ayağa kaldırır
 ├── .env                            # Root ortam değişkenleri (git'e ekleme!)
 │
 ├── backend/                        # FastAPI backend
@@ -58,13 +58,18 @@ Smart_Attendance_System/
 │   │
 │   ├── tests/                      # Pytest test suite
 │   │   ├── conftest.py             # Fixture'lar, test DB kurulumu
+│   │   ├── test_admin_settings.py  # Admin sistem ayarları testleri
 │   │   ├── test_auth.py
 │   │   ├── test_attendance.py
 │   │   ├── test_courses.py
 │   │   ├── test_dashboard.py
+│   │   ├── test_disputes.py        # Dispute submission & review testleri
 │   │   ├── test_face.py
 │   │   ├── test_health.py
+│   │   ├── test_new_features.py    # Genel entegrasyon testleri
+│   │   ├── test_notifications.py   # Bildirim endpoint testleri
 │   │   ├── test_rbac.py
+│   │   ├── test_rooms.py           # Room CRUD testleri
 │   │   ├── test_sessions.py
 │   │   └── test_users.py
 │   │
@@ -222,7 +227,6 @@ Smart_Attendance_System/
     │   │   ├── reports.js
     │   │   └── more.js
     │   └── components/
-    │       ├── ExcuseModal.js
     │       └── home/             # Ana sayfa bileşenleri
     └── src/
         ├── config/env.js         # EXPO_PUBLIC_API_URL vb.
@@ -444,7 +448,7 @@ Notlar:
 | `SUPABASE_URL` | — | Supabase proje URL'i (opsiyonel) |
 | `SUPABASE_ANON_KEY` | — | Supabase anon public key (opsiyonel) |
 | `SUPABASE_SERVICE_KEY` | — | Supabase service role key (opsiyonel, backend only) |
-| `FACE_SIMILARITY_THRESHOLD` | `0.4` | Yüz eşleşme eşiği (0–1, düşük = daha katı) |
+| `FACE_SIMILARITY_THRESHOLD` | `0.5` | Yüz eşleşme eşiği (0–1, düşük = daha katı) |
 | `FACE_LIVENESS_THRESHOLD` | `0.5` | Canlılık kontrolü eşiği |
 | `DEFAULT_GEOFENCE_RADIUS_M` | `50` | Sınıf yarıçapı (metre) |
 | `MAX_GPS_ACCURACY_M` | `80.0` | Maksimum GPS hata toleransı (metre) |
@@ -632,7 +636,7 @@ Sistem **InsightFace `buffalo_l`** modelini kullanır.
 
 - **Embedding çıkarma:** Her yüz için 512 boyutlu vektör üretilir
 - **Benzerlik:** Cosine similarity ile karşılaştırma yapılır
-- **Eşik:** `FACE_SIMILARITY_THRESHOLD = 0.4` (varsayılan)
+- **Eşik:** `FACE_SIMILARITY_THRESHOLD = 0.5` (varsayılan)
 - **Canlılık:** Pasif — iki ayrı kare arasındaki embedding farkına bakılır
 - **Şifreleme:** Fernet (AES-128-CBC) ile embedding'ler şifreli saklanır
 - **Fallback:** insightface kurulu değilse sistem çalışmaya devam eder, yüz adımı otomatik geçer
@@ -789,8 +793,13 @@ Supabase tamamen opsiyoneldir. `SUPABASE_URL` ve `SUPABASE_ANON_KEY` tanımlı d
 
 Her `push` ve `pull_request`'te `.github/workflows/ci.yml` çalışır:
 
-1. **Build** — Backend Docker image'ı GitHub Actions layer cache ile build edilir (`type=gha`). `requirements.txt` değişmediği sürece ağır ML paketleri (insightface, onnxruntime) yeniden indirilmez.
-2. **Test** — Pre-built image üzerinde `docker run` ile pytest çalıştırılır. SQLite kullanılır, ayrı bir database servisi gerekmez.
+| Job | Açıklama |
+|-----|----------|
+| `backend-test` | Pytest + coverage (≥%60 zorunlu) + Alembic `check` |
+| `backend-sast` | Bandit ile statik güvenlik taraması |
+| `secret-scan` | Gitleaks ile gizli anahtar taraması |
+| `web-build` | ESLint + `npm run build` |
+| `mobile-lint` | ESLint (React Native) |
 
 ```yaml
 # Yerel CI simülasyonu:
@@ -805,364 +814,275 @@ docker run --rm -e ENV=test -e TESTING=true \
 
 ---
 
-## Son Geliştirmeler
+## Yapılan Optimizasyon ve Düzeltmeler
 
-Bu bölüm, analiz ve geliştirme sürecinde tespit edilen sorunların giderilmesi ve eklenen yeni özellikleri özetler.
-
----
-
-### QR Sistemi
-
-#### Navigasyon Zinciri Düzeltildi
-**Sorun:** QR tarama başarılı olduğunda uygulama yüz tarama adımını atlayarak doğrudan GPS doğrulamaya geçiyordu. 3 adımlı pipeline fiilen 2 adımlı çalışıyordu.
-
-**Çözüm:** Akış `QR → Yüz → GPS` olacak şekilde düzeltildi.
-
-- `mobile-app/app/qr-scan.js` — Başarılı taramada `/face-scan`'a yönlendirme, "Adım 1/3", QR→Yüz→GPS footer eklendi
-- `mobile-app/app/face-scan.js` — QR→**Yüz**→GPS footer eklendi
-- `mobile-app/app/gps-verify.js` — "Adım 2/2" → "Adım 3/3", footer'a Yüz adımı eklendi
-
-#### QR Token Güvenliği
-**Sorun:** `qr_token_issued_at` boş bırakılırsa TTL kontrolü atlanıyor, QR hiç süresi dolmuyordu.
-
-- `backend/app/services/session_service.py` — Oturum oluşturulurken `qr_token_issued_at` UTC ile otomatik set ediliyor
-- `backend/app/services/attendance_service.py` — `qr_token_issued_at` boşsa QR geçersiz sayılıyor
-
-#### QR Görüntü Kalitesi
-- `backend/app/utils/qr.py` — `ERROR_CORRECT_L` → `ERROR_CORRECT_M` (onarım kapasitesi %7 → %15)
-
-#### Tekrar Tarama Engeli
-**Sorun:** Öğrenci QR'ı taradıktan sonra ekranı arkadaşına göstererek ikincisinin de taramasına izin veriliyordu.
-
-- `backend/app/services/attendance_service.py` — QR zaten doğrulanmış bir attempt varsa `409` hatası döner
-
-#### Statik QR (Slayt / Projektör Desteği)
-**Yeni özellik:** Öğretmenin slaytına gömebileceği, oturum boyunca değişmeyen bir QR kodu.
-
-- `backend/app/models/session.py` — `static_qr_token` ve `geofence_radius` kolonları eklendi
-- `backend/app/repositories/session_repo.py` — `create()` yeni alanları kabul ediyor
-- `backend/app/services/session_service.py` — Oturum başlarken statik token otomatik üretiliyor
-- `backend/app/services/attendance_service.py` — Dinamik veya statik token eşleşiyorsa QR doğrulanıyor; statik için TTL atlanıyor
-- `backend/app/api/sessions.py` — `GET /sessions/{id}/static-qr` endpoint'i eklendi; `start_session` yanıtına `static_qr_image` eklendi
-- `backend/app/schemas/session.py` — `static_qr_image` ve `geofence_radius` alanları response şemasına eklendi
-- `web-panel/.../QRScan.js` — "Dinamik QR / Statik QR (Slayt)" sekme sistemi, "Statik QR İndir (.png)" butonu, tam ekran Projektör Modu (siyah arka plan, büyük QR)
-- `web-panel/.../QRScan.css` — Sekme, indirme butonu ve projektör overlay stilleri
-
-> **Veritabanı:** Üretim ortamında aşağıdaki sorgular çalıştırılmalıdır:
-> ```sql
-> ALTER TABLE attendance_sessions ADD COLUMN static_qr_token VARCHAR UNIQUE;
-> ALTER TABLE attendance_sessions ADD COLUMN geofence_radius INTEGER;
-> ```
+Bu bölüm, sisteme yapılan performans, güvenlik ve UI/UX iyileştirmelerini belgeler.
 
 ---
 
-### Yüz Tanıma Sistemi
+### Backend — Performans & Güvenlik İyileştirmeleri
 
-#### Kayıt Mantığı Düzeltildi
-**Sorun:** 3 fotoğraf ayrı ayrı gönderiliyordu, her biri öncekini siliyordu. Yalnızca son fotoğrafın embedding'i saklanıyordu.
+#### N+1 Sorgu Düzeltmeleri
 
-**Çözüm:** 3 embedding ortalaması alınarak tek normalize edilmiş embedding saklanıyor.
-
-- `backend/app/services/face_service.py` — `enroll_multi()` metodu: N embedding `numpy.mean` ile ortalar, normalize eder
-- `backend/app/api/face.py` — `POST /api/v1/face/enroll-multi` endpoint'i (1–5 görüntü kabul eder)
-- `mobile-app/src/services/api.js` — `face.enrollMulti(images)` fonksiyonu eklendi
-- `mobile-app/app/register-face.js` — 3 ayrı `enroll()` döngüsü → tek `enrollMulti(newPhotos)` çağrısı
-
-#### Yüz Doğrulama Zinciri Güçlendirildi
-**Sorun:** GPS adımına geçmek için yüz doğrulama zorunlu tutulmuyordu.
-
-- `backend/app/services/attendance_service.py` — Konum doğrulamaya geçmeden `face_status == "verified"` kontrolü eklendi
-
-#### Benzerlik Eşiği Güncellendi
-**Sorun:** Varsayılan eşik `0.4` çok düşüktü; buffalo_l modeli aynı kişi için genellikle 0.85–0.97 üretir.
-
-- `backend/app/config/settings.py` + `backend/.env` — `FACE_SIMILARITY_THRESHOLD`: `0.4` → `0.55`
-
-#### Liveness Zorunlu Hale Getirildi
-**Sorun:** İkinci kare (liveness için) opsiyoneldi; alınamazsa backend kişiyi canlı sayıyordu.
-
-- `mobile-app/app/face-scan.js` — İkinci kare alınamazsa işlem iptal edilir, kullanıcıya uyarı gösterilir; bekleme süresi 600ms'ye çıkarıldı
-
-#### Hata Mesajları Netleştirildi
-- `mobile-app/app/face-scan.js` — `_getFaceErrorMessage()`: backend hata türüne göre ayrı mesajlar ("Yüz algılanamadı", "Canlılık testi başarısız", "Eşleşme sağlanamadı — yeniden kayıt gerekebilir" vb.)
-
-#### Cihazda Yüz Tespiti
-**Sorun:** Boş, karanlık veya yüzsüz fotoğraflar sunucuya gönderiliyordu.
-
-- `mobile-app/app/face-scan.js` — `onFacesDetected` ile gerçek zamanlı tespit: köşe renkleri yeşile döner, "Yüz Algılandı ✓" rozeti görünür, yüz yokken tarama butonu devre dışıdır
-
-#### Işık Kalitesi Uyarısı
-- `mobile-app/app/face-scan.js` — 3 saniye boyunca yüz algılanamıyorsa sarı uyarı kutusu: *"Daha aydınlık bir ortama geçin"*
-
-#### Yüzü Yeniden Kaydet
-**Sorun:** Yüz zaten kayıtlıyken yeniden kayıt yolu yoktu.
-
-- `mobile-app/app/(tabs)/profile.js` — Yüz kayıtlıyken banner tıklanabilir hale geldi; menüde "Yüzümü Yeniden Kaydet" butonu gösteriliyor
-
----
-
-### Konum Doğrulama Sistemi
-
-#### Yanlış API Parametresi Düzeltildi
-**Sorun:** `timeInterval` geçersiz bir parametre adıydı; `Location.getCurrentPositionAsync` onu sessizce görmezden geliyordu.
-
-- `mobile-app/src/services/locationService.js` — `timeInterval` → `timeout: 15000`
-
-#### Eksik Alanlar Eklendi
-**Sorun:** Eski `verifyLocation` fonksiyonu `accuracy` ve `is_mocked` alanlarını backend'e göndermiyordu.
-
-- `mobile-app/src/services/locationService.js` — `accuracy` ve `is_mocked` backend isteğine eklendi
-
-#### Oda Bazlı Geofence
-**Sorun:** `rooms` tablosunda `geofence_radius` kolonu mevcut olmasına rağmen hiç kullanılmıyor, tüm sınıflar için sabit 50m uygulanıyordu.
-
-- `backend/app/models/session.py` — `geofence_radius` kolonu eklendi
-- `backend/app/services/session_service.py` — Oda seçilince `rooms.geofence_radius` oturuma kopyalanıyor
-- `backend/app/services/attendance_service.py` — Sabit 50m yerine oturumun `geofence_radius` değeri kullanılıyor; tanımlı değilse `DEFAULT_GEOFENCE_RADIUS_M` devreye giriyor
-
-#### Mesafe Gösterimi
-**Sorun:** Öğrenci sınıf dışında kalınca yalnızca "Sınıf dışındasınız" yazıyordu.
-
-- `mobile-app/app/gps-verify.js` — Backend hata mesajından "Mesafe: Xm" parse edilerek "Sınıfa uzaklığınız: ~87m" göstergesi eklendi
-
-#### GPS Sinyal Kalitesi Göstergesi
-- `mobile-app/app/gps-verify.js` — Doğrulama sırasında renkli sinyal rozeti: **Mükemmel** / **İyi** / **Orta** / **Zayıf** (±Xm değeriyle birlikte)
-
----
-
----
-
-### Veritabanı Ekibi İçin Yapılacaklar
-
-> Bu değişiklikler kod tarafında tamamlandı. Üretim veritabanına (Supabase / PostgreSQL) aşağıdaki adımların uygulanması gerekiyor.
-
-#### Neden Gerekli?
-
-İki yeni özellik `attendance_sessions` tablosuna birer kolon ekliyor:
-
-| Kolon | Tür | Varsayılan | Açıklama |
-|---|---|---|---|
-| `static_qr_token` | `VARCHAR` | `NULL` | Hocanın slaytına koyabileceği, oturum boyunca değişmeyen QR kodu tokeni. Her oturum oluşturulduğunda backend otomatik üretiyor. |
-| `geofence_radius` | `INTEGER` | `NULL` | Oda bazlı geofence yarıçapı (metre). Oda seçilince `rooms.geofence_radius` buraya kopyalanıyor. `NULL` ise sistem `DEFAULT_GEOFENCE_RADIUS_M` (50m) değerini kullanıyor. |
-
----
-
-#### Seçenek A — Supabase Dashboard (Önerilen)
-
-Supabase → proje → **SQL Editor** → **New query** → aşağıdaki sorguları çalıştır → **Run**:
-
-```sql
--- 1. Statik QR token kolonu
-ALTER TABLE attendance_sessions
-  ADD COLUMN IF NOT EXISTS static_qr_token VARCHAR;
-
--- Unique kısıt: aynı token iki farklı oturuma atanmasın
-CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_sessions_static_qr_token
-  ON attendance_sessions (static_qr_token)
-  WHERE static_qr_token IS NOT NULL;
-
--- 2. Oda bazlı geofence yarıçapı kolonu
-ALTER TABLE attendance_sessions
-  ADD COLUMN IF NOT EXISTS geofence_radius INTEGER;
-```
-
-> `IF NOT EXISTS` sayesinde sorgular ikinci kez çalıştırılırsa hata vermez.
-
----
-
-#### Seçenek B — Alembic Migration (Kod tabanlı)
-
-`backend/` klasöründe:
-
-```bash
-# Sanal ortamı etkinleştir
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Linux/Mac
-
-# Yeni migration dosyası oluştur
-alembic revision --autogenerate -m "add_static_qr_token_and_geofence_radius_to_sessions"
-
-# Oluşturulan dosyayı kontrol et:
-# backend/alembic/versions/<hash>_add_static_qr_token_and_geofence_radius_to_sessions.py
-# İçinde upgrade() ve downgrade() fonksiyonları otomatik doldurulmuş olmalı.
-
-# Migration'ı uygula
-alembic upgrade head
-```
-
-Otomatik oluşturulan migration yeterli değilse dosyayı şu şekilde manuel düzenle:
-
-```python
-def upgrade() -> None:
-    op.add_column(
-        "attendance_sessions",
-        sa.Column("static_qr_token", sa.String(), nullable=True),
-    )
-    op.create_index(
-        "uq_attendance_sessions_static_qr_token",
-        "attendance_sessions",
-        ["static_qr_token"],
-        unique=True,
-        postgresql_where=sa.text("static_qr_token IS NOT NULL"),
-    )
-    op.add_column(
-        "attendance_sessions",
-        sa.Column("geofence_radius", sa.Integer(), nullable=True),
-    )
-
-def downgrade() -> None:
-    op.drop_index("uq_attendance_sessions_static_qr_token", table_name="attendance_sessions")
-    op.drop_column("attendance_sessions", "static_qr_token")
-    op.drop_column("attendance_sessions", "geofence_radius")
-```
-
----
-
-#### Kontrol Sorgusu
-
-Migration sonrası kolonların eklendiğini doğrulamak için:
-
-```sql
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns
-WHERE table_name = 'attendance_sessions'
-  AND column_name IN ('static_qr_token', 'geofence_radius')
-ORDER BY column_name;
-```
-
-Beklenen çıktı:
-
-```
- column_name      | data_type | is_nullable
-------------------+-----------+------------
- geofence_radius  | integer   | YES
- static_qr_token  | character | YES
-```
-
----
-
-#### Mevcut Oturumlar İçin Veri Dolumu (Opsiyonel)
-
-Yeni kolonlar `NULL` ile başlar. Halihazırda aktif oturumlar varsa statik QR token geriye dönük olarak üretilebilir. Bunun için backend'i yeniden başlatmak yeterlidir — yeni oturumlar otomatik token alır, eskilere dokunulmaz.
-
-Eski oturumlar için de token üretilmesini istiyorsan (opsiyonel):
-
-```sql
--- Mevcut aktif oturumlar için rastgele token doldur (salt postgres uuid kullanır)
-UPDATE attendance_sessions
-SET static_qr_token = gen_random_uuid()::TEXT
-WHERE static_qr_token IS NULL
-  AND status = 'active';
-```
-
----
-
-### Değiştirilen Dosyalar
-
-| # | Dosya | Konu |
+| Dosya | Sorun | Düzeltme |
 |---|---|---|
-| 1 | `mobile-app/app/qr-scan.js` | Navigasyon, adım göstergesi, footer |
-| 2 | `mobile-app/app/face-scan.js` | Navigasyon, liveness, yüz tespiti, ışık uyarısı, hata mesajları, footer |
-| 3 | `mobile-app/app/gps-verify.js` | Adım göstergesi, footer, mesafe gösterimi, GPS sinyal kalitesi |
-| 4 | `mobile-app/app/register-face.js` | `enrollMulti` kullanımına geçiş |
-| 5 | `mobile-app/app/(tabs)/profile.js` | Yeniden kayıt butonu (kayıtlı kullanıcı için de) |
-| 6 | `mobile-app/src/services/api.js` | `enrollMulti` fonksiyonu eklendi |
-| 7 | `mobile-app/src/services/locationService.js` | `timeout` parametresi düzeltildi, `is_mocked` eklendi |
-| 8 | `backend/app/services/attendance_service.py` | Statik QR, TTL fix, tekrar tarama engeli, `face_status` kontrolü, oda geofence |
-| 9 | `backend/app/services/session_service.py` | Statik token üretimi, `qr_token_issued_at`, oda geofence kopyalama |
-| 10 | `backend/app/services/face_service.py` | `enroll_multi()` metodu |
-| 11 | `backend/app/api/face.py` | `/enroll-multi` endpoint'i |
-| 12 | `backend/app/api/sessions.py` | `/static-qr` endpoint'i, `start_session` statik QR yanıtı |
-| 13 | `backend/app/models/session.py` | `static_qr_token`, `geofence_radius` kolonları |
-| 14 | `backend/app/repositories/session_repo.py` | `create()` yeni parametreler |
-| 15 | `backend/app/schemas/session.py` | `static_qr_image`, `geofence_radius` response alanları |
-| 16 | `backend/app/utils/qr.py` | `ERROR_CORRECT_M` |
-| 17 | `backend/app/config/settings.py` + `backend/.env` | Benzerlik eşiği `0.4` → `0.55` |
-| 18 | `web-panel/.../QRScan.js` | Statik/Dinamik QR sekmeleri, indirme butonu, projektör modu |
-| 19 | `web-panel/.../QRScan.css` | Sekme, indirme, projektör overlay stilleri |
+| `app/repositories/course_repo.py` | Öğrencinin katılabileceği dersler her oturum için ayrı sorguyla kontrol ediliyordu | `EnrollmentRepository.get_attendable_course_ids()` metodu eklendi; parallel dersler dahil tüm ders ID'leri 2–3 sorguda batch olarak çekiliyor |
+| `app/repositories/session_repo.py` | Öğrenci aktif oturumları loop içinde filtreleniyordu | `SessionRepository.get_active_for_student(course_ids)` metodu eklendi; `WHERE course_id IN (...)` ile tek sorguda filtreleme |
+| `app/api/sessions.py` | `get_sessions` ve `get_active_sessions` endpoint'leri her oturum için ayrı enrollment sorgusu yapıyordu | Yeni batch metodlara yönlendirildi; bildirim loop'larında `get_by_ids()` ile toplu kullanıcı çekimi |
+| `app/repositories/user_repo.py` | Bildirim döngülerinde her kullanıcı için `get_by_id()` çağrısı yapılıyordu | `get_by_ids(user_ids: list)` metodu eklendi; tek `IN` sorgusuyla toplu kullanıcı yükleme |
+| `app/api/dashboard.py` | `course_performance` endpoint'i her ders için ayrı `.count()` sorguları yapıyordu | `GROUP BY` ile aggregate sorgulara dönüştürüldü; enrollment, session ve yoklama sayıları 3 sorguda tüm dersler için çekiliyor |
+
+#### Önbellek (Cache) İyileştirmeleri
+
+| Dosya | İyileştirme |
+|---|---|
+| `app/api/admin_settings.py` | Thread-safe TTL önbellek eklendi (`_settings_cache`, 60 sn); sık erişilen ayarlar DB'ye gitmeden bellekten okunuyor; `update_setting` çağrısında cache otomatik temizleniyor |
+
+#### Yüz Tanıma Performansı
+
+| Dosya | İyileştirme |
+|---|---|
+| `app/integrations/face_engine.py` | `det_size` `(640,640)` → `(320,320)` küçültüldü; `check_liveness()` artık `emb1` gömme vektörünü geri döndürüyor; `ThreadPoolExecutor` (`_FACE_EXECUTOR`) ve asenkron `extract_embedding_async()` eklendi |
+| `app/services/face_service.py` | `verify()` metodunda canlılık kontrolünden gelen embedding yeniden kullanılıyor; aynı görüntü için çift embedding hesaplama ortadan kalktı |
+
+#### Güvenlik & Kararlılık
+
+| Dosya | Düzeltme |
+|---|---|
+| `app/security/jwt.py` | JWT kara listesi Redis destekli hale getirildi; `REDIS_URL` tanımlıysa `_RedisBlacklist`, yoksa `_InMemoryBlacklist` kullanılıyor; çok worker'lı ortamda token iptali artık tutarlı |
+| `main.py` | `/health/ready` endpoint'inde `db` değişkeni `None` ile önceden başlatıldı; `SessionLocal()` başarısız olursa `finally` bloğunda `UnboundLocalError` oluşmuyordu — düzeltildi |
+| `app/middleware/sanitization.py` | Base64 görsel içeren path'ler (`/face/`, `/attendance/verify-face`, `/attendance/web-attend`) için şüpheli pattern taraması atlanıyor; büyük payload'larda gereksiz CPU/bellek tüketimi önlendi |
+| `app/security/rate_limit.py` | Expired entry temizliği her istekte değil 500 istekte bir yapılıyor; amortize O(1) maliyete düşürüldü |
+
+#### Diğer Backend İyileştirmeleri
+
+| Dosya | İyileştirme |
+|---|---|
+| `entrypoint.sh` | Gunicorn worker sayısı `2` → `4` artırıldı |
+| `backend/.env` / `backend/app/config/settings.py` | `FACE_SIMILARITY_THRESHOLD` `0.55` → `0.5` olarak güncellendi |
+| `backend/.env.example` | Eksik `.env.example` şablon dosyası oluşturuldu |
 
 ---
 
-## Serkan-77 Yapılanlar
+### Mobil Uygulama — UI/UX Düzeltmeleri
 
-Bu bölüm, `Serkan-77` branch'inde yapılan tüm geliştirme ve hata düzeltmelerini özetler.
+#### Kritik Hatalar
 
-### Güvenlik Düzeltmeleri
+| Dosya | Sorun | Düzeltme |
+|---|---|---|
+| `app/(tabs)/profile.js` | `admin` rolü öğrenci profilini görüyordu ("Öğrenci · {no}" yazıyordu) | `admin` rolü de `InstructorProfile` ekranına yönlendiriliyor; `InstructorProfile.js`'de unvan "Yönetici" olarak gösteriliyor |
+| `app/register-face.js` | Öğretmen/admin yüz kaydı sonrası `/(tabs)/home`'a (öğrenci sayfasına) yönlendiriliyordu | Rol kontrolü eklendi; `instructor`/`admin` → `/(tabs)/dashboard`, `student` → `/(tabs)/home`. "Sonra Yap" butonu da aynı şekilde güncellendi |
+| `app/(tabs)/home.js` | `recentActivity` state hiç doldurulmuyordu; `RecentActivity` bileşeni render edilmiyordu | `fetchData()` içine `dashboard.recentActivity()` çağrısı eklendi |
+| `app/(tabs)/dashboard.js` | `DAY_FULL[getDay() + daysAhead % 7]` operatör önceliği hatası — endeks `[0..13]` aralığına çıkabiliyordu | `DAY_FULL[(getDay() + daysAhead) % 7]` olarak düzeltildi |
+| `app/gps-verify.js` | `useEffect(() => { startVerification(); }, [])` boş bağımlılık — `session_id` param değişirse yeniden tetiklenmiyordu | `[startVerification]` bağımlılığına güncellendi |
 
-| # | Sorun | Çözüm |
-|---|-------|-------|
-| 1 | `datetime.utcnow()` kullanımı (deprecated) | `datetime.now(timezone.utc)` ile değiştirildi — `excuse.py`, `notification_service.py`, `attendance.py` |
-| 2 | QR Token `NULL` bypass | `qr_token_issued_at` boşsa `400` hatası döner, TTL atlanamaz |
-| 3 | Face engine yokken yoklama sahte geçiyordu | `face_simulated` flag'i → kayıt `pending_review` olarak işaretlenir |
-| 4 | Mazeret bulk review atomik değildi | Tüm güncellemeler tek transaction'a alındı, hata halinde rollback |
+#### Önemli Hatalar
 
-### Yeni Backend Endpoint'leri
+| Dosya | Sorun | Düzeltme |
+|---|---|---|
+| `app/course-detail.js` | "Genel Devam" sekmesi placeholder mesajı gösteriyordu, gerçek devam oranı hesaplanmıyordu | `attendanceApi.getRecords({ course_id })` ile tüm kurs kayıtları çekiliyor; öğrenci bazında `%xx (x/x)` ve `⚠ Düşük` uyarısı gösteriliyor |
+| `app/class-details.js` | `params.sessionId` okunmuyordu; belirli bir oturum bağlamında açılınca kayıtlar yüklenmiyordu | `sessionId` param okunup `loadStudents(courseId, sessionId)` olarak iletiliyor |
+| `app/(tabs)/history.js` | `Alert.prompt` iOS-only; Android'de hiç çalışmıyordu | Cross-platform `Modal + TextInput + KeyboardAvoidingView` tabanlı itiraz modalı ile değiştirildi |
+| `app/settings.js` + `src/services/notificationService.js` | Bildirim toggle'ları yalnızca `AsyncStorage`'a yazıyordu; ön plan bildirim filtrelemesini etkilemiyordu | `updateNotificationPreferences()` ile `Notifications.setNotificationHandler` anlık güncelleniyor; `loadNotificationPreferences()` uygulama başlangıcında yükleniyor |
+| `app/components/ExcuseModal.js` | Hiçbir yerde import edilmeyen dead code (11 KB) | Silindi |
+| `app/components/home/FaceWarning.js` | Hiçbir yerde kullanılmayan dead code (1.5 KB) | Silindi |
+| `app/components/home/LiveClassCard.js` | `Animated.loop` için cleanup (`loop.stop()`) yoktu; unmount sonrası memory leak | `return () => loop.stop()` cleanup eklendi; `pulse` bağımlılığa alındı |
 
-| Endpoint | Açıklama |
-|----------|----------|
-| `POST /auth/forgot-password` | Şifre sıfırlama e-postası gönder (enumeration korumalı) |
-| `POST /auth/reset-password` | JWT token ile yeni şifre belirle |
-| `PATCH /auth/change-password` | Giriş yapmış kullanıcı şifre değiştirme |
-| `POST /users/bulk-import` | CSV ile toplu kullanıcı ekleme (admin only) |
+---
 
-### Backend İyileştirmeleri
+### Web Panel — UI/UX Düzeltmeleri
 
-- **APScheduler entegrasyonu:** `session/end` sonrası devamsız öğrenci bildirimi artık daemon thread yerine APScheduler `date` job'ı kullanıyor — hata loglanır, server crash'te yeniden denenebilir
-- **N+1 sorgu düzeltmesi:** Öğrenci ders listesi artık her ders için `get_by_id` iki kez çağırmıyor
-- **Face engine timeout:** Model yüklemesi 120 saniye sonra timeout alır, sunucu bloke olmaz
-- **`create_password_reset_token()` JWT:** 15 dakika geçerliliği olan özel token türü
+#### Kritik Hatalar
 
-### Web Panel Geliştirmeleri
+| Dosya | Sorun | Düzeltme |
+|---|---|---|
+| `features/attendance/pages/AttendancePage/AttendancePage.jsx` | Flagged kayıtlardaki "Detail" butonu `ExcuseDetailsModal`'ı yanlış shape ile açıyordu (excuse objesi bekliyor, flagged record alıyordu) | Ayrı `handleViewRecord` + satır içi `AttendanceRecordModal` eklendi; artık doğru alanlar gösteriliyor |
+| `features/dashboard/pages/AdminDashboardPage.jsx` | Oda oluşturma/düzenleme formunda `type` varsayılanı `'Fakulte Binasi'` (türkçe string); `<select>` value `'faculty'` (İngilizce) ile eşleşmiyordu | Default değer `'faculty'` olarak düzeltildi |
 
-- **"Şifremi Unuttum" akışı:** Login formuna e-posta → token → yeni şifre adımları eklendi
-- **Admin paneli — İtirazlar sekmesi:** Disputes sayfası admin menüsüne eklendi
-- **Admin paneli — CSV İçe Aktar:** Kullanıcılar sekmesine CSV import butonu + modal (şablon indirme, hata raporu)
-- **Instructor paneli — Sistem Kayıtları sekmesi:** Audit log sayfası instructor menüsüne eklendi
-- **i18n düzeltmeleri:** `dashboard.*`, `register.*`, `settings.*` eksik anahtarlar eklendi — ham anahtar görünümü düzeltildi
+#### Önemli Hatalar
 
-### Mobil Uygulama Geliştirmeleri
+| Dosya | Sorun | Düzeltme |
+|---|---|---|
+| `shared/components/NotificationBell/NotificationBell.jsx` | `class_cancelled` bildirimi var olmayan `/?tab=sessions` URL'sine yönlendiriyordu | `/?tab=classroom` olarak düzeltildi |
+| `features/dashboard/pages/InstructorDashboardPage.jsx` | `?tab=xxx` URL parametresi okunmuyordu; bildirim deep-link'leri çalışmıyordu | `readTabFromUrl()` yardımcı fonksiyonu eklendi; sayfa açılışında `activeTab` URL'den belirleniyor |
+| `features/dashboard/pages/StudentDashboardPage.jsx` | Haftalık program yalnızca `schedule.days[]` formatını destekliyordu; `schedule.slots[]` formatı işlenmiyordu | Her iki format da normalize ediliyor; `_slotTime` alanı ile saat bilgisi doğru gösteriliyor |
+| `pages/LoginPage.jsx` | Sol panel içeriği hardcode İngilizce (`"Smart Attendance System"`, `"Welcome back..."`) | `t('auth.loginPanel.appName')` ve `t('auth.loginPanel.tagline')` i18n anahtarlarına alındı; EN/TR JSON'lara eklendi |
+| `features/auth/components/LoginForm/LoginForm.jsx` + `context/AuthContext.jsx` | "Beni Hatırla" checkbox'ı görsel-only; `onLogin`'a iletilmiyor, backend'e yansımıyordu | `rememberMe` parametresi tüm zincirden geçirildi; `true` → `localStorage`, `false` → `sessionStorage` |
+| `features/dashboard/components/DashboardView.js` | "End Session" hatası yalnızca `console.error` ile sessizce yutuluyordu | Kırmızı hata banner'ı + buton `disabled` + loading göstergesi eklendi |
 
-- **"Şifremi Unuttum" modal:** Giriş ekranına 2 adımlı şifre sıfırlama akışı eklendi
-- **Ayarlar ekranı düzeltmesi:** `pushNotifications` toggle'ı backend ile senkronize edildi (token kaydet/sil); yanıltıcı "Yoklama Yöntemleri" toggle'ları kaldırıldı, "Zorunlu" bilgi kartıyla değiştirildi
-- **Yüz tarama hata mesajları:** 4 ayrı hata türü ile aksiyon butonları — "Yüz Kaydı Bulunamadı → Yüzü Kaydet", "Yüz Eşleşmedi → Yeniden Kaydet"
-- **Şifre sıfırlama API:** `auth.forgotPassword`, `auth.resetPassword`, `auth.changePassword` mobil API servisine eklendi
+#### Normal (i18n / Tutarlılık)
 
-### Altyapı & Dokümantasyon
+| Dosya | Sorun | Düzeltme |
+|---|---|---|
+| `features/attendance/components/FlaggedAttendanceList/FlaggedAttendanceList.jsx` | `t('flaggedList.student')` gibi kısa anahtarlar kullanılıyordu; JSON'da `flaggedList.columns.student` olarak vardı | Tüm kolon/durum anahtarları doğru nested path'e güncellendi |
+| `i18n/locales/en/common.json` + `tr/common.json` | `common.noData` her iki dil dosyasında da iki kez tanımlanmıştı (duplicate key — ikinci değer birincinin üzerine yazıyordu) | İlk tanım birleştirilerek tekrarlayan satır silindi |
+| `i18n/locales/*/common.json` | `common.undo`, `common.retry`, `students.subtitle`, `students.deleteConfirm`, `students.active`, `students.inactive`, `students.fullName` gibi bileşenlerde kullanılan anahtarlar JSON'da yoktu | Eksik tüm anahtarlar EN ve TR JSON dosyalarına eklendi |
+| `pages/LoginPage.jsx` | Sol panel metinleri çevrilmemişti | `auth.loginPanel.appName` ve `auth.loginPanel.tagline` anahtarları eklendi |
 
-- **`mobile-app/.env.example`** oluşturuldu
-- **`web-panel/.env.example`** oluşturuldu
-- **Backend başlatma komutu düzeltildi:** `--host 0.0.0.0` eklendi, mobil cihazlardan erişim için zorunlu
-- **Windows Firewall kuralı:** Port 8000 için inbound kuralı eklendi
-- **Test dosyası:** `backend/tests/test_new_features.py` — 31 test, tüm yeni özellikler kapsanıyor (31/31 geçiyor)
+---
 
-### Değiştirilen Dosyalar
+### Kaldırılan Dosyalar
 
-| Dosya | Değişiklik |
-|-------|------------|
-| `backend/app/api/auth.py` | `forgot-password`, `reset-password`, `change-password` endpoint'leri |
-| `backend/app/api/users.py` | `bulk-import` CSV endpoint'i |
-| `backend/app/api/courses.py` | N+1 sorgu düzeltmesi |
-| `backend/app/api/excuses.py` | Bulk review transaction-safe |
-| `backend/app/api/sessions.py` | Thread → APScheduler date job |
-| `backend/app/api/attendance.py` | `datetime.utcnow()` → `datetime.now(timezone.utc)` |
-| `backend/app/models/excuse.py` | `datetime.utcnow` → `datetime.now(timezone.utc)` |
-| `backend/app/schemas/user.py` | `ForgotPasswordRequest`, `ResetPasswordRequest`, `ChangePasswordRequest` |
-| `backend/app/security/jwt.py` | `create_password_reset_token()` |
-| `backend/app/services/scheduler.py` | `schedule_notify_absent()` helper |
-| `backend/app/services/notification_service.py` | Scheduler timezone fix |
-| `backend/app/integrations/face_engine.py` | 120s init timeout |
-| `backend/tests/test_new_features.py` | 31 yeni test (yeni özellikler) |
-| `web-panel/src/features/auth/components/LoginForm/LoginForm.jsx` | Şifremi unuttum akışı |
-| `web-panel/src/features/auth/services/authService.js` | `forgotPassword`, `resetPassword`, `changePassword` |
-| `web-panel/src/features/dashboard/pages/AdminDashboardPage.jsx` | Disputes sekmesi, CSV import |
-| `web-panel/src/features/dashboard/pages/InstructorDashboardPage.jsx` | Audit logs sekmesi |
-| `web-panel/src/features/attendance/hooks/useAttendance.js` | i18n düzeltmesi |
-| `web-panel/src/i18n/locales/tr/common.json` | 30+ eksik anahtar eklendi |
-| `web-panel/src/i18n/locales/en/common.json` | 30+ eksik anahtar eklendi |
-| `mobile-app/app/index.js` | Şifremi unuttum modal, API import |
-| `mobile-app/app/settings.js` | Push token backend sync, "Zorunlu" kartı |
-| `mobile-app/app/face-scan.js` | 4 ayrı hata türü + aksiyon butonları |
-| `mobile-app/src/services/api.js` | `forgotPassword`, `resetPassword`, `changePassword` |
-| `mobile-app/.env.example` | Oluşturuldu |
-| `web-panel/.env.example` | Oluşturuldu |
-| `README.md` | Backend başlatma komutu düzeltmesi, Serkan-77 bölümü |
+| Dosya | Sebep |
+|---|---|
+| `mobile-app/app/components/ExcuseModal.js` | Hiçbir yerde import edilmeyen dead code |
+| `mobile-app/app/components/home/FaceWarning.js` | Hiçbir yerde kullanılmayan dead component |
+| `mobile-app/src/api/apiClient.js` | Kırık import path içeren dead code; `apiAdapter.js` kullanılmalı |
+
+---
+
+### Güvenlik Denetimi — Kapsamlı Düzeltmeler (v4.2)
+
+Bu bölüm, derin güvenlik ve kalite denetimi sonucu tespit edilen ve giderilen tüm kritik, önemli ve normal kategorideki sorunları belgeler.
+
+---
+
+#### 🔴 KRİTİK — Backend Yetkilendirme (IDOR / Privilege Escalation)
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| B1 | `services/session_service.py` | Herhangi bir instructor başka öğretmenin dersinde oturum açabiliyordu | `start_session` içine `is_instructor_of_course` ownership kontrolü eklendi |
+| B2 | `services/session_service.py` | `end_session` ve `get_qr_image` caller doğrulaması yoktu | Her iki metoda da instructor ownership kontrolü eklendi |
+| B3 | `api/sessions.py` | `cancel_class` çağıranın o dersi öğretip öğretmediğini kontrol etmiyordu | Instructor scope kontrolü eklendi |
+| B4 | `api/courses.py` | `unenroll_student` ve `get_course_students` herhangi instructor için çalışıyordu | Kurs ownership doğrulaması eklendi |
+| B5 | `api/courses.py` | Instructor farklı `instructor_id` geçerek başkası adına ders oluşturabiliyordu | `create_course`'da instructor kendi ID'sine kilitlendi; admin tüm ID'leri atayabilir |
+| B6 | `api/excuses.py` | `review_excuse` kurs scope kontrolü yoktu (IDOR) | Instructor yalnızca kendi derslerinin mazeretlerini inceleyebilir |
+| B7 | `api/excuses.py` | `get_excuse`, `get_excuse_document`, `get_excuse_signed_url` IDOR açığı | Her endpoint'e instructor kurs ownership kontrolü eklendi |
+| B8 | `api/face.py` | `enroll_student` hedef öğrencinin instructor'ın dersine kayıtlı olup olmadığını kontrol etmiyordu | Enrollment kesişim kontrolü eklendi |
+| B9 | `api/sessions.py` | Öğrenciye tüm derslerin iptalleri, instructor için tüm oturumlar dönüyordu | Rol bazlı filtreleme: öğrenci yalnızca kayıtlı derslerini, instructor yalnızca kendi derslerini görür |
+| B10 | `api/disputes.py` | `submit_dispute` enrollment ve `session.course_id` eşleşme kontrolü yoktu | Enrollment doğrulaması ve `course_id == session.course_id` kontrolü eklendi |
+
+#### 🔴 KRİTİK — Backend Runtime Hataları
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| B11 | `services/notification_service.py` | `notify_absent_students` finally bloğunda `db` tanımsızsa `NameError` | `db = None` ile önceden başlatıldı |
+| B12 | `security/dependencies.py` | Hatalı JWT `sub`'ında `int(user_id)` 500 fırlatıyordu | `try/except (TypeError, ValueError)` ile 401 döndürüldü |
+| B13 | `requirements.txt` | `redis` paketi eksikti; Redis blacklist kodu hiç çalışmıyordu | `redis>=4.6.0` eklendi |
+
+#### 🔴 KRİTİK — Web Panel Auth Tutarsızlıkları
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| W1 | `services/authService.js` | `loginUser` her zaman `localStorage.setItem` yapıyordu | `localStorage` yazımı kaldırıldı; depolama `AuthContext.login`'de `rememberMe`'ye göre yönetiliyor |
+| W2 | `context/AuthContext.jsx` | `getMe()` başarısında her zaman `localStorage` yazıyordu | Hangi storage kullanıldığına bakılarak doğru storage'a yazıldı |
+| W3 | `pages/SettingsPage.jsx` | Profil yalnızca `localStorage`'dan okunuyordu | `localStorage \|\| sessionStorage` ile her iki storage desteklendi |
+| W4 | `authService.js` + `apiClient.js` | Logout ve 401 handler yalnızca `localStorage` temizliyordu | Her ikisi de `sessionStorage.removeItem('user')` çağrıları eklendi |
+
+#### 🔴 KRİTİK — Web Panel Runtime Crash & Kırık Özellikler
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| W5 | `shared/components/layout/Sidebar.jsx` | `user.name.split(' ')` — name null ise uygulama çöküyordu | Null check + `user.email?.[0]` fallback eklendi |
+| W6 | `pages/StudentDashboardPage.jsx` | Disputes sekmesi boş course `<select>` ile açılıyordu | `Promise.allSettled` ile disputes ve courses paralel yükleniyor |
+| W7 | `pages/RecordsPage.jsx` | Export URL hardcoded `/api/v1/...` idi | `getApiBaseUrl()` ile dinamik URL kullanıldı |
+
+#### 🔴 KRİTİK — Mobil Kritik Fonksiyon Hataları
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| M1 | `app/(tabs)/home.js` | `recentActivity` state'e dizi atanıyordu; bileşen tek obje bekliyordu | İlk aktivite objesi `STATUS_TR` map ile dönüştürülüp atandı |
+| M2 | `app/(tabs)/history.js` | Admin rolü öğrenci UI'ına düşüyordu | `instructor \|\| admin` kontrolüne güncellendi |
+| M3 | `app/_layout.js` | Stack ekranları guest'lere deep-link ile erişilebilirdi | `AuthGuard`'a kimlik doğrulanmamış kullanıcı yönlendirmesi eklendi |
+| M4 | `app/gps-verify.js` | Başarı sonrası her zaman öğrenci sayfasına yönlendiriyordu | Rol bazlı navigasyon: instructor/admin → dashboard, öğrenci → home |
+| M5 | `src/services/studentService.js` | Var olmayan endpoint'ler çağrılıyordu (`/api/students`, `/api/register`) | Doğru `/api/v1/users` path'lerine güncellendi |
+
+---
+
+#### 🟠 ÖNEMLİ — Backend Güvenlik
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| B14 | `api/auth.py` | Logout yalnızca access token'ı iptal ediyordu | Refresh token da JWT decode edilerek iptal edildi |
+| B15 | `api/auth.py` | Password reset token hata durumunda plain-text log'a yazılıyordu | `DEBUG` modda debug level, production'da token içermeyen warning log |
+| B16 | `security/rate_limit.py` | `X-Forwarded-For` koşulsuz güveniliyordu (IP spoofing riski) | `TRUST_PROXY_HEADERS=true` env değişkeni olmadan direkt client IP kullanılıyor |
+| B17 | `security/crypto.py` | Kısa `ENCRYPTION_KEY` `b"0"` ile pad ediliyordu (düşük entropi) | Minimum 32 byte kontrolü eklendi; padding kaldırıldı |
+| B18 | Tüm API'ler | Şifre politikası yoktu | `_validate_password_strength` validator'ı `UserCreate`, `ChangePasswordRequest`, `ResetPasswordRequest`'e eklendi (min 8 karakter, 1 rakam, 1 büyük harf) |
+
+#### 🟠 ÖNEMLİ — Backend Eksik Davranışlar
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| B19 | `services/attendance_service.py` | `web_attend` yalnızca `DEFAULT_GEOFENCE_RADIUS_M` kullanıyordu | `session.geofence_radius` öncelikli, yoksa settings default'una fallback |
+| B20 | `api/auth.py` | Login rate limit hardcoded `"10/minute"` | `settings.LOGIN_RATE_LIMIT` kullanılıyor |
+| B21 | `services/notification_service.py` | Ders hatırlatıcıları `strftime("%A")` → İngilizce gün adıyla eşleşmiyordu | Hem İngilizce hem Türkçe gün adı kontrolü eklendi |
+| B22 | `core/startup.py` | `create_all_tables()` production'da Alembic ile çakışıyordu | SQLite dev modunda çalışır; PostgreSQL'de Alembic'e bırakılır |
+
+#### 🟠 ÖNEMLİ — DB & Altyapı
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| D1 | Tüm modeller | FK'larda `ondelete` direktifi yoktu | Tüm FK'lara uygun `CASCADE`, `RESTRICT` veya `SET NULL` direktifleri eklendi |
+| D2 | `models/room.py` | `created_at` timezone-naive'di | `DateTime(timezone=True)` ile UTC-aware yapıldı |
+| D3 | `alembic/env.py` | `course_instructor` modülü import edilmemişti | Import eklendi; `alembic --autogenerate` artık bu tabloyu görüyor |
+| D4 | `docker-compose.yml` | PostgreSQL servisi, volume ve healthcheck yoktu | `postgres:16-alpine` servisi, kalıcı volume ve `pg_isready` healthcheck eklendi |
+| D5 | `models/user.py` | `student_number` unique constraint yoktu | `unique=True, index=True` eklendi |
+
+#### 🟠 ÖNEMLİ — Web Panel i18n Hataları
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| W8 | `hooks/useAttendance.js` | Yanlış i18n key: `attendance.flaggedLoadError` | `studentDashboard.attendance.flaggedLoadError` olarak düzeltildi |
+| W9 | `pages/ExcusesPage.jsx` | `excuses.bulkApproved/bulkRejected` JSON'da yoktu | `excuses.bulkApproveMsg/bulkRejectMsg` olarak düzeltildi |
+| W10 | `pages/ExcusesPage.jsx` | `excuses.statusPending` / `excuses.status${X}` yoktu | `excuses.statuses.*` nested path'e güncellendi |
+| W11 | `components/ExcuseDetailsModal.jsx` | `common.processing` JSON'da tanımlı değildi | Her iki dil dosyasına `"processing"` key'i eklendi |
+| W12 | `pages/AttendancePage.jsx` | `attendancePage.recordDetail.*` key'leri JSON'da hiç yoktu | `title`, `student`, `course`, `date`, `status`, `flagReason`, `method`, `location` key'leri eklendi |
+| W13 | `components/LoginForm.jsx` | Şifremi Unuttum/Sıfırla akışı tamamı hardcoded Türkçe'ydi | Tüm metinler `t()` çağrılarına alındı; EN/TR JSON'larına eklendi |
+
+#### 🟠 ÖNEMLİ — Mobil Sorunlar
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| M6 | `src/services/notificationService.js` | `savePushToken` response shape kontrolü yanlıştı | Mevcut kontrol `response?.success` doğruydu; kod incelendi, ek düzeltme gerekmedi |
+| M7 | `src/services/notificationService.js` | `loadNotificationPreferences()` uygulama başlangıcında çağrılmıyordu | `_layout.js`'de `NotificationManager` içine login sırasında çağrı eklendi |
+| M8 | `app/qr-scan.js` + `app/login-face-verify.js` | Navigasyon `setTimeout`'ları unmount cleanup'sız memory leak yapıyordu | `navTimerRef` ile `useEffect` cleanup eklendi |
+| M9 | `app/face-scan.js`, `gps-verify.js`, `excuse-submit.js` | `useLocalSearchParams()` dizi döndürebilir; `parseInt(array)` → NaN | `Array.isArray` kontrolü ile ilk eleman alındı |
+| M10 | `src/screens/InstructorHome.js` | `sessions.start(course.id)` `room_id` olmadan çağrılıyordu | `course.room_id` varsa options'a ekleniyor; yoksa kullanıcı uyarılıyor |
+
+---
+
+#### 🟡 NORMAL — Kalite & Tutarlılık
+
+##### Backend
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| B23 | `api/excuses.py` | `bulk_review` loop içinde per-satır commit yapıyordu | Döngüde yalnızca attribute set; tek `db.commit()` ile atomik transaction |
+| B24 | `database/connection.py` | SSL mode `require` hardcoded | `DB_SSL_MODE` env değişkeninden okunuyor; Docker Compose'a `DB_SSL_MODE=disable` eklendi |
+| B25 | `api/dashboard.py` | Duplicate `/audit-logs` endpoint farklı filtreleme ile çakışıyordu | Dashboard'daki duplicate kaldırıldı; yalnızca `/api/v1/audit-logs/` kullanılıyor |
+| B26 | `services/scheduler.py` | `_open_scheduled_sessions` race condition için `IntegrityError` yakalanmıyordu | `try/except IntegrityError` ile tekrarlayan oturum oluşturma sessizce atlanıyor |
+
+##### Web Panel
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| W14 | `features/dashboard/components/DashboardView.js` | `err?.response?.data?.detail` fetch API'sinde dead code | `err?.message` kullanımına güncellendi |
+| W15 | `pages/RecordsPage.jsx` | Aynı axios-shaped hata pattern | `err?.message` kullanımına güncellendi |
+| W16 | `DashboardView.js` | Başlık hardcoded "Dashboard"; tarih `tr-TR` locale zorlaması | `t('dashboard.title')` ve `undefined` locale (tarayıcı tercihine bırakıldı) |
+| W17 | `pages/AttendancePage.jsx` | `useAttendance` error state hiç gösterilmiyordu | `attendanceError` kırmızı banner olarak render ediliyor |
+| W18 | `pages/AdminDashboardPage.jsx` | `Promise.allSettled` hataları sessizce yutuluyordu | `fetchError` state'i eklendi; her rejected promise kullanıcıya gösteriliyor |
+| W19 | `shared/components/ui/Table/Table.jsx` + `Badge/Badge.jsx` | Accessibility: `scope`, `role`, `aria-label` eksikti | `scope="col"`, `role="row/cell/status"`, `aria-label`, klavye navigasyonu eklendi |
+| W20 | `features/auth/services/authService.js` | `refreshToken` kullanılmıyordu; `apiClient.js`'de paralel implementasyon vardı | Fonksiyon backward-compat için korundu, açıklama eklendi |
+
+##### Mobil
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| M11 | `app/(tabs)/home.js` | Fetch hataları `console.error`'da kalıyordu; ekranda gösterilmiyordu | `loadError` state + kırmızı banner bileşeni eklendi |
+| M12 | `app/(tabs)/home.js` | `hasNotification` prop `Header`'a geçilmiyordu | `/notifications/count` API çağrısı eklendi; okunmamış bildirim varsa ikon aktif |
+| M13 | `app/settings.js` | Reset butonu `updateNotificationPreferences()` çağırmıyordu | Reset onPress'e `updateNotificationPreferences(DEFAULT_SETTINGS)` eklendi |
+| M14 | `app/(tabs)/more.js` | "Yüz Kaydı" menüsü tüm roller için gösteriliyordu | `adminOnly: true` flag'i eklendi; yalnızca admin görüyor |
+| M15 | `app/course-detail.js` | `StyleSheet`'te `sumRow` duplicate key — ilk tanım siliniyordu | İkinci tanım `stuSumRow` olarak yeniden adlandırıldı |
+| M16 | `mobile-app/.env` | Supabase anahtarı — `.gitignore` kontrolü | `.gitignore`'da zaten vardı; `git ls-files` ile doğrulandı (tracked değil) |
+
+##### DB / Test / CI
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| D6 | `backend/tests/` | Rooms, disputes, notifications, admin settings test dosyaları yoktu | `test_rooms.py`, `test_disputes.py`, `test_notifications.py`, `test_admin_settings.py` oluşturuldu |
+| D7 | `tests/conftest.py` | `CourseInstructor`, `Notification`, `SystemSetting` import edilmiyordu | Üç model import'u eklendi; tablo oluşturma order-safe |
+| D8 | `.github/workflows/ci.yml` | Mobil lint, Alembic check, SAST, secret scan, coverage threshold yoktu | 5 job'a genişletildi: `backend-test` (coverage ≥%60 + alembic check), `backend-sast` (Bandit), `secret-scan` (Gitleaks), `web-build` (ESLint), `mobile-lint` |
+| D9 | `README.md` | "docker-compose tüm servisleri kaldırır" yazıyordu, sadece API vardı | "API + PostgreSQL servislerini ayağa kaldırır" olarak düzeltildi |
+| D10 | `README.md` | `course_instructor.py` ve `test_new_features.py` listelerde eksikti | Her iki dosya ilgili bölümlere eklendi |
+
+---

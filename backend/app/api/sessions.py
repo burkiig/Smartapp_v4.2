@@ -36,13 +36,15 @@ def get_sessions(
     if current_user.role == "student":
         from app.repositories.course_repo import EnrollmentRepository
 
-        enroll_repo = EnrollmentRepository(db)
-        filtered = [
-            s
-            for s in sessions
-            if enroll_repo.student_can_attend_course(current_user.id, s.course_id)
-        ]
+        attendable_ids = EnrollmentRepository(db).get_attendable_course_ids(current_user.id)
+        filtered = [s for s in sessions if s.course_id in attendable_ids]
         return [SessionPublicResponse.model_validate(s) for s in filtered]
+    if current_user.role == "instructor":
+        my_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        if course_id and course_id not in my_course_ids:
+            raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
+        filtered = [s for s in sessions if s.course_id in my_course_ids]
+        return [SessionResponse.model_validate(s) for s in filtered]
     return [SessionResponse.model_validate(s) for s in sessions]
 
 
@@ -52,19 +54,16 @@ def get_active_sessions(
     db: DBSession = Depends(get_db),
 ):
     repo = SessionRepository(db)
-    sessions = repo.get_active()
     if current_user.role == "student":
-        # Kayıtlı (veya paralel şube) derslerin aktif oturumları; QR liste sızıntısı olmasın
         from app.repositories.course_repo import EnrollmentRepository
 
-        enroll_repo = EnrollmentRepository(db)
-        filtered_sessions = [
-            s
-            for s in sessions
-            if enroll_repo.student_can_attend_course(current_user.id, s.course_id)
-        ]
-        return [SessionPublicResponse.model_validate(s) for s in filtered_sessions]
-    return [SessionResponse.model_validate(s) for s in sessions]
+        # Tek sorgu setiyle katılabilir ders ID'lerini al, DB'de filtrele — N+1 yok
+        attendable_ids = EnrollmentRepository(db).get_attendable_course_ids(current_user.id)
+        if not attendable_ids:
+            return []
+        sessions = repo.get_active_for_student(attendable_ids)
+        return [SessionPublicResponse.model_validate(s) for s in sessions]
+    return [SessionResponse.model_validate(s) for s in repo.get_active()]
 
 
 @router.post("/start")
@@ -115,15 +114,18 @@ def start_session(
         course = CourseRepository(db).get_by_id(session.course_id)
         course_name = course.code if course else f"Ders #{session.course_id}"
         enrollments = enroll_repo.get_by_course(session.course_id)
+        # Tek IN sorgusuyla tüm öğrencileri çek — N+1 yok
+        student_ids = [e.student_id for e in enrollments]
+        students = {u.id: u for u in user_repo.get_by_ids(student_ids)}
         base_data = {"type": "session_started", "session_id": session.id, "course_id": session.course_id}
         notif_title = "📋 Yoklama Başladı"
         notif_body = f"{course_name} dersi için yoklama açıldı. Hemen yoklamanı al!"
-        push_items = []  # (token, notificationId)
+        push_tokens = []
         for e in enrollments:
-            student = user_repo.get_by_id(e.student_id)
+            student = students.get(e.student_id)
             if not student:
                 continue
-            db_notif = create_notification(
+            create_notification(
                 db=db,
                 user_id=student.id,
                 type="session_started",
@@ -132,18 +134,9 @@ def start_session(
                 data=base_data,
             )
             if student.push_token:
-                push_items.append((student.push_token, db_notif.id if db_notif else None))
-        if push_items:
-            # Group by notificationId is per-user; batch all tokens for efficiency.
-            # The notificationId in data lets mobile auto-mark on tap.
-            tokens = [t for t, _ in push_items]
-            # Send a common push — individual notificationId mapping is best-effort.
-            send_expo_push(
-                tokens=tokens,
-                title=notif_title,
-                body=notif_body,
-                data=base_data,
-            )
+                push_tokens.append(student.push_token)
+        if push_tokens:
+            send_expo_push(tokens=push_tokens, title=notif_title, body=notif_body, data=base_data)
     except Exception:
         pass
 
@@ -229,6 +222,14 @@ def get_session_qr(
     current_user: User = Depends(require_instructor),
     db: DBSession = Depends(get_db),
 ):
+    repo = SessionRepository(db)
+    session = repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Oturum bulunamadı")
+    if current_user.role == "instructor":
+        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        if session.course_id not in my_ids:
+            raise HTTPException(status_code=403, detail="Bu oturum üzerinde yetkiniz yok")
     service = SessionService(db)
     qr_image = service.get_qr_image(session_id)
     return {"success": True, "qr_image": qr_image}
@@ -314,6 +315,10 @@ def cancel_class(
     if not course:
         raise HTTPException(status_code=404, detail="Ders bulunamadı")
 
+    # Instructor can only cancel their own courses
+    if current_user.role == "instructor" and not course_repo.is_instructor_of_course(current_user.id, data.course_id):
+        raise HTTPException(status_code=403, detail="Bu dersi iptal etme yetkiniz yok")
+
     session_repo = SessionRepository(db)
     cancel_repo = CancellationRepository(db)
 
@@ -342,12 +347,15 @@ def cancel_class(
         enroll_repo = EnrollmentRepository(db)
         user_repo = UserRepository(db)
         enrollments = enroll_repo.get_by_course(data.course_id)
+        # Tek IN sorgusuyla tüm öğrencileri çek — N+1 yok
+        student_ids = [e.student_id for e in enrollments]
+        students = {u.id: u for u in user_repo.get_by_ids(student_ids)}
         push_tokens = []
         notif_title = "Ders İptal Edildi 📢"
         notif_body = f"{course.code} dersi iptal edildi. Sebep: {data.reason}"
         notif_data = {"type": "class_cancelled", "course_id": data.course_id, "date": date}
         for e in enrollments:
-            student = user_repo.get_by_id(e.student_id)
+            student = students.get(e.student_id)
             if not student:
                 continue
             if student.push_token:
@@ -361,12 +369,7 @@ def cancel_class(
                 data=notif_data,
             )
         if push_tokens:
-            send_expo_push(
-                tokens=push_tokens,
-                title=notif_title,
-                body=notif_body,
-                data=notif_data,
-            )
+            send_expo_push(tokens=push_tokens, title=notif_title, body=notif_body, data=notif_data)
     except Exception:
         pass
 
@@ -380,4 +383,17 @@ def get_cancellations(
     db: DBSession = Depends(get_db),
 ):
     repo = CancellationRepository(db)
+    if current_user.role == "student":
+        from app.repositories.course_repo import EnrollmentRepository
+        enrolled_ids = EnrollmentRepository(db).get_attendable_course_ids(current_user.id)
+        if course_id and course_id not in enrolled_ids:
+            return []
+        all_cancellations = repo.get_all(course_id=course_id)
+        return [c for c in all_cancellations if c.course_id in enrolled_ids]
+    if current_user.role == "instructor":
+        my_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        if course_id and course_id not in my_course_ids:
+            raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
+        all_cancellations = repo.get_all(course_id=course_id)
+        return [c for c in all_cancellations if c.course_id in my_course_ids]
     return repo.get_all(course_id=course_id)

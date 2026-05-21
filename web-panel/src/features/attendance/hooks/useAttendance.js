@@ -22,7 +22,7 @@ export const useAttendance = () => {
       if (result.success) {
         setFlaggedRecords(result.data);
       } else {
-        setError(t('attendance.flaggedLoadError') || 'Bayraklı kayıtlar yüklenemedi');
+        setError(t('studentDashboard.attendance.flaggedLoadError') || 'Bayraklı kayıtlar yüklenemedi');
       }
     } catch (err) {
       setError(err.message);

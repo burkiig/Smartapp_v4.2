@@ -92,10 +92,10 @@ export const SettingsPage = () => {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
+    const rawUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (rawUser) {
       try {
-        const u = JSON.parse(savedUser);
+        const u = JSON.parse(rawUser);
         setName(u.name || '');
         setEmail(u.email || '');
         setDepartment(u.department || '');
@@ -118,12 +118,18 @@ export const SettingsPage = () => {
     setSaving(true);
     setMessage({ text: '', type: '' });
     try {
-      const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const rawUser = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
+      const savedUser = JSON.parse(rawUser);
       const updated = await apiClient.patch(`/users/${savedUser.id}`, {
         name: name || undefined,
         department: department || undefined,
       });
-      localStorage.setItem('user', JSON.stringify({ ...savedUser, ...updated }));
+      const merged = JSON.stringify({ ...savedUser, ...updated });
+      if (localStorage.getItem('user')) {
+        localStorage.setItem('user', merged);
+      } else {
+        sessionStorage.setItem('user', merged);
+      }
       localStorage.setItem('web_panel_settings', JSON.stringify({
         pushNotifications, notifyFlagged, notifySessionEnds, language, timeFormat,
       }));

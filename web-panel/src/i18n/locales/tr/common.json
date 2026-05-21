@@ -1,7 +1,7 @@
 {
   "common": {
     "loading": "Yükleniyor...",
-    "noData": "Veri yok",
+    "noData": "Kayıt bulunamadı",
     "save": "Kaydet",
     "saving": "Kaydediliyor...",
     "cancel": "İptal",
@@ -24,19 +24,21 @@
     "inactive": "Pasif",
     "status": "Durum",
     "actions": "İşlemler",
-    "noData": "Kayıt bulunamadı",
     "error": "Hata",
     "success": "Başarılı",
     "failed": "Başarısız",
     "continue": "Devam Et",
     "approve": "Onayla",
     "reject": "Reddet",
+    "undo": "Geri Al",
+    "retry": "Tekrar Dene",
     "actionFailed": "İşlem başarısız oldu!",
     "actionSuccess": "İşlem başarıyla tamamlandı",
     "apply": "Uygula",
     "show": "Göster",
     "prev": "Önceki",
-    "next": "Sonraki"
+    "next": "Sonraki",
+    "processing": "İşleniyor..."
   },
   "app": {
     "name": "Yoklama Sistemi",
@@ -55,7 +57,21 @@
     "loginButton": "Giriş Yap",
     "loggingIn": "Giriş yapılıyor…",
     "hidePassword": "Şifreyi gizle",
-    "showPassword": "Şifreyi göster"
+    "showPassword": "Şifreyi göster",
+    "loginPanel": {
+      "appName": "Akıllı Yoklama Sistemi",
+      "tagline": "Tekrar hoş geldiniz. Devam etmek için giriş yapın."
+    },
+    "resetTitle": "Şifre Sıfırlama",
+    "forgotSubtitle": "E-posta adresinizi girin, sıfırlama talimatları göndereceğiz.",
+    "resetSubtitle": "E-posta ile gelen token ve yeni şifrenizi girin.",
+    "resetTokenLabel": "Sıfırlama Token",
+    "resetTokenPlaceholder": "E-postanızdaki token",
+    "newPasswordLabel": "Yeni Şifre",
+    "newPasswordPlaceholder": "Yeni şifreniz",
+    "sendResetBtn": "Sıfırlama Talimatı Gönder",
+    "updatePasswordBtn": "Şifreyi Güncelle",
+    "backToLogin": "Giriş ekranına dön"
   },
   "nav": {
     "systemTitle": "Yoklama Sistemi",
@@ -870,14 +886,26 @@
   },
   "students": {
     "title": "Öğrenciler",
+    "subtitle": "{{count}} öğrenci kayıtlı",
     "totalCount": "Toplam {{count}} öğrenci",
     "searchPlaceholder": "Ad, kullanıcı adı, e-posta, numara veya bölüm...",
     "allDepartments": "Tüm Bölümler",
     "noResults": "Arama sonucu bulunamadı",
+    "noSearchResults": "Aramanızla eşleşen sonuç yok",
     "noStudents": "Henüz kayıtlı öğrenci yok",
     "manualAttendance": "Manuel Yoklama",
     "confirmDelete": "Bu öğrenciyi silmek istediğinizden emin misiniz?",
+    "deleteConfirm": "Bu öğrenciyi silmek istediğinizden emin misiniz?",
+    "active": "Aktif",
+    "inactive": "Pasif",
     "retry": "Tekrar Dene",
+    "fullName": "Ad Soyad",
+    "username": "Kullanıcı Adı",
+    "email": "E-posta",
+    "studentNo": "Öğrenci No",
+    "department": "Bölüm",
+    "status": "Durum",
+    "actions": "İşlem",
     "tableHeaders": {
       "fullName": "Ad Soyad",
       "username": "Kullanıcı Adı",
@@ -989,6 +1017,16 @@
   "attendancePage": {
     "title": "Yoklama Yönetimi",
     "subtitle": "Bayraklı kayıtları ve mazeretleri inceleyin",
+    "recordDetail": {
+      "title": "Yoklama Kaydı Detayı",
+      "student": "Öğrenci",
+      "course": "Ders",
+      "date": "Tarih/Saat",
+      "status": "Durum",
+      "flagReason": "İşaretlenme Sebebi",
+      "method": "Doğrulama Yöntemi",
+      "location": "Konum"
+    },
     "pendingReview": "Bekleyen İnceleme",
     "triageBanner": "Bildirimden geldiniz: Oturum {{sessionId}} — Şüpheli kayıtlar inceleniyor",
     "noExcuses": "Mazeret talebi bulunamadı",

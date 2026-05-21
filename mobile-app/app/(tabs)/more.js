@@ -20,7 +20,7 @@ const MENU = [
   {
     title: 'Araçlar',
     items: [
-      { icon: 'scan-outline',         color: Colors.warning, bg: Colors.warningLight, label: 'Yüz Kaydı',       sub: 'Öğrenci yüzü kaydet', route: '/register-face' },
+      { icon: 'scan-outline',         color: Colors.warning, bg: Colors.warningLight, label: 'Yüz Kaydı',       sub: 'Öğrenci yüzü kaydet', route: '/register-face', adminOnly: true },
       { icon: 'close-circle-outline', color: Colors.error,   bg: Colors.errorLight,   label: 'Ders İptal',      sub: 'Oturum iptali',       route: '/cancel-class'  },
     ],
   },
@@ -70,10 +70,10 @@ export default function MoreScreen() {
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionLabel}>{section.title}</Text>
             <View style={styles.group}>
-              {section.items.map((item, i) => (
+              {section.items.filter(item => !item.adminOnly || role === 'admin').map((item, i) => (
                 <TouchableOpacity
                   key={item.label}
-                  style={[styles.row, i < section.items.length - 1 && styles.rowBorder]}
+                  style={[styles.row, i < section.items.filter(it => !it.adminOnly || role === 'admin').length - 1 && styles.rowBorder]}
                   onPress={() => router.push(item.route)}
                   activeOpacity={0.7}
                 >

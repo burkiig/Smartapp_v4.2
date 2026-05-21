@@ -81,7 +81,7 @@ class Settings:
     ]
 
     # ── Face Recognition ─────────────────────────────────────────────────────
-    FACE_SIMILARITY_THRESHOLD: float = float(os.getenv("FACE_SIMILARITY_THRESHOLD", "0.55"))
+    FACE_SIMILARITY_THRESHOLD: float = float(os.getenv("FACE_SIMILARITY_THRESHOLD", "0.5"))
     FACE_LIVENESS_THRESHOLD: float = float(os.getenv("FACE_LIVENESS_THRESHOLD", "0.5"))
 
     # ── Geofencing ───────────────────────────────────────────────────────────

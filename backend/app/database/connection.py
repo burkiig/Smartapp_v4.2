@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -6,9 +8,12 @@ from app.config.settings import settings
 
 def create_postgres_engine(url: str):
     use_pgbouncer = "pgbouncer=true" in url.lower()
+    # Respect DB_SSL_MODE env var; default to "require" for production safety.
+    # Set DB_SSL_MODE=disable for local dev without TLS (e.g. plain Docker Postgres).
+    ssl_mode = os.getenv("DB_SSL_MODE", "require")
     connect_args = {
         "connect_timeout": 10,
-        "sslmode": "require",
+        "sslmode": ssl_mode,
         "options": "-c statement_timeout=30000",
     }
     engine_kwargs = {

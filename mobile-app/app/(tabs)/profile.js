@@ -29,7 +29,8 @@ export default function ProfileScreen() {
     }
   }, [role]);
 
-  if (role === 'instructor') return <InstructorProfile />;
+  // Öğretmen ve admin için instructor profil ekranı göster
+  if (role === 'instructor' || role === 'admin') return <InstructorProfile />;
 
   const handleLogout = () =>
     Alert.alert('Çıkış Yap', 'Çıkmak istediğinize emin misiniz?', [

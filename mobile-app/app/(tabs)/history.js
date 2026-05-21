@@ -2,6 +2,7 @@
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, FlatList, Alert, ActivityIndicator, RefreshControl, Dimensions,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -108,6 +109,11 @@ function StudentSchedule() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [filter,     setFilter]     = useState('Tümü');
+  // İtiraz modalı (Alert.prompt Android'de desteklenmiyor)
+  const [disputeModal,  setDisputeModal]  = useState(false);
+  const [disputeItem,   setDisputeItem]   = useState(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeLoading, setDisputeLoading] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -160,18 +166,30 @@ function StudentSchedule() {
 
   const handleDispute = (item) => {
     if (!item.session_id) { Alert.alert('Uyarı', 'Bu kayıt için oturum bilgisi bulunamadı.'); return; }
-    Alert.prompt('İtiraz Gönder', 'İtiraz nedeninizi kısaca açıklayın:',
-      [
-        { text: 'İptal', style: 'cancel' },
-        { text: 'Gönder', onPress: async (reason) => {
-          if (!reason?.trim()) return;
-          try {
-            await disputes.submit({ sessionId: item.session_id, courseId: item.course_id, reason: reason.trim() });
-            Alert.alert('Başarılı', 'İtirazınız öğretmene iletildi.');
-          } catch (err) { Alert.alert('Hata', err?.message || 'İtiraz gönderilemedi.'); }
-        }},
-      ], 'plain-text'
-    );
+    setDisputeItem(item);
+    setDisputeReason('');
+    setDisputeModal(true);
+  };
+
+  const submitDispute = async () => {
+    if (!disputeReason.trim()) {
+      Alert.alert('Uyarı', 'Lütfen itiraz nedeninizi yazın.');
+      return;
+    }
+    setDisputeLoading(true);
+    try {
+      await disputes.submit({
+        sessionId: disputeItem.session_id,
+        courseId: disputeItem.course_id,
+        reason: disputeReason.trim(),
+      });
+      setDisputeModal(false);
+      Alert.alert('Başarılı', 'İtirazınız öğretmene iletildi.');
+    } catch (err) {
+      Alert.alert('Hata', err?.message || 'İtiraz gönderilemedi.');
+    } finally {
+      setDisputeLoading(false);
+    }
   };
 
   const renderCourseCard = ({ item }) => {
@@ -436,6 +454,50 @@ function StudentSchedule() {
           }
         />
       )}
+
+      {/* İtiraz Modalı — Alert.prompt Android'de çalışmadığı için özel modal */}
+      <Modal
+        visible={disputeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDisputeModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.disputeOverlay}>
+          <View style={styles.disputeBox}>
+            <Text style={styles.disputeTitle}>İtiraz Gönder</Text>
+            <Text style={styles.disputeSub}>İtiraz nedeninizi kısaca açıklayın:</Text>
+            <TextInput
+              style={styles.disputeInput}
+              value={disputeReason}
+              onChangeText={setDisputeReason}
+              placeholder="Nedeninizi yazın..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              numberOfLines={3}
+              autoFocus
+            />
+            <View style={styles.disputeBtns}>
+              <TouchableOpacity
+                style={styles.disputeBtnCancel}
+                onPress={() => setDisputeModal(false)}
+                disabled={disputeLoading}
+              >
+                <Text style={styles.disputeBtnCancelText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.disputeBtnSend, disputeLoading && { opacity: 0.6 }]}
+                onPress={submitDispute}
+                disabled={disputeLoading}
+              >
+                {disputeLoading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.disputeBtnSendText}>Gönder</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -455,7 +517,7 @@ function MiniStat({ label, value }) {
 // ── Ana export ────────────────────────────────────────────────────────────────
 export default function HistoryScreen() {
   const { user } = useUser();
-  if (user?.role === 'instructor') return <InstructorHistory />;
+  if (user?.role === 'instructor' || user?.role === 'admin') return <InstructorHistory />;
   return <StudentSchedule />;
 }
 
@@ -556,4 +618,16 @@ const styles = StyleSheet.create({
   statusText:      { fontSize: 11, fontWeight: '700' },
 
   emptyText: { fontSize: 14, color: Colors.textMuted, marginTop: 12, textAlign: 'center' },
+
+  // İtiraz modalı
+  disputeOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  disputeBox:          { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 12, paddingBottom: 32 },
+  disputeTitle:        { fontSize: 18, fontWeight: '800', color: Colors.text },
+  disputeSub:          { fontSize: 13, color: Colors.textMuted },
+  disputeInput:        { backgroundColor: Colors.bgAlt, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 14, fontSize: 14, color: Colors.text, minHeight: 80, textAlignVertical: 'top' },
+  disputeBtns:         { flexDirection: 'row', gap: 10, marginTop: 4 },
+  disputeBtnCancel:    { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: Colors.bgAlt, borderWidth: 1, borderColor: Colors.border },
+  disputeBtnCancelText:{ fontSize: 15, fontWeight: '600', color: Colors.text },
+  disputeBtnSend:      { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: Colors.primary },
+  disputeBtnSendText:  { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

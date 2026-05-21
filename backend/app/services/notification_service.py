@@ -123,6 +123,7 @@ def send_email(to_addresses: List[str], subject: str, body_html: str) -> bool:
 
 def notify_absent_students(session_id: int, db_factory) -> None:
     """Feature 7: Send email to all absent students after session ends."""
+    db = None
     try:
         db = db_factory()
         from app.models.attendance import FinalAttendanceRecord
@@ -190,13 +191,20 @@ def schedule_session_reminder_jobs(scheduler, db_factory) -> None:
 
             db = db_factory()
             now = datetime.now(timezone.utc)
-            day_name = now.strftime("%A")  # e.g. "Monday"
+            # Support both English ("Monday") and Turkish ("Pazartesi") day names in schedule
+            day_en = now.strftime("%A")
+            _TR_DAYS = {
+                "Monday": "Pazartesi", "Tuesday": "Salı", "Wednesday": "Çarşamba",
+                "Thursday": "Perşembe", "Friday": "Cuma", "Saturday": "Cumartesi", "Sunday": "Pazar",
+            }
+            day_tr = _TR_DAYS.get(day_en, day_en)
             current_minutes = now.hour * 60 + now.minute
 
             courses = db.query(Course).filter(Course.schedule.isnot(None)).all()
             for course in courses:
                 schedule = course.schedule
-                if not schedule or day_name not in (schedule.get("days") or []):
+                days = schedule.get("days") or []
+                if not schedule or (day_en not in days and day_tr not in days):
                     continue
                 start_time = schedule.get("start_time")
                 if not start_time:

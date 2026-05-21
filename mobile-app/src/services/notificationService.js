@@ -12,16 +12,62 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '@/services/api';
+
+const SETTINGS_KEY = '@smart_attendance_settings';
+
+// Aktif bildirim tercihleri (bellekte tutulur, ayarlar ekranında güncellenir)
+let _prefs = {
+  pushNotifications: true,
+  notifyFlagged:     true,
+  notifySessionEnds: true,
+  notifyClassStart:  true,
+};
+
+/**
+ * Bildirim tercihlerini günceller. settings.js'den çağrılır.
+ */
+export function updateNotificationPreferences(prefs) {
+  _prefs = { ..._prefs, ...prefs };
+}
+
+/**
+ * AsyncStorage'dan tercihleri yükleyip bellekte günceller.
+ * Uygulama başlarken çağrılmalıdır.
+ */
+export async function loadNotificationPreferences() {
+  try {
+    const raw = await AsyncStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      _prefs = { ..._prefs, ...saved };
+    }
+  } catch {}
+}
+
+// Notification type → tercih anahtarı eşleşmesi
+function shouldShowNotification(data) {
+  if (!_prefs.pushNotifications) return false;
+  const type = data?.type || '';
+  if ((type === 'flagged_attendance' || type === 'pending_review') && !_prefs.notifyFlagged) return false;
+  if ((type === 'session_ended' || type === 'session_stopped') && !_prefs.notifySessionEnds) return false;
+  if ((type === 'session_started' || type === 'class_start') && !_prefs.notifyClassStart) return false;
+  return true;
+}
 
 // Uygulama ön plandayken bildirimlerin nasıl gösterileceğini ayarla
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification?.request?.content?.data || {};
+    const show = shouldShowNotification(data);
+    return {
+      shouldShowBanner: show,
+      shouldShowList: show,
+      shouldPlaySound: show,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 function getExpoProjectId() {

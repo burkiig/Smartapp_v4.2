@@ -35,7 +35,7 @@ export const FlaggedAttendanceList = ({
   const columns = [
     {
       key: 'student',
-      label: t('flaggedList.student'),
+      label: t('flaggedList.columns.student'),
       render: (value, record) => (
         <div
           className="student-cell"
@@ -55,7 +55,7 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'courseTitle',
-      label: t('flaggedList.course'),
+      label: t('flaggedList.columns.course'),
       render: (value, record) => (
         <div className="course-cell">
           <div className="course-code">{record.courseTitle}</div>
@@ -64,12 +64,12 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'timestamp',
-      label: t('flaggedList.dateTime'),
+      label: t('flaggedList.columns.datetime'),
       render: (value) => <div className="timestamp">{value}</div>,
     },
     {
       key: 'reason',
-      label: t('flaggedList.reason'),
+      label: t('flaggedList.columns.reason'),
       render: (value, record) => (
         <Badge
           variant={record.reasonType === 'error' ? 'error' : 'warning'}
@@ -80,12 +80,12 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'method',
-      label: t('flaggedList.method'),
+      label: t('flaggedList.columns.method'),
       render: (value) => <Badge variant="info">{value}</Badge>,
     },
     {
       key: 'location',
-      label: t('flaggedList.location'),
+      label: t('flaggedList.columns.location'),
       render: (value) => (
         <div className="location-cell">
           {value}
@@ -94,10 +94,10 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'status',
-      label: t('flaggedList.status'),
+      label: t('flaggedList.columns.status'),
       render: (value, record) => {
         if (record.isFlagged) {
-          return <Badge variant="warning">{t('flaggedList.flagged')}</Badge>;
+          return <Badge variant="warning">{t('flaggedList.statuses.flagged')}</Badge>;
         }
         const variant = value === 'present' ? 'approved' : value === 'pending_review' ? 'warning' : 'rejected';
         return <Badge variant={variant}>{t(`records.statuses.${value}`, value)}</Badge>;
@@ -105,7 +105,7 @@ export const FlaggedAttendanceList = ({
     },
     {
       key: 'actions',
-      label: t('flaggedList.actions'),
+      label: t('flaggedList.columns.actions'),
       render: (value, record) => (
         <div className="action-buttons">
           {record.isFlagged ? (
@@ -118,8 +118,8 @@ export const FlaggedAttendanceList = ({
               </button>
             </>
           ) : (
-            <button className="action-btn undo-btn" onClick={() => onUndo(record.id)} title={t('common.undo')}>
-              {t('common.undo')}
+            <button className="action-btn undo-btn" onClick={() => onUndo(record.id)} title={t('common.undo', 'Geri Al')}>
+              {t('common.undo', 'Geri Al')}
             </button>
           )}
           {onViewDetails && (

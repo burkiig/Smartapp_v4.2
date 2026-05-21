@@ -22,12 +22,17 @@ const { width } = Dimensions.get('window');
 export default function QRScanScreen() {
   const router = useRouter();
   const { session_id } = useLocalSearchParams();
+  const navTimerRef = useRef(null);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState('idle'); // idle | scanning | verifying | success | error
   const [errorMessage, setErrorMessage] = useState('');
   const [scanned, setScanned] = useState(false);
   const [scanLineAnim] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    return () => { if (navTimerRef.current) clearTimeout(navTimerRef.current); };
+  }, []);
 
   // Scan line animation
   useEffect(() => {
@@ -82,7 +87,7 @@ export default function QRScanScreen() {
 
       if (isVerified) {
         setScanState('success');
-        setTimeout(() => {
+        navTimerRef.current = setTimeout(() => {
           router.replace({ pathname: '/face-scan', params: { session_id: resolvedSessionId } });
         }, 800);
       } else {
