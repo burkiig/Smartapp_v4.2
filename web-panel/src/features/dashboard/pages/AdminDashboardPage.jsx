@@ -13,6 +13,73 @@ import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
 import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
 import './AdminDashboardPage.css';
 
+// ── Leadership role helpers (admin user form) ────────────────────────────────
+
+function buildUserPayload(form, { includePassword = true, forEdit = false } = {}) {
+  const payload = {
+    name: form.name?.trim(),
+    role: form.role,
+  };
+
+  if (!forEdit) {
+    payload.username = form.username?.trim();
+    payload.email = form.email?.trim();
+  } else {
+    payload.email = form.email?.trim();
+    if (form.password?.trim()) {
+      payload.password = form.password.trim();
+    }
+  }
+
+  if (includePassword && !forEdit) {
+    payload.password = form.password;
+  }
+
+  if (form.role === 'student') {
+    payload.department = form.department?.trim() || undefined;
+    payload.student_number = form.student_number?.trim() || undefined;
+    payload.scope_type = null;
+    payload.scope_value = null;
+  } else if (form.role === 'instructor' || form.role === 'admin') {
+    payload.department = form.department?.trim() || undefined;
+    payload.student_number = undefined;
+    payload.scope_type = null;
+    payload.scope_value = null;
+  } else if (form.role === 'rector') {
+    payload.scope_type = 'university';
+    payload.scope_value = null;
+    payload.department = undefined;
+    payload.student_number = undefined;
+  } else if (form.role === 'dean') {
+    if (!form.scope_value) {
+      throw new Error('Dekan rolü için bölüm seçimi zorunludur.');
+    }
+    payload.scope_type = 'department';
+    payload.scope_value = form.scope_value;
+    payload.department = undefined;
+    payload.student_number = undefined;
+  }
+
+  if (forEdit && form.is_active !== undefined) {
+    payload.is_active = form.is_active;
+  }
+
+  return payload;
+}
+
+function useDistinctDepartments(enabled) {
+  const [departments, setDepartments] = useState([]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    apiClient.get('/admin/distinct-departments')
+      .then((res) => setDepartments(res.departments || []))
+      .catch(() => setDepartments([]));
+  }, [enabled]);
+
+  return departments;
+}
+
 // ── CsvImportModal ─────────────────────────────────────────────────────────────
 
 function CsvImportModal({ onClose, onSuccess }) {
@@ -118,17 +185,27 @@ function AddUserModal({ onClose, onSuccess }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     username: '', email: '', password: '', name: '',
-    role: 'student', department: '', student_number: '',
+    role: 'student', department: '', student_number: '', scope_value: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const departments = useDistinctDepartments(true);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleRoleChange = (role) => {
+    setForm(f => ({
+      ...f,
+      role,
+      scope_value: role === 'dean' ? f.scope_value : '',
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      await apiClient.post('/users', form);
+      const payload = buildUserPayload(form);
+      await apiClient.post('/users', payload);
       onSuccess(); onClose();
     } catch (err) {
       setError(err.message || t('modals.addUser.errorCreate'));
@@ -167,17 +244,42 @@ function AddUserModal({ onClose, onSuccess }) {
           <div className="form-row">
             <div className="form-group">
               <label>{t('modals.addUser.roleLabel')}</label>
-              <select value={form.role} onChange={e => set('role', e.target.value)}>
+              <select value={form.role} onChange={e => handleRoleChange(e.target.value)}>
                 <option value="student">{t('modals.addUser.roleStudent')}</option>
                 <option value="instructor">{t('modals.addUser.roleInstructor')}</option>
                 <option value="admin">{t('modals.addUser.roleAdmin')}</option>
+                <option value="dean">{t('modals.addUser.roleDean', 'Dekan')}</option>
+                <option value="rector">{t('modals.addUser.roleRector', 'Rektör')}</option>
               </select>
             </div>
-            <div className="form-group">
-              <label>{t('modals.addUser.departmentLabel')}</label>
-              <input value={form.department} onChange={e => set('department', e.target.value)} placeholder={t('modals.addUser.departmentPlaceholder')} />
-            </div>
+            {(form.role === 'student' || form.role === 'instructor' || form.role === 'admin') && (
+              <div className="form-group">
+                <label>{t('modals.addUser.departmentLabel')}</label>
+                <input value={form.department} onChange={e => set('department', e.target.value)} placeholder={t('modals.addUser.departmentPlaceholder')} />
+              </div>
+            )}
+            {form.role === 'dean' && (
+              <div className="form-group">
+                <label>{t('modals.addUser.scopeDepartment', 'Yetki Alanı (Bölüm)')}</label>
+                <select
+                  value={form.scope_value}
+                  onChange={e => set('scope_value', e.target.value)}
+                  required
+                >
+                  <option value="">{t('modals.addUser.selectDepartment', 'Bölüm seçin...')}</option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+                {departments.length === 0 && (
+                  <p className="form-hint">{t('modals.addUser.noDepartments', 'Henüz kayıtlı öğrenci bölümü yok. Önce öğrencilere bölüm atayın.')}</p>
+                )}
+              </div>
+            )}
           </div>
+          {form.role === 'rector' && (
+            <p className="form-hint">{t('modals.addUser.rectorScopeHint', 'Rektör tüm kurum verilerini görür.')}</p>
+          )}
           {form.role === 'student' && (
             <div className="form-group">
               <label>{t('modals.addUser.studentNoLabel')}</label>
@@ -206,10 +308,12 @@ function EditUserModal({ userData, onClose, onSuccess }) {
     role: userData.role || 'student',
     department: userData.department || '',
     student_number: userData.student_number || '',
+    scope_value: userData.scope_value || '',
     is_active: userData.is_active !== false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const departments = useDistinctDepartments(form.role === 'dean');
   const [faceStatus, setFaceStatus] = useState(null);
   const [faceFile, setFaceFile] = useState(null);
   const [facePreview, setFacePreview] = useState('');
@@ -217,6 +321,14 @@ function EditUserModal({ userData, onClose, onSuccess }) {
   const [faceMsg, setFaceMsg] = useState('');
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleRoleChange = (role) => {
+    setForm(f => ({
+      ...f,
+      role,
+      scope_value: role === 'dean' ? f.scope_value : '',
+    }));
+  };
 
   useEffect(() => {
     apiClient.get(`/face/status/${userData.id}`)
@@ -258,8 +370,7 @@ function EditUserModal({ userData, onClose, onSuccess }) {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const payload = { ...form };
-      if (!payload.password) delete payload.password;
+      const payload = buildUserPayload(form, { forEdit: true });
       await apiClient.patch(`/users/${userData.id}`, payload);
       onSuccess(); onClose();
     } catch (err) {
@@ -300,17 +411,42 @@ function EditUserModal({ userData, onClose, onSuccess }) {
           <div className="form-row">
             <div className="form-group">
               <label>{t('modals.editUser.role')}</label>
-              <select value={form.role} onChange={e => set('role', e.target.value)}>
+              <select value={form.role} onChange={e => handleRoleChange(e.target.value)}>
                 <option value="student">{t('admin.users.roles.student')}</option>
                 <option value="instructor">{t('admin.users.roles.instructor')}</option>
                 <option value="admin">{t('admin.users.roles.admin')}</option>
+                <option value="dean">{t('admin.users.roles.dean', 'Dekan')}</option>
+                <option value="rector">{t('admin.users.roles.rector', 'Rektör')}</option>
               </select>
             </div>
-            <div className="form-group">
-              <label>{t('modals.editUser.department')}</label>
-              <input value={form.department} onChange={e => set('department', e.target.value)} />
-            </div>
+            {(form.role === 'student' || form.role === 'instructor' || form.role === 'admin') && (
+              <div className="form-group">
+                <label>{t('modals.editUser.department')}</label>
+                <input value={form.department} onChange={e => set('department', e.target.value)} />
+              </div>
+            )}
+            {form.role === 'dean' && (
+              <div className="form-group">
+                <label>{t('modals.addUser.scopeDepartment', 'Yetki Alanı (Bölüm)')}</label>
+                <select
+                  value={form.scope_value}
+                  onChange={e => set('scope_value', e.target.value)}
+                  required
+                >
+                  <option value="">{t('modals.addUser.selectDepartment', 'Bölüm seçin...')}</option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                  {form.scope_value && !departments.includes(form.scope_value) && (
+                    <option value={form.scope_value}>{form.scope_value}</option>
+                  )}
+                </select>
+              </div>
+            )}
           </div>
+          {form.role === 'rector' && (
+            <p className="form-hint">{t('modals.addUser.rectorScopeHint', 'Rektör tüm kurum verilerini görür.')}</p>
+          )}
           {form.role === 'student' && (
             <div className="form-group">
               <label>{t('modals.editUser.studentNo')}</label>

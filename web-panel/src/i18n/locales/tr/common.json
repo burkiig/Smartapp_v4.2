@@ -195,7 +195,9 @@
       "roles": {
         "admin": "Admin",
         "instructor": "Öğretmen",
-        "student": "Öğrenci"
+        "student": "Öğrenci",
+        "dean": "Dekan",
+        "rector": "Rektör"
       }
     },
     "courses": {
@@ -257,6 +259,12 @@
       "roleStudent": "Öğrenci",
       "roleInstructor": "Öğretmen",
       "roleAdmin": "Admin",
+      "roleDean": "Dekan",
+      "roleRector": "Rektör",
+      "scopeDepartment": "Yetki Alanı (Bölüm)",
+      "selectDepartment": "Bölüm seçin...",
+      "noDepartments": "Henüz kayıtlı öğrenci bölümü yok. Önce öğrencilere bölüm atayın.",
+      "rectorScopeHint": "Rektör tüm kurum verilerini görür.",
       "departmentPlaceholder": "Bilgisayar Mühendisliği",
       "cancelBtn": "İptal",
       "saveBtn": "Kaydet",
@@ -1133,5 +1141,33 @@
     "errorRejectFull": "Mazeret reddedilirken bir hata oluştu: {{error}}",
     "docOpenError": "Belge açılamadı: {{error}}",
     "docDownloadError": "Belge indirilemedi: {{error}}"
+  },
+  "leadership": {
+    "title": "Liderlik Analitik Paneli",
+    "roleRector": "Rektör",
+    "roleDean": "Dekan",
+    "avgAttendance": "Genel Devam Oranı",
+    "atRiskCount": "Riskli Öğrenci",
+    "activeCourses": "Aktif Dersler",
+    "flaggedRecords": "Şüpheli Yoklama",
+    "chartAttendance": "Devam Oranı (%)",
+    "departmentComparison": "Bölüm Karşılaştırması",
+    "courseComparison": "Bölüm İçi Ders Performansı",
+    "atRiskTitle": "Erken Uyarı — Risk Altındaki Öğrenciler",
+    "students": "öğrenci",
+    "minRate": "Eşik",
+    "noAtRisk": "Risk altında öğrenci bulunmuyor.",
+    "colName": "Ad Soyad",
+    "colNumber": "No",
+    "colDepartment": "Bölüm",
+    "colRate": "Devam %",
+    "colStreak": "Ardışık Devamsız",
+    "colRisk": "Risk",
+    "colAction": "Aksiyon",
+    "riskCritical": "Kritik",
+    "riskPotential": "Potansiyel",
+    "notifyAdvisor": "Danışmana Bildir",
+    "notifySent": "{{name}} için danışmana bildirim gönderildi!",
+    "loadError": "Veriler yüklenemedi"
   }
 }

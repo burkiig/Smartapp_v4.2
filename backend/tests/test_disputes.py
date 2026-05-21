@@ -1,7 +1,5 @@
 """Tests for dispute submission and review."""
 import pytest
-from app.models.dispute import Dispute
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

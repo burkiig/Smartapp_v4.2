@@ -20,6 +20,30 @@ Proje üç ana bileşenden oluşur:
 
 ---
 
+## Son Güncellemeler
+
+### Burak Gedikli — 5/21/26
+
+**Liderlik Analitik Paneli (MVP) — Web only**
+
+| Alan | Detay |
+|------|--------|
+| **Yeni roller** | `dean` (Dekan), `rector` (Rektör) |
+| **Backend API** | `GET /api/v1/leadership/overview`, `/departments`, `/at-risk` |
+| **Güvenlik** | `require_leadership` dependency; dekan scope'u sunucuda zorunlu (`scope_value` — istek parametresiyle bypass edilemez) |
+| **User modeli** | `scope_type`, `scope_value` kolonları (Alembic: `h4i5j6k7l8m9_user_leadership_scope`) |
+| **Admin panel** | Kullanıcı ekle/düzenle formunda Dekan & Rektör; bölüm dropdown (`GET /api/v1/admin/distinct-departments`) |
+| **Yetki koruması** | `user_privileges.py` — admin olmayan kullanıcı role/scope değiştiremez (403) |
+| **Web sayfası** | `web-panel/src/pages/LeadershipDashboardPage.jsx` — KPI, bar chart, risk tablosu, mock “Danışmana Bildir” |
+| **i18n** | TR/EN `leadership.*` çeviri anahtarları |
+| **Düzeltme** | Dekan görünümünde PostgreSQL JSON `distinct` hatası giderildi (`Course.schedule`) |
+
+**Not:** Mock seed veri eklenmedi; panel mevcut veritabanı verisini kullanır. CSV import hâlâ yalnızca `student | instructor | admin` rollerini destekler.
+
+**Henüz yapılmadı (planlanan):** SSO, multi-tenancy, offline queue, audit immutability, gerçek danışman bildirimi, nightly analytics job.
+
+---
+
 ## Proje Yapısı
 
 ```
@@ -51,7 +75,8 @@ Smart_Attendance_System/
 │   │       ├── c1d2e3f4a5b6_add_performance_indexes.py
 │   │       ├── d4e5f6a7b8c9_dispute_attendance_record_fk.py
 │   │       ├── g3h4i5j6k7l8_course_instructors_table.py
-│   │       └── f2a3b4c5d6e7_course_shared_class_id.py
+│   │       ├── f2a3b4c5d6e7_course_shared_class_id.py
+│   │       └── h4i5j6k7l8m9_user_leadership_scope.py
 │   │
 │   ├── scripts/
 │   │   └── encrypt_existing_embeddings.py      # Eski embedding'leri şifreler
@@ -71,14 +96,16 @@ Smart_Attendance_System/
 │   │   ├── test_rbac.py
 │   │   ├── test_rooms.py           # Room CRUD testleri
 │   │   ├── test_sessions.py
-│   │   └── test_users.py
+│   │   ├── test_users.py
+│   │   ├── test_leadership.py        # Liderlik paneli RBAC & scope testleri
+│   │   └── test_user_privileges.py   # Role/scope privilege escalation testleri
 │   │
 │   └── app/
 │       ├── adapters/               # Storage soyutlama katmanı
 │       │   ├── storage_adapter.py  # Abstract StorageAdapter arayüzü
 │       │   └── supabase_storage.py # Supabase Storage implementasyonu
 │       │
-│       ├── api/                    # HTTP route'ları (13 modül)
+│       ├── api/                    # HTTP route'ları
 │       │   ├── auth.py
 │       │   ├── users.py
 │       │   ├── courses.py
@@ -88,10 +115,12 @@ Smart_Attendance_System/
 │       │   ├── face.py
 │       │   ├── excuses.py
 │       │   ├── dashboard.py
-│       │   ├── notifications.py    # YENİ: bildirim sistemi
-│       │   ├── audit_logs.py       # YENİ: denetim kaydı (admin)
-│       │   ├── disputes.py         # YENİ: yoklama itiraz sistemi
-│       │   └── admin_settings.py   # YENİ: dinamik sistem ayarları
+│       │   ├── notifications.py
+│       │   ├── audit_logs.py
+│       │   ├── disputes.py
+│       │   ├── admin_settings.py
+│       │   ├── leadership.py       # YENİ (5/21/26): dekan/rektör analitik API
+│       │   └── admin.py            # YENİ (5/21/26): distinct-departments vb.
 │       │
 │       ├── config/
 │       │   └── settings.py         # Ortam değişkenleri (python-dotenv + os.getenv)
@@ -144,7 +173,8 @@ Smart_Attendance_System/
 │       ├── security/
 │       │   ├── jwt.py              # Token oluşturma (access + refresh)
 │       │   ├── password.py         # bcrypt hash/verify
-│       │   ├── dependencies.py     # FastAPI bağımlılıkları (get_current_user vb.)
+│       │   ├── dependencies.py     # get_current_user, require_leadership vb.
+│       │   ├── user_privileges.py  # YENİ (5/21/26): role/scope escalation koruması
 │       │   ├── crypto.py           # Fernet tabanlı embedding şifreleme
 │       │   └── rate_limit.py       # YENİ: IP bazlı sabit pencere hız sınırı (Redis/bellek)
 │       │
@@ -155,8 +185,9 @@ Smart_Attendance_System/
 │       │   ├── face_service.py
 │       │   ├── excuse_service.py       # YENİ: mazeret iş mantığı
 │       │   ├── notification_service.py # YENİ: bildirim oluşturma & broadcast
-│       │   ├── audit_service.py        # YENİ: denetim kaydı loglama
-│       │   └── scheduler.py            # APScheduler: otomatik oturum kapatma
+│       │   ├── audit_service.py
+│       │   ├── leadership_service.py   # YENİ (5/21/26): liderlik analitik sorguları
+│       │   └── scheduler.py
 │       │
 │       └── utils/
 │           ├── qr.py               # QR token üretme ve base64 görsel
@@ -191,6 +222,8 @@ Smart_Attendance_System/
 │       │   ├── disputes/
 │       │   └── audit/
 │       ├── pages/
+│       │   ├── LoginPage.jsx
+│       │   └── LeadershipDashboardPage.jsx  # YENİ (5/21/26): dekan/rektör paneli
 │       └── shared/
 │           ├── services/
 │           │   └── apiClient.js    # fetch + credentials; sessiz token yenileme
@@ -581,9 +614,23 @@ Dinamik ayarlar: `qr_token_ttl_seconds`, `min_attendance_rate`, `geofence_radius
 
 | Method | Path | Açıklama | Yetki |
 |---|---|---|---|
-| GET | `/stats` | Genel istatistikler | Admin |
-| GET | `/instructor` | Öğretmen dashboard verisi | Öğretmen |
-| GET | `/student` | Öğrenci dashboard verisi | Öğrenci |
+| GET | `/stats` | Genel istatistikler (role-aware) | Giriş yapılmış |
+| GET | `/course-performance` | Ders bazlı devam oranı | Öğretmen/Admin |
+| GET | `/recent-activity` | Son aktiviteler | Giriş yapılmış |
+
+### Leadership (`/api/v1/leadership`) — YENİ (5/21/26)
+
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| GET | `/overview` | KPI özeti (öğrenci sayısı, ort. devam, aktif ders, şüpheli yoklama) | Dekan / Rektör |
+| GET | `/departments` | Rektör: bölüm karşılaştırması; Dekan: bölüm içi ders performansı | Dekan / Rektör |
+| GET | `/at-risk` | Risk altındaki öğrenciler (`min_attendance_rate` + sayfalama) | Dekan / Rektör |
+
+### Admin (`/api/v1/admin`) — YENİ (5/21/26)
+
+| Method | Path | Açıklama | Yetki |
+|---|---|---|---|
+| GET | `/distinct-departments` | Öğrenci bölümlerinin benzersiz listesi (dekan scope dropdown) | Admin |
 
 ### Health
 
@@ -599,16 +646,21 @@ Dinamik ayarlar: `qr_token_ttl_seconds`, `min_attendance_rate`, `geofence_radius
 
 | Rol | Türkçe | Yapabilecekleri |
 |---|---|---|
-| `admin` | Yönetici | Tüm işlemler, kullanıcı yönetimi, sistem ayarları, denetim kayıtları |
+| `admin` | Yönetici | Tüm işlemler, kullanıcı yönetimi, dekan/rektör oluşturma, sistem ayarları, denetim kayıtları |
+| `rector` | Rektör | Liderlik analitik paneli (kurum geneli, salt okunur) |
+| `dean` | Dekan | Liderlik analitik paneli (kendi bölümü, salt okunur) |
 | `instructor` | Öğretmen | Oturum başlat/bitir, QR üret, yoklama gör, mazeret/itiraz incele |
 | `student` | Öğrenci | Yoklamaya katıl (3 adım), kendi geçmişini gör, mazeret/itiraz gönder |
+
+**Dekan scope:** `scope_type=department`, `scope_value` = öğrencilerdeki `department` ile birebir eşleşmeli.  
+**Rektör scope:** `scope_type=university` (kurum geneli).
 
 ---
 
 ## Veritabanı Modeli
 
 ```
-users                           → Tüm kullanıcılar (rol bazlı)
+users                           → Tüm kullanıcılar (rol bazlı; scope_type, scope_value dekan/rektör için)
 courses                         → Dersler
 enrollments                     → Öğrenci-ders kaydı
 rooms                           → Sınıflar (lat/lon/yarıçap)

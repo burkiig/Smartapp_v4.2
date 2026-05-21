@@ -107,3 +107,16 @@ def require_student(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Bu işlem yalnızca öğrenciler içindir")
     return current_user
+
+
+def require_leadership(current_user: User = Depends(get_current_user)) -> User:
+    """Allow only dean/rector. Role is always resolved from DB via get_current_user (not client-supplied)."""
+    if current_user.role not in ("dean", "rector"):
+        raise HTTPException(status_code=403, detail="Bu işlem için dekan veya rektör yetkisi gerekli")
+    if current_user.role == "dean":
+        if not (current_user.scope_value or "").strip():
+            raise HTTPException(
+                status_code=403,
+                detail="Dekan hesabı için bölüm kapsamı (scope_value) tanımlı değil",
+            )
+    return current_user

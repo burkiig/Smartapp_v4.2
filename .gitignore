@@ -43,6 +43,10 @@ MANIFEST
 # IDE
 .vscode/
 .idea/
+.vs/
+*.vsidx
+*.wsuo
+.cursor/
 *.swp
 *.swo
 *~
@@ -85,6 +89,8 @@ Thumbs.db
 .coverage
 htmlcov/
 .tox/
+web-panel/test-results/
+web-panel/playwright-report/
 
 # Jupyter Notebook
 .ipynb_checkpoints

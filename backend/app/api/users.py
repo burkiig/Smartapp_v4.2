@@ -9,6 +9,7 @@ from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.repositories.user_repo import UserRepository
 from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 from app.security.dependencies import get_current_user, require_admin, require_instructor
+from app.security.user_privileges import apply_create_scope, enforce_update_privileges
 from app.models.course import Course
 from app.models.user import User
 
@@ -41,6 +42,8 @@ def create_user(
     if repo.get_by_username(data.username):
         raise HTTPException(status_code=409, detail="Bu kullanıcı adı zaten kullanılıyor")
 
+    data = apply_create_scope(data)
+
     return repo.create(
         username=data.username,
         email=data.email,
@@ -49,6 +52,8 @@ def create_user(
         role=data.role,
         department=data.department,
         student_number=data.student_number,
+        scope_type=data.scope_type,
+        scope_value=data.scope_value,
     )
 
 
@@ -122,7 +127,10 @@ def update_user(
     user = repo.get_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
-    return repo.update(user, **data.model_dump(exclude_none=True))
+    updates = enforce_update_privileges(current_user, user, data)
+    if not updates:
+        return user
+    return repo.update(user, **updates)
 
 
 @router.delete("/{user_id}")

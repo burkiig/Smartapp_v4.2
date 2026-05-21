@@ -7,7 +7,6 @@ Tests for authentication endpoints:
   - refresh token
 """
 import pytest
-from app.security.jwt import _revoked_jtis
 
 
 class TestLogin:

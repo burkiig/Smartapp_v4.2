@@ -10,7 +10,7 @@ from sqlalchemy import text
 from app.config.settings import settings
 from app.core.startup import on_startup
 from app.api import auth, sessions, attendance, face, users, courses, rooms, excuses, dashboard
-from app.api import audit_logs, admin_settings, disputes, notifications
+from app.api import audit_logs, admin_settings, disputes, notifications, leadership, admin
 from app.middleware.sanitization import SanitizationMiddleware
 from app.database.connection import SessionLocal, engine
 from app.adapters.supabase_storage import get_storage_adapter
@@ -78,8 +78,10 @@ app.include_router(excuses.router,    prefix="/api/v1/excuses",    tags=["Excuse
 app.include_router(dashboard.router,   prefix="/api/v1/dashboard",       tags=["Dashboard"])
 app.include_router(audit_logs.router,  prefix="/api/v1/audit-logs",      tags=["AuditLogs"])
 app.include_router(admin_settings.router, prefix="/api/v1/admin/settings", tags=["AdminSettings"])
+app.include_router(admin.router,           prefix="/api/v1/admin",            tags=["Admin"])
 app.include_router(disputes.router,       prefix="/api/v1/disputes",         tags=["Disputes"])
 app.include_router(notifications.router, prefix="/api/v1/notifications",    tags=["Notifications"])
+app.include_router(leadership.router,   prefix="/api/v1/leadership",       tags=["Leadership"])
 
 
 @app.exception_handler(Exception)

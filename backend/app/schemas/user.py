@@ -1,6 +1,9 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
+
+LEADERSHIP_ROLES = frozenset({"dean", "rector"})
+STAFF_ROLES = frozenset({"admin", "instructor", "student", "dean", "rector"})
 
 
 def _validate_password_strength(v: str) -> str:
@@ -22,14 +25,27 @@ class UserCreate(BaseModel):
     role: str = "student"
     department: Optional[str] = None
     student_number: Optional[str] = None
+    scope_type: Optional[str] = None
+    scope_value: Optional[str] = None
 
     @field_validator("role")
     @classmethod
     def role_must_be_valid(cls, v):
-        allowed = {"admin", "instructor", "student"}
-        if v not in allowed:
-            raise ValueError(f"role must be one of {allowed}")
+        if v not in STAFF_ROLES:
+            raise ValueError(f"role must be one of {sorted(STAFF_ROLES)}")
         return v
+
+    @model_validator(mode="after")
+    def validate_leadership_scope(self):
+        if self.role == "dean":
+            if self.scope_type != "department" or not (self.scope_value or "").strip():
+                raise ValueError("dean role requires scope_type='department' and a non-empty scope_value")
+        elif self.role == "rector":
+            if self.scope_type and self.scope_type not in ("university", "faculty"):
+                raise ValueError("rector scope_type must be 'university' or 'faculty'")
+        elif self.scope_type or self.scope_value:
+            raise ValueError("scope_type/scope_value are only valid for dean or rector roles")
+        return self
 
     @field_validator("password")
     @classmethod
@@ -45,15 +61,16 @@ class UserUpdate(BaseModel):
     student_number: Optional[str] = None
     push_token: Optional[str] = None
     is_active: Optional[bool] = None
+    scope_type: Optional[str] = None
+    scope_value: Optional[str] = None
 
     @field_validator("role")
     @classmethod
     def role_must_be_valid(cls, v):
         if v is None:
             return v
-        allowed = {"admin", "instructor", "student"}
-        if v not in allowed:
-            raise ValueError(f"role must be one of {allowed}")
+        if v not in STAFF_ROLES:
+            raise ValueError(f"role must be one of {sorted(STAFF_ROLES)}")
         return v
 
 
@@ -65,6 +82,8 @@ class UserResponse(BaseModel):
     role: str
     department: Optional[str] = None
     student_number: Optional[str] = None
+    scope_type: Optional[str] = None
+    scope_value: Optional[str] = None
     is_active: bool
     created_at: datetime
 

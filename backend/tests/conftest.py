@@ -26,7 +26,7 @@ from app.models.excuse import Excuse
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification  # noqa: F401 — ensures table is created
 from app.models.system_setting import SystemSetting  # noqa: F401 — ensures table is created
-from app.models.dispute import Dispute  # noqa: F401 — ensures table is created
+from app.models.dispute import AttendanceDispute  # noqa: F401 — ensures table is created
 from main import app
 
 # ── In-memory test database ───────────────────────────────────────────────────

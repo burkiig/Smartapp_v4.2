@@ -11,6 +11,7 @@ import {
   StudentDashboardPage,
 } from './features/dashboard/pages';
 import PresentAttendancePage from './features/classroom/PresentAttendancePage';
+import LeadershipDashboardPage from './pages/LeadershipDashboardPage';
 
 function AppMain() {
   const { user, isLoading, logout } = useAuth();
@@ -34,6 +35,9 @@ function AppMain() {
   }
 
   switch (user.role) {
+    case 'dean':
+    case 'rector':
+      return <LeadershipDashboardPage user={user} onLogout={logout} />;
     case 'instructor':
       return <InstructorDashboardPage user={user} onLogout={logout} />;
     case 'student':

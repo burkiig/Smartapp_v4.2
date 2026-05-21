@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import './LanguageSwitcher.css';
 
@@ -10,6 +10,7 @@ const LANGS = [
 export const LanguageSwitcher = ({ compact = false, className = '' }) => {
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
 
   const active = useMemo(() => {
     const lng = (i18n.resolvedLanguage || i18n.language || 'tr').toLowerCase();
@@ -19,20 +20,32 @@ export const LanguageSwitcher = ({ compact = false, className = '' }) => {
   const setLang = useCallback(async (code) => {
     try {
       await i18n.changeLanguage(code);
-      // Ensure detector cache is updated even if config changes.
       localStorage.setItem('i18nextLng', code);
     } finally {
       setOpen(false);
     }
   }, [i18n]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocClick = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
   return (
-    <div className={`lang-switch ${compact ? 'compact' : ''} ${className}`.trim()}>
+    <div ref={rootRef} className={`lang-switch ${compact ? 'compact' : ''} ${className}`.trim()}>
       <button
         type="button"
         className="lang-btn"
         onClick={() => setOpen(v => !v)}
         aria-label="Change language"
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         <span className="lang-globe" aria-hidden="true">🌐</span>
         <span className="lang-code">{active.label}</span>

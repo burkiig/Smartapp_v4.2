@@ -22,6 +22,8 @@ jobs:
         run: pip install -r requirements-test.txt
       - name: Pytest with coverage
         run: pytest tests/ -q --tb=short --cov=app --cov-fail-under=60
+        env:
+          DATABASE_URL: sqlite:///./test_ci.db
       - name: Alembic — check migrations are up to date
         run: alembic check
         env:
@@ -43,6 +45,8 @@ jobs:
         run: pip install bandit
       - name: Bandit SAST scan
         run: bandit -r app/ -ll -q
+        env:
+          PYTHONIOENCODING: utf-8
         continue-on-error: true  # Report findings without blocking initially
 
   # ── Secret scanning (Gitleaks) ─────────────────────────────────────────────

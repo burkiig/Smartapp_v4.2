@@ -195,7 +195,9 @@
       "roles": {
         "admin": "Admin",
         "instructor": "Instructor",
-        "student": "Student"
+        "student": "Student",
+        "dean": "Dean",
+        "rector": "Rector"
       }
     },
     "courses": {
@@ -257,6 +259,12 @@
       "roleStudent": "Student",
       "roleInstructor": "Instructor",
       "roleAdmin": "Admin",
+      "roleDean": "Dean",
+      "roleRector": "Rector",
+      "scopeDepartment": "Authority Scope (Department)",
+      "selectDepartment": "Select department...",
+      "noDepartments": "No student departments yet. Assign departments to students first.",
+      "rectorScopeHint": "The rector sees institution-wide data.",
       "departmentPlaceholder": "Computer Engineering",
       "cancelBtn": "Cancel",
       "saveBtn": "Save",
@@ -1133,5 +1141,33 @@
     "errorRejectFull": "An error occurred while rejecting the excuse: {{error}}",
     "docOpenError": "Could not open document: {{error}}",
     "docDownloadError": "Could not download document: {{error}}"
+  },
+  "leadership": {
+    "title": "Leadership Analytics Panel",
+    "roleRector": "Rector",
+    "roleDean": "Dean",
+    "avgAttendance": "Overall Attendance Rate",
+    "atRiskCount": "Students at Risk",
+    "activeCourses": "Active Courses",
+    "flaggedRecords": "Suspicious Attendance",
+    "chartAttendance": "Attendance Rate (%)",
+    "departmentComparison": "Department Comparison",
+    "courseComparison": "In-Department Course Performance",
+    "atRiskTitle": "Early Warning — Students at Risk",
+    "students": "students",
+    "minRate": "Threshold",
+    "noAtRisk": "No students at risk.",
+    "colName": "Full Name",
+    "colNumber": "No",
+    "colDepartment": "Department",
+    "colRate": "Attend. %",
+    "colStreak": "Consecutive Absences",
+    "colRisk": "Risk",
+    "colAction": "Action",
+    "riskCritical": "Critical",
+    "riskPotential": "Potential",
+    "notifyAdvisor": "Notify Advisor",
+    "notifySent": "Advisor notification sent for {{name}}!",
+    "loadError": "Could not load data"
   }
 }

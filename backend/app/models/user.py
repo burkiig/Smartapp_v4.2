@@ -16,8 +16,11 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    # role: admin | instructor | student
+    # role: admin | instructor | student | dean | rector
     role = Column(String, nullable=False, default="student")
+    # Leadership scope: dean -> department value; rector -> university (scope_value optional)
+    scope_type = Column(String, nullable=True)
+    scope_value = Column(String, nullable=True)
     department = Column(String, nullable=True)
     student_number = Column(String, nullable=True, unique=True, index=True)
     push_token = Column(String, nullable=True)

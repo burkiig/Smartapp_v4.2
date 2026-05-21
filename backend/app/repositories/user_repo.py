@@ -54,7 +54,9 @@ class UserRepository:
 
     def create(self, username: str, email: str, password: str, name: str,
                role: str = "student", department: Optional[str] = None,
-               student_number: Optional[str] = None) -> User:
+               student_number: Optional[str] = None,
+               scope_type: Optional[str] = None,
+               scope_value: Optional[str] = None) -> User:
         user = User(
             username=username,
             email=email,
@@ -63,6 +65,8 @@ class UserRepository:
             role=role,
             department=department,
             student_number=student_number,
+            scope_type=scope_type,
+            scope_value=scope_value,
         )
         self.db.add(user)
         self.db.commit()
@@ -70,8 +74,11 @@ class UserRepository:
         return user
 
     def update(self, user: User, **kwargs) -> User:
+        nullable_fields = {"scope_type", "scope_value", "department", "student_number", "push_token"}
         for key, value in kwargs.items():
-            if value is not None and hasattr(user, key):
+            if not hasattr(user, key):
+                continue
+            if value is not None or key in nullable_fields:
                 setattr(user, key, value)
         self.db.commit()
         self.db.refresh(user)

@@ -883,3 +883,9 @@
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
 }
+
+.form-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 12px;
+}
