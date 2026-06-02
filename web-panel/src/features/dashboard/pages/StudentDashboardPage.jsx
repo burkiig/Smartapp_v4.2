@@ -139,6 +139,8 @@ function WebAttendance() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [completedSessionIds, setCompletedSessionIds] = useState(() => new Set());
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const {
     data: sessions = [],
@@ -146,6 +148,22 @@ function WebAttendance() {
     isError: sessionsQueryError,
     error: sessionsLoadError,
   } = useActiveSessionsQuery();
+
+  // Disable already completed sessions (prevents duplicate attendance)
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const hist = await apiClient.get('/attendance/my-history');
+      const ids = new Set((hist || []).map(r => String(r.session_id)));
+      setCompletedSessionIds(ids);
+    } catch {
+      setCompletedSessionIds(new Set());
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   useEffect(() => {
     if (step === 'face') {
@@ -157,6 +175,10 @@ function WebAttendance() {
 
   const handleSelectSession = () => {
     if (!selectedSession) { setError(t('studentDashboard.takeAttendance.errorSelectSession')); return; }
+    if (completedSessionIds.has(String(selectedSession))) {
+      setError(t('studentDashboard.takeAttendance.alreadyTaken', 'Bu oturum için yoklaman zaten alınmış.'));
+      return;
+    }
     setError('');
     setStep('face');
   };
@@ -190,6 +212,10 @@ function WebAttendance() {
   const handleSubmit = async () => {
     if (!capturedImage) { setError(t('studentDashboard.takeAttendance.errorNeedPhoto')); return; }
     if (!gpsData) { setError(t('studentDashboard.takeAttendance.errorNeedGps')); return; }
+    if (completedSessionIds.has(String(selectedSession))) {
+      setError(t('studentDashboard.takeAttendance.alreadyTaken', 'Bu oturum için yoklaman zaten alınmış.'));
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -202,6 +228,11 @@ function WebAttendance() {
       });
       setResult(res);
       setStep('done');
+      setCompletedSessionIds(prev => {
+        const next = new Set(prev);
+        next.add(String(selectedSession));
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: activeSessionsQueryKey });
     } catch (e) {
       setError(e.message || t('studentDashboard.takeAttendance.errorSubmit'));
@@ -322,13 +353,19 @@ function WebAttendance() {
           <h2>{t('studentDashboard.takeAttendance.selectSession')}</h2>
           {loadingSessions ? (
             <p className="wa-hint">{t('common.loading')}</p>
+          ) : loadingHistory ? (
+            <p className="wa-hint">{t('common.loading')}</p>
           ) : sessions.length === 0 ? (
             <p className="wa-hint">{t('studentDashboard.takeAttendance.noSessions')}</p>
           ) : (
             <>
               <div className="wa-sessions">
                 {sessions.map(s => (
-                  <label key={s.id} className={`wa-session-item ${selectedSession === String(s.id) ? 'selected' : ''}`}>
+                  <label
+                    key={s.id}
+                    className={`wa-session-item ${selectedSession === String(s.id) ? 'selected' : ''} ${completedSessionIds.has(String(s.id)) ? 'disabled' : ''}`}
+                    title={completedSessionIds.has(String(s.id)) ? t('studentDashboard.takeAttendance.alreadyTaken', 'Bu oturum için yoklaman zaten alınmış.') : ''}
+                  >
                     <input
                       type="radio"
                       name="session"
@@ -336,16 +373,25 @@ function WebAttendance() {
                       checked={selectedSession === String(s.id)}
                       onChange={e => setSelectedSession(e.target.value)}
                       style={{ display: 'none' }}
+                      disabled={completedSessionIds.has(String(s.id))}
                     />
                     <div className="wa-session-info">
                       <span className="wa-session-course">{t('studentDashboard.takeAttendance.courseNo', { id: s.course_id })}</span>
                       <span className="wa-session-date">{s.date || '—'}</span>
                     </div>
-                    <span className="wa-session-badge">{t('studentDashboard.takeAttendance.active')}</span>
+                    <span className="wa-session-badge">
+                      {completedSessionIds.has(String(s.id))
+                        ? t('studentDashboard.takeAttendance.taken', 'Alındı')
+                        : t('studentDashboard.takeAttendance.active')}
+                    </span>
                   </label>
                 ))}
               </div>
-              <button className="wa-btn primary" onClick={handleSelectSession}>
+              <button
+                className="wa-btn primary"
+                onClick={handleSelectSession}
+                disabled={!selectedSession || completedSessionIds.has(String(selectedSession))}
+              >
                 {t('common.continue')}
               </button>
             </>

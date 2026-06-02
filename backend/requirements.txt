@@ -31,10 +31,11 @@ requests>=2.31.0
 APScheduler==3.10.4
 
 # ── Face Recognition (optional — install separately if needed) ────────────────
-numpy==1.26.3
+# 1.19.x has no wheels for Python 3.13; use 1.20+ on 3.13 / recent Windows builds.
+numpy>=1.26.3
 insightface==0.7.3
-onnxruntime==1.19.2
-opencv-python-headless==4.10.0.84
+onnxruntime>=1.20.0
+opencv-python-headless>=4.10.0.84
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 pytest==8.2.2

@@ -4,29 +4,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Shadows } from '@/config/theme';
 
-export default function QuickActions({ hasLiveSession, onStartAttendance, onExcuse, onHistory }) {
+export default function QuickActions({ hasLiveSession, onStartAttendance, onExcuse, onHistory, attendanceDisabled = false }) {
+  const primaryDisabled = !hasLiveSession || attendanceDisabled;
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
 
       {/* Primary CTA */}
-      <TouchableOpacity style={styles.primaryWrap} onPress={onStartAttendance} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={[styles.primaryWrap, primaryDisabled && styles.primaryWrapDisabled]}
+        onPress={primaryDisabled ? undefined : onStartAttendance}
+        disabled={primaryDisabled}
+        activeOpacity={0.85}
+      >
         <LinearGradient
-          colors={hasLiveSession ? ['#2563EB', '#1D4ED8'] : ['#475569', '#334155']}
+          colors={primaryDisabled ? ['#475569', '#334155'] : ['#2563EB', '#1D4ED8']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.primaryBtn}
         >
           <View style={styles.primaryIconBox}>
-            <Ionicons name={hasLiveSession ? 'qr-code' : 'time-outline'} size={28} color="#fff" />
+            <Ionicons
+              name={attendanceDisabled ? 'checkmark-done' : hasLiveSession ? 'qr-code' : 'time-outline'}
+              size={28}
+              color="#fff"
+            />
           </View>
           <View style={styles.primaryText}>
-            <Text style={styles.primaryTitle}>Yoklama Al</Text>
+            <Text style={styles.primaryTitle}>{attendanceDisabled ? 'Yoklama Alındı' : 'Yoklama Al'}</Text>
             <Text style={styles.primarySub}>
-              {hasLiveSession ? 'QR → Yüz → Konum' : 'Aktif ders bekleniyor'}
+              {attendanceDisabled ? 'Bu oturum için tamamlandı' : hasLiveSession ? 'QR → Yüz → Konum' : 'Aktif ders bekleniyor'}
             </Text>
           </View>
           <View style={styles.arrowBox}>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
+            <Ionicons name={primaryDisabled ? 'lock-closed-outline' : 'arrow-forward'} size={18} color="#fff" />
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -71,6 +81,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, marginBottom: 14, letterSpacing: -0.2 },
 
   primaryWrap: { borderRadius: 18, marginBottom: 12, ...Shadows.primary },
+  primaryWrapDisabled: { opacity: 0.75 },
   primaryBtn:  { flexDirection: 'row', alignItems: 'center', borderRadius: 18, padding: 18, gap: 14 },
   primaryIconBox:{ width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   primaryText: { flex: 1 },

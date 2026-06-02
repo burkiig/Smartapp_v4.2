@@ -214,6 +214,15 @@
   padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px;
   cursor: pointer; transition: all 0.15s;
 }
+.wa-session-item.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+.wa-session-item.disabled:hover {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
 .wa-session-item:hover { border-color: #2563eb; background: #f0f9ff; }
 .wa-session-item.selected { border-color: #2563eb; background: #eff6ff; }
 .wa-session-info { display: flex; flex-direction: column; gap: 2px; }

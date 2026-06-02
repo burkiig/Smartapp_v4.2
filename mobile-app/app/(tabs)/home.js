@@ -9,7 +9,7 @@ import LiveClassCard from '../components/home/LiveClassCard';
 import QuickActions from '../components/home/QuickActions';
 import MonthStats from '../components/home/MonthStats';
 import RecentActivity from '../components/home/RecentActivity';
-import { dashboard, courses, notifications as notificationsApi } from '@/services/api';
+import { attendance, dashboard, courses, notifications as notificationsApi } from '@/services/api';
 import { useActiveSessionsQuery } from '@/query/hooks/useActiveSessionsQuery';
 
 // ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ function StudentHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [hasNotification, setHasNotification] = useState(false);
+  const [completedSessionIds, setCompletedSessionIds] = useState(new Set());
 
   const { data: activeSessions = [], refetch: refetchSessions } = useActiveSessionsQuery({
     refetchInterval: 30_000,
@@ -37,11 +38,12 @@ function StudentHomeScreen() {
     setLoadError(null);
     try {
       await refetchSessions();
-      const [coursesRes, statRes, activityRes, notifRes] = await Promise.allSettled([
+      const [coursesRes, statRes, activityRes, notifRes, historyRes] = await Promise.allSettled([
         courses.list(),
         dashboard.stats(),
         dashboard.recentActivity(),
         notificationsApi.count(),
+        attendance.myHistory(),
       ]);
 
       // Ders haritası
@@ -79,6 +81,14 @@ function StudentHomeScreen() {
         const cnt = notifRes.value?.unread_count ?? notifRes.value?.count ?? 0;
         setHasNotification(cnt > 0);
       }
+
+      // Tamamlanan yoklamalar (disable logic)
+      if (historyRes.status === 'fulfilled' && Array.isArray(historyRes.value)) {
+        const ids = new Set(historyRes.value.map(r => String(r.session_id)));
+        setCompletedSessionIds(ids);
+      } else if (historyRes.status === 'rejected') {
+        setCompletedSessionIds(new Set());
+      }
     } catch (err) {
       console.error('[HomeScreen] fetchData error:', err?.message || err);
       setLoadError(err?.message || 'Veriler yüklenemedi');
@@ -96,6 +106,10 @@ function StudentHomeScreen() {
       Alert.alert('Aktif Ders Yok', 'Şu an aktif bir yoklama oturumu bulunmuyor.');
       return;
     }
+    if (completedSessionIds.has(String(liveSession.id))) {
+      Alert.alert('Yoklama Zaten Alındı', 'Bu oturum için yoklaman zaten işlenmiş görünüyor.');
+      return;
+    }
     router.push({ pathname: '/qr-scan', params: { session_id: liveSession.id } });
   };
 
@@ -110,6 +124,9 @@ function StudentHomeScreen() {
     room: activeCourse?.room_name || '—',
     instructor: activeCourse?.instructor_name || '—',
   } : null;
+
+  const isAttendanceCompletedForLive =
+    !!liveSession && completedSessionIds.has(String(liveSession.id));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -129,12 +146,14 @@ function StudentHomeScreen() {
           <LiveClassCard
             liveClass={liveClass}
             onStartAttendance={handleStartAttendance}
+            disabled={isAttendanceCompletedForLive}
           />
         )}
 
         <QuickActions
           hasLiveSession={!!liveSession}
           onStartAttendance={handleStartAttendance}
+          attendanceDisabled={isAttendanceCompletedForLive}
           onExcuse={() => {
             if (liveSession?.course_id) {
               router.push({

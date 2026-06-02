@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '@/config/theme';
 
-export default function LiveClassCard({ liveClass, onStartAttendance }) {
+export default function LiveClassCard({ liveClass, onStartAttendance, disabled = false }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -46,10 +46,15 @@ export default function LiveClassCard({ liveClass, onStartAttendance }) {
         </View>
 
         {/* CTA */}
-        <TouchableOpacity style={styles.cta} onPress={onStartAttendance} activeOpacity={0.88}>
-          <Ionicons name="qr-code-outline" size={18} color="#059669" />
-          <Text style={styles.ctaText}>Yoklama Al</Text>
-          <Ionicons name="arrow-forward" size={16} color="#059669" />
+        <TouchableOpacity
+          style={[styles.cta, disabled && styles.ctaDisabled]}
+          onPress={disabled ? undefined : onStartAttendance}
+          disabled={disabled}
+          activeOpacity={0.88}
+        >
+          <Ionicons name={disabled ? 'checkmark-done-outline' : 'qr-code-outline'} size={18} color="#059669" />
+          <Text style={styles.ctaText}>{disabled ? 'Yoklama Alındı' : 'Yoklama Al'}</Text>
+          <Ionicons name={disabled ? 'lock-closed-outline' : 'arrow-forward'} size={16} color="#059669" />
         </TouchableOpacity>
       </LinearGradient>
     </View>
@@ -94,4 +99,5 @@ const styles = StyleSheet.create({
 
   cta:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 13 },
   ctaText: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#059669' },
+  ctaDisabled: { opacity: 0.6 },
 });
