@@ -48,17 +48,36 @@ _ALLOWED_CONTENT_TYPES = (
 class SanitizationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # ── 1. Body size check ────────────────────────────────────────────────
+        # Content-Length header kontrolü (hızlı red)
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_BODY_BYTES:
-            logger.warning(
-                "[Sanitization] Oversized request: %s bytes from %s %s",
-                content_length, request.client.host if request.client else "?",
-                request.url.path,
-            )
-            return JSONResponse(
-                status_code=413,
-                content={"detail": f"İstek gövdesi çok büyük. Maksimum: {MAX_BODY_BYTES // (1024*1024)} MB."},
-            )
+        if content_length:
+            try:
+                if int(content_length) > MAX_BODY_BYTES:
+                    logger.warning(
+                        "[Sanitization] Oversized Content-Length: %s bytes from %s %s",
+                        content_length, request.client.host if request.client else "?",
+                        request.url.path,
+                    )
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": f"İstek gövdesi çok büyük. Maksimum: {MAX_BODY_BYTES // (1024*1024)} MB."},
+                    )
+            except ValueError:
+                pass
+
+        # Content-Length gönderilmemiş olabilir — gerçek body okunarak kontrol et
+        if request.method in ("POST", "PUT", "PATCH") and not content_length:
+            body_bytes = await request.body()
+            if len(body_bytes) > MAX_BODY_BYTES:
+                logger.warning(
+                    "[Sanitization] Oversized body (no Content-Length): %d bytes from %s %s",
+                    len(body_bytes), request.client.host if request.client else "?",
+                    request.url.path,
+                )
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": f"İstek gövdesi çok büyük. Maksimum: {MAX_BODY_BYTES // (1024*1024)} MB."},
+                )
 
         # ── 2. Content-type check for mutation requests ───────────────────────
         if request.method in ("POST", "PUT", "PATCH"):
@@ -77,9 +96,10 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
         # ── 3. Suspicious pattern scan (JSON bodies only, best-effort) ────────
         # Yüz kaydı/doğrulama ve konum gibi büyük base64 body içeren path'leri
         # pattern taramasından muaf tut — gereksiz CPU/bellek kullanımını önler.
-        _IMAGE_PATHS = ("/face/", "/attendance/verify-face", "/attendance/web-attend")
-        _skip_scan = any(request.url.path.startswith(p) or request.url.path.endswith(p)
-                         for p in _IMAGE_PATHS)
+        # Gerçek URL prefix'leri: /api/v1/face/..., /api/v1/attendance/verify-face vb.
+        _IMAGE_SEGMENTS = ("/face/", "/face/enroll", "/face/verify",
+                           "/attendance/verify-face", "/attendance/web-attend")
+        _skip_scan = any(seg in request.url.path for seg in _IMAGE_SEGMENTS)
 
         if not _skip_scan and request.method in ("POST", "PUT", "PATCH"):
             ct = request.headers.get("content-type", "")

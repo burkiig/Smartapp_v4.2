@@ -1,2 +1,0 @@
-export { useDashboard } from './useDashboard';
-

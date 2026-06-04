@@ -39,6 +39,9 @@ async function tryRefreshToken() {
     const data = await response.json();
     if (data.access_token) {
       await SecureStore.setItemAsync('access_token', data.access_token);
+      if (data.refresh_token) {
+        await SecureStore.setItemAsync('refresh_token', data.refresh_token);
+      }
       return true;
     }
     return false;
@@ -77,16 +80,26 @@ async function request(method, path, body = null, customToken = null) {
       const refreshed = await tryRefreshToken();
       if (refreshed) {
         const newToken = await getStoredToken();
-        const retryResponse = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
-          ...(body !== null ? { body: JSON.stringify(body) } : {}),
-        });
-        if (!retryResponse.ok) {
-          const err = await retryResponse.json().catch(() => ({}));
-          throw new Error(err.detail || err.message || `HTTP ${retryResponse.status}`);
+        const retryController = new AbortController();
+        const retryTimer = setTimeout(() => retryController.abort(), isUpload ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS);
+        try {
+          const retryResponse = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
+            signal: retryController.signal,
+            ...(body !== null ? { body: JSON.stringify(body) } : {}),
+          });
+          clearTimeout(retryTimer);
+          if (!retryResponse.ok) {
+            const err = await retryResponse.json().catch(() => ({}));
+            throw new Error(err.detail || err.message || `HTTP ${retryResponse.status}`);
+          }
+          return await retryResponse.json();
+        } catch (retryErr) {
+          clearTimeout(retryTimer);
+          if (retryErr.name === 'AbortError') throw new Error('İstek zaman aşımına uğradı');
+          throw retryErr;
         }
-        return await retryResponse.json();
       }
       // Token yenilenemedi → tüm uygulama katmanını bilgilendir
       await SecureStore.deleteItemAsync('access_token').catch(() => {});
@@ -99,7 +112,12 @@ async function request(method, path, body = null, customToken = null) {
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.detail || data.message || `HTTP ${response.status}`);
+      // FastAPI validation errors: detail is an array of {loc, msg, type}
+      let detail = data.detail || data.message;
+      if (Array.isArray(detail)) {
+        detail = detail.map(e => e.msg || JSON.stringify(e)).join(', ');
+      }
+      throw new Error(detail || `HTTP ${response.status}`);
     }
     return data;
   } catch (err) {

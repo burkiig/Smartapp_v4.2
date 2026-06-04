@@ -63,7 +63,12 @@ async function request(method, path, { body, params } = {}) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const err = new Error(data.detail || data.message || `HTTP ${response.status}`);
+      let detail = data.detail || data.message || `HTTP ${response.status}`;
+      // FastAPI validation errors: detail is [{loc, msg, type}, ...]
+      if (Array.isArray(detail)) {
+        detail = detail.map(e => e.msg || JSON.stringify(e)).join(', ');
+      }
+      const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
       err.status = response.status;
       throw err;
     }

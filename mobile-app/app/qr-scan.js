@@ -30,6 +30,15 @@ export default function QRScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [scanLineAnim] = useState(new Animated.Value(0));
 
+  // Zoom state: 0.0 (1x) → 1.0 (max)
+  const [zoomIndex, setZoomIndex] = useState(0);
+  const ZOOM_LEVELS = [0, 0.2, 0.4, 0.6, 0.8, 1.0];
+  const ZOOM_LABELS = ['1x', '2x', '3x', '4x', '5x', '6x'];
+  const currentZoom = ZOOM_LEVELS[zoomIndex];
+
+  const handleZoomIn = () => setZoomIndex(prev => Math.min(ZOOM_LEVELS.length - 1, prev + 1));
+  const handleZoomOut = () => setZoomIndex(prev => Math.max(0, prev - 1));
+
   useEffect(() => {
     return () => { if (navTimerRef.current) clearTimeout(navTimerRef.current); };
   }, []);
@@ -59,17 +68,16 @@ export default function QRScanScreen() {
     setScanned(true);
     setScanState('verifying');
 
+    // parts: try dışında tanımla — catch bloğundan da erişilebilsin
+    const parts = {};
     try {
-      // QR payload: "session_id=X;course_id=Y;token=XXXX"
-      // session_id ve token'ı QR içeriğinden çıkar (nav param'a güvenme)
-      const parts = {};
-      try {
-        qrCode.split(';').forEach(p => {
-          const [k, v] = p.split('=', 2);
-          if (k && v) parts[k.trim()] = v.trim();
-        });
-      } catch { /* ignore parse errors */ }
+      qrCode.split(';').forEach(p => {
+        const [k, v] = p.split('=', 2);
+        if (k && v) parts[k.trim()] = v.trim();
+      });
+    } catch { /* ignore parse errors */ }
 
+    try {
       const tokenToSend = parts.token || qrCode;
       const resolvedSessionId = parts.session_id
         ? parseInt(parts.session_id, 10)
@@ -95,8 +103,19 @@ export default function QRScanScreen() {
         setErrorMessage('QR kod doğrulanamadı. Lütfen tekrar deneyin.');
       }
     } catch (err) {
+      const msg = err?.message || '';
+      // 409: QR zaten tarandı → yüz doğrulama adımına geç
+      if (msg.includes('QR zaten tarandı') || msg.includes('409')) {
+        const sid = parts.session_id ? parseInt(parts.session_id, 10) : parseInt(session_id, 10);
+        if (sid && !isNaN(sid)) {
+          navTimerRef.current = setTimeout(() => {
+            router.replace({ pathname: '/face-scan', params: { session_id: sid } });
+          }, 400);
+          return;
+        }
+      }
       setScanState('error');
-      setErrorMessage(err?.message || 'Sunucuya bağlanılamadı');
+      setErrorMessage(msg || 'Sunucuya bağlanılamadı');
     }
   };
 
@@ -104,6 +123,7 @@ export default function QRScanScreen() {
     setScanned(false);
     setErrorMessage('');
     setScanState('scanning');
+    setZoomIndex(0);
   };
 
   // ─── Permission states ───────────────────────────────────────────────────
@@ -190,6 +210,7 @@ export default function QRScanScreen() {
               <CameraView
                 style={StyleSheet.absoluteFill}
                 facing="back"
+                zoom={currentZoom}
                 barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                 onBarcodeScanned={scanState === 'scanning' ? handleBarCodeScanned : undefined}
               />
@@ -222,6 +243,42 @@ export default function QRScanScreen() {
           ) : (
             <View style={styles.resultCircle}>
               <Ionicons name="close-circle" size={80} color="#fff" />
+            </View>
+          )}
+
+          {/* Zoom controls — only visible while scanning */}
+          {(scanState === 'scanning' || scanState === 'verifying') && (
+            <View style={styles.zoomControls}>
+              <TouchableOpacity
+                style={[styles.zoomBtn, zoomIndex === 0 && styles.zoomBtnDisabled]}
+                onPress={handleZoomOut}
+                disabled={zoomIndex === 0}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="remove" size={22} color={zoomIndex === 0 ? 'rgba(255,255,255,0.25)' : '#fff'} />
+              </TouchableOpacity>
+
+              <View style={styles.zoomLevelTrack}>
+                {ZOOM_LEVELS.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.zoomTick,
+                      i <= zoomIndex && styles.zoomTickActive,
+                    ]}
+                  />
+                ))}
+                <Text style={styles.zoomLevelText}>{ZOOM_LABELS[zoomIndex]}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.zoomBtn, zoomIndex === ZOOM_LEVELS.length - 1 && styles.zoomBtnDisabled]}
+                onPress={handleZoomIn}
+                disabled={zoomIndex === ZOOM_LEVELS.length - 1}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={22} color={zoomIndex === ZOOM_LEVELS.length - 1 ? 'rgba(255,255,255,0.25)' : '#fff'} />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -350,6 +407,59 @@ const styles = StyleSheet.create({
   statusBox: { alignItems: 'center', paddingHorizontal: 32 },
   statusTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 6 },
   statusSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 20 },
+
+  // ── Zoom controls ────────────────────────────────────────────────────────
+  zoomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 50,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  zoomBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  zoomLevelTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minWidth: 90,
+    justifyContent: 'center',
+  },
+  zoomTick: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  zoomTickActive: {
+    backgroundColor: '#93C5FD',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  zoomLevelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+    marginLeft: 6,
+    minWidth: 28,
+    textAlign: 'center',
+  },
+  // ─────────────────────────────────────────────────────────────────────────
 
   buttonArea: { paddingHorizontal: 24, paddingBottom: 12 },
   retryBtn: {

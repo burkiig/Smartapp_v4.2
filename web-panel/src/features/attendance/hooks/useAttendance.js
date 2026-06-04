@@ -69,8 +69,11 @@ export const useAttendance = () => {
     try {
       const result = await undoFlaggedRecord(recordId);
       if (result.success) {
+        // Backend undo → status: 'pending_review', is_flagged: true (inceleme bekliyor)
         setFlaggedRecords(prev =>
-          prev.map(r => r.id === recordId ? { ...r, isFlagged: true, is_flagged: true, status: 'present' } : r)
+          prev.map(r => r.id === recordId
+            ? { ...r, isFlagged: true, is_flagged: true, status: 'pending_review' }
+            : r)
         );
         return { success: true };
       }

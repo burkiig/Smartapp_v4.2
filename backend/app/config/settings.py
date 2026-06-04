@@ -81,13 +81,15 @@ class Settings:
     ]
 
     # ── Face Recognition ─────────────────────────────────────────────────────
-    FACE_SIMILARITY_THRESHOLD: float = float(os.getenv("FACE_SIMILARITY_THRESHOLD", "0.5"))
-    FACE_LIVENESS_THRESHOLD: float = float(os.getenv("FACE_LIVENESS_THRESHOLD", "0.5"))
+    FACE_SIMILARITY_THRESHOLD: float = float(os.getenv("FACE_SIMILARITY_THRESHOLD", "0.42"))
+    # Liveness: iki kare arası benzerlik alt sınırı — 0.15 aşırı hareketi/farklı kişiyi yakalar
+    FACE_LIVENESS_THRESHOLD: float = float(os.getenv("FACE_LIVENESS_THRESHOLD", "0.15"))
 
     # ── Geofencing ───────────────────────────────────────────────────────────
-    DEFAULT_GEOFENCE_RADIUS_M: int = int(os.getenv("DEFAULT_GEOFENCE_RADIUS_M", "50"))
-    MAX_GPS_ACCURACY_M: float = float(os.getenv("MAX_GPS_ACCURACY_M", "80.0"))
-    GPS_ACCURACY_THRESHOLD: float = float(os.getenv("GPS_ACCURACY_THRESHOLD", "80.0"))
+    DEFAULT_GEOFENCE_RADIUS_M: int = int(os.getenv("DEFAULT_GEOFENCE_RADIUS_M", "100"))
+    # GPS doğruluğu 40m üstüyse red — şehir içi mobil GPS için gerçekçi eşik
+    MAX_GPS_ACCURACY_M: float = float(os.getenv("MAX_GPS_ACCURACY_M", "40.0"))
+    GPS_ACCURACY_THRESHOLD: float = float(os.getenv("GPS_ACCURACY_THRESHOLD", "40.0"))
 
     # ── Admin defaults ───────────────────────────────────────────────────────
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "admin@attendance.com")
@@ -102,7 +104,7 @@ class Settings:
     LOGIN_RATE_LIMIT: str = os.getenv("LOGIN_RATE_LIMIT", "10/minute")
 
     # ── QR Token TTL ──────────────────────────────────────────────────────────
-    QR_TOKEN_TTL_SECONDS: int = int(os.getenv("QR_TOKEN_TTL_SECONDS", "60"))
+    QR_TOKEN_TTL_SECONDS: int = int(os.getenv("QR_TOKEN_TTL_SECONDS", "90"))
 
     # ── Cookies ───────────────────────────────────────────────────────────────
     # Set COOKIE_SECURE=true in production (requires HTTPS).

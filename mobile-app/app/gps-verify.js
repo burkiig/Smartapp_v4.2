@@ -89,7 +89,6 @@ export default function GPSVerifyScreen() {
         longitude,
         gps_accuracy: accuracy,
         is_mocked,
-        room_name: verification?.attendance_record?.room_name || '—',
         is_flagged: verification?.is_flagged || false,
         flag_reason: verification?.flag_reason || null,
       });
@@ -190,13 +189,6 @@ export default function GPSVerifyScreen() {
 
       {result && (
         <View style={styles.infoCard}>
-          {result.room_name && result.room_name !== '—' && (
-            <View style={styles.infoRow}>
-              <Ionicons name="business-outline" size={18} color="#059669" />
-              <Text style={styles.infoLabel}>Sınıf:</Text>
-              <Text style={styles.infoValue}>{result.room_name}</Text>
-            </View>
-          )}
           {result.gps_accuracy ? (
             <View style={styles.infoRow}>
               <Ionicons name="pulse-outline" size={18} color="#059669" />

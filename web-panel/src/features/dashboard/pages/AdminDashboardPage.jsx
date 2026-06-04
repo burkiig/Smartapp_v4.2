@@ -8,6 +8,7 @@ import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
+import { getApiBaseUrl } from '../../../shared/services/apiBaseUrl';
 import { AuditLogPage } from '../../audit/AuditLogPage';
 import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
 import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
@@ -87,23 +88,23 @@ function CsvImportModal({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
   const [error, setError]     = useState('');
-  const baseUrl = window.__API_BASE_URL__ || (window.location.hostname === 'localhost'
-    ? 'http://localhost:8000/api/v1'
-    : '/api/v1');
-
   const handleImport = async () => {
     if (!file) { setError('Lütfen bir CSV dosyası seçin.'); return; }
     setLoading(true); setError(''); setResult(null);
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(`${baseUrl}/users/bulk-import`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/users/bulk-import`, {
         method: 'POST',
         credentials: 'include',
         body: form,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'İçe aktarma başarısız');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        let detail = data.detail || data.message || 'İçe aktarma başarısız';
+        if (Array.isArray(detail)) detail = detail.map(e => e.msg || JSON.stringify(e)).join(', ');
+        throw new Error(detail);
+      }
       setResult(data);
       if (data.created_count > 0) onSuccess();
     } catch (err) {

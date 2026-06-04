@@ -106,7 +106,7 @@ class FinalAttendanceRepository:
             try:
                 # Parse date and build exact day range
                 day_start = datetime.strptime(date, "%Y-%m-%d").replace(
-                    hour=0, minute=0, second=0, microsecond=0
+                    hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc
                 )
                 day_end = day_start.replace(hour=23, minute=59, second=59, microsecond=999999)
                 q = q.filter(

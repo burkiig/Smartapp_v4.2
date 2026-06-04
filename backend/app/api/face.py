@@ -45,8 +45,8 @@ class EnrollMultiRequest(BaseModel):
     @field_validator("images")
     @classmethod
     def images_not_empty(cls, v):
-        if not v or len(v) < 1:
-            raise ValueError("En az 1 görüntü gerekli")
+        if not v or len(v) < 2:
+            raise ValueError("En az 2 görüntü gerekli (ortalama embedding için)")
         if len(v) > 5:
             raise ValueError("En fazla 5 görüntü gönderilebilir")
         return v
