@@ -26,19 +26,23 @@ export default function FaceScanScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
-  const [faceDetected, setFaceDetected] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [showLightHint, setShowLightHint] = useState(false);
+  const [livenessCountdown, setLivenessCountdown] = useState(null); // null | 3 | 2 | 1
   const cameraRef = useRef(null);
 
-  // 3 saniye boyunca yüz algılanamıyorsa ışık/konum ipucu göster
+  // session_id yoksa hata — deep link/back navigasyonu koruması
+  const sessionIdValid = session_id && !isNaN(parseInt(session_id, 10));
+
+  // 3 saniye kamera hazır olmadan beklerse ışık/konum ipucu göster
   useEffect(() => {
-    if (faceDetected || isScanning) {
+    if (isCameraReady || isScanning) {
       setShowLightHint(false);
       return;
     }
     const timer = setTimeout(() => setShowLightHint(true), 3000);
     return () => clearTimeout(timer);
-  }, [faceDetected, isScanning]);
+  }, [isCameraReady, isScanning]);
 
   // Hata türünü backend mesajından çıkarır
   const _classifyError = (msg = '') => {
@@ -96,6 +100,11 @@ export default function FaceScanScreen() {
 
   const handleStartScan = async () => {
     if (!cameraRef.current || isScanning) return;
+    if (!sessionIdValid) {
+      Alert.alert('Hata', 'Geçersiz oturum. Lütfen QR tarama adımından başlayın.');
+      router.replace('/(tabs)/home');
+      return;
+    }
     setIsScanning(true);
 
     try {
@@ -113,10 +122,16 @@ export default function FaceScanScreen() {
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
-      // 600ms bekle — kullanıcı hafifçe hareket etsin (liveness için)
-      await new Promise(resolve => setTimeout(resolve, 600));
+      // Liveness için kullanıcıya geri sayım göster — hafifçe hareket etmeleri için 1.5sn
+      setLivenessCountdown(3);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setLivenessCountdown(2);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setLivenessCountdown(1);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setLivenessCountdown(null);
 
-      // İkinci kare — liveness için zorunlu
+      // İkinci kare — liveness için, başarısız olursa tek kareyle devam et
       let photo2Base64 = null;
       try {
         const photo2 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
@@ -127,12 +142,7 @@ export default function FaceScanScreen() {
         );
         photo2Base64 = resized2.base64;
       } catch {
-        Alert.alert(
-          'Kamera Hatası',
-          'İkinci kare alınamadı. Lütfen tekrar deneyin.',
-          [{ text: 'Tamam' }]
-        );
-        return;
+        // İkinci kare alınamazsa tek kareyle devam et (liveness atlanır)
       }
 
       const result = await attendance.verifyFace(
@@ -231,32 +241,41 @@ export default function FaceScanScreen() {
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
               facing="front"
-              onFacesDetected={({ faces }) => setFaceDetected(faces.length > 0)}
-              faceDetectorSettings={{ mode: 'fast', detectLandmarks: 'none', runClassifications: 'none' }}
+              onCameraReady={() => setIsCameraReady(true)}
             />
             <View style={styles.overlay}>
               {/* Corner decorations — renk yüz tespitine göre değişiyor */}
               {['cornerTopLeft','cornerTopRight','cornerBottomLeft','cornerBottomRight'].map(k => (
                 <View
                   key={k}
-                  style={[styles.corner, styles[k], { borderColor: faceDetected ? '#4ADE80' : '#fff' }]}
+                  style={[styles.corner, styles[k], { borderColor: isCameraReady ? '#4ADE80' : '#fff' }]}
                 />
               ))}
 
-              {/* Yüz tespit göstergesi */}
+              {/* Kamera hazır göstergesi */}
               {!isScanning && (
-                <View style={[styles.faceIndicator, { backgroundColor: faceDetected ? 'rgba(74,222,128,0.2)' : 'transparent' }]}>
-                  {faceDetected && (
+                <View style={[styles.faceIndicator, { backgroundColor: isCameraReady ? 'rgba(74,222,128,0.15)' : 'transparent' }]}>
+                  {isCameraReady && (
                     <View style={styles.faceIndicatorBadge}>
                       <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
-                      <Text style={styles.faceIndicatorText}>Yüz Algılandı</Text>
+                      <Text style={styles.faceIndicatorText}>Kamera Hazır</Text>
                     </View>
                   )}
                 </View>
               )}
 
+              {/* Liveness geri sayım overlay */}
+              {isScanning && livenessCountdown !== null && (
+                <View style={styles.scanningOverlay}>
+                  <View style={styles.livenessCircle}>
+                    <Text style={styles.livenessCountdownText}>{livenessCountdown}</Text>
+                  </View>
+                  <Text style={styles.scanningText}>Hafifçe başınızı hareket ettirin</Text>
+                </View>
+              )}
+
               {/* Scanning overlay */}
-              {isScanning && (
+              {isScanning && livenessCountdown === null && (
                 <View style={styles.scanningOverlay}>
                   <ActivityIndicator size="large" color="#fff" />
                   <Text style={styles.scanningText}>Yüz taranıyor...</Text>
@@ -267,14 +286,14 @@ export default function FaceScanScreen() {
 
           <View style={styles.statusContainer}>
             <Text style={styles.statusText}>
-              {isScanning ? 'Taranıyor...' : faceDetected ? 'Yüz Algılandı ✓' : 'Yüz Bekleniyor...'}
+              {isScanning ? 'Taranıyor...' : isCameraReady ? 'Kamera Hazır ✓' : 'Kamera Başlatılıyor...'}
             </Text>
             <Text style={styles.statusSubtext}>
               {isScanning
                 ? 'Lütfen hareketsiz bekleyin'
-                : faceDetected
+                : isCameraReady
                   ? 'Taramaya başlamak için butona basın'
-                  : 'Yüzünüzü çerçeve içine ortalayın'}
+                  : 'Kamera hazırlanıyor, lütfen bekleyin'}
             </Text>
           </View>
         </View>
@@ -282,13 +301,13 @@ export default function FaceScanScreen() {
         {/* Scan Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.scanButton, (!faceDetected || isScanning) && styles.scanButtonDisabled]}
+            style={[styles.scanButton, (!isCameraReady || isScanning) && styles.scanButtonDisabled]}
             onPress={handleStartScan}
-            disabled={!faceDetected || isScanning}
+            disabled={!isCameraReady || isScanning}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={(!faceDetected || isScanning) ? ['#6B7280', '#4B5563'] : ['#7C3AED', '#A855F7']}
+              colors={(!isCameraReady || isScanning) ? ['#6B7280', '#4B5563'] : ['#7C3AED', '#A855F7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.scanButtonGradient}
@@ -321,7 +340,7 @@ export default function FaceScanScreen() {
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>3</Text>
             </View>
-            <Text style={styles.instructionText}>Tarama sırasında hareketsiz durun</Text>
+            <Text style={styles.instructionText}>Geri sayım sırasında hafifçe başınızı hareket ettirin</Text>
           </View>
         </View>
 
@@ -330,7 +349,7 @@ export default function FaceScanScreen() {
           <View style={styles.lightHint}>
             <Ionicons name="sunny-outline" size={16} color="#FCD34D" />
             <Text style={styles.lightHintText}>
-              Yüz algılanamıyor — daha aydınlık bir ortama geçin veya kameraya doğrudan bakın
+              Kamera başlatılamadı — kamera iznini kontrol edin veya uygulamayı yeniden başlatın
             </Text>
           </View>
         )}
@@ -435,12 +454,23 @@ const styles = StyleSheet.create({
   faceIndicatorText:  { color: '#4ADE80', fontSize: 12, fontWeight: '700' },
   scanningOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 14,
   },
-  scanningText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  scanningText: { color: '#fff', fontSize: 15, fontWeight: '600', textAlign: 'center', paddingHorizontal: 16 },
+  livenessCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(168,85,247,0.85)',
+    borderWidth: 3,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  livenessCountdownText: { fontSize: 34, fontWeight: '800', color: '#fff' },
   statusContainer: {
     alignItems: 'center',
   },

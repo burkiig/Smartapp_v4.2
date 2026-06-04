@@ -14,8 +14,8 @@ class FaceReferenceRepository:
         ref = self.get_by_user(user_id)
         if ref:
             ref.embedding = embedding
-            from datetime import datetime
-            ref.updated_at = datetime.utcnow()
+            from datetime import datetime, timezone
+            ref.updated_at = datetime.now(timezone.utc)
         else:
             ref = FaceReference(user_id=user_id, embedding=embedding)
             self.db.add(ref)

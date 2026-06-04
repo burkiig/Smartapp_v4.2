@@ -2,7 +2,100 @@
 
 Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-**API Sürümü:** v3.0.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** SQLite (dev) / PostgreSQL (prod) &nbsp;|&nbsp; **Storage:** Supabase (opsiyonel)
+**API Sürümü:** v4.2.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
+
+---
+
+## Son Güncelleme — v4.2.0 (4 Haziran 2026)
+
+Bu sürümde kapsamlı bir mühendislik denetimi yapılmış; 47 sorun tespit edilmiş ve tamamı giderilmiştir.
+
+---
+
+### Kritik Güvenlik ve İşlevsellik Düzeltmeleri
+
+#### Mobil Uygulama
+
+| # | Sorun | Düzeltme |
+|---|-------|----------|
+| 1 | **face-scan.js** — `onFacesDetected` expo-camera 17'de çalışmıyor; scan butonu kalıcı disabled kalıyordu | `onFacesDetected` → `onCameraReady` ile değiştirildi; buton kamera hazır olunca aktifleşiyor |
+| 2 | **apiAdapter.js + authService.js** — Token refresh sonrası yeni `refresh_token` kaydedilmiyordu; kullanıcılar ilk yenilemeden sonra force logout oluyordu | Her `tryRefreshToken` çağrısında `refresh_token` da SecureStore'a kaydediliyor |
+| 3 | **apiAdapter.js** — 401 sonrası retry isteğinde `AbortController` eksikti; timeout'lar sessizce askıda kalıyordu | Retry isteğine ayrı `AbortController` + `clearTimeout` eklendi |
+| 4 | **qr-scan.js** — 409 hatası (QR zaten tarandı) error ekranı açıyordu; öğrenci tıkanıyordu | 409 alındığında yüz doğrulama adımına (`/face-scan`) yönlendirme yapılıyor |
+| 5 | **qr-scan.js** — `parts` değişkeni `try` bloğu içinde tanımlanmıştı; catch bloğu `ReferenceError` fırlatıyordu | `parts = {}` try bloğunun dışına taşındı |
+| 6 | **locationService.js** — expo-location'da geçersiz `timeout` parametresi kullanılıyordu; konum alınamıyordu | `timeout` → `maximumAge` olarak düzeltildi |
+| 7 | **gps-verify.js** — Backend'den dönmeyen `room_name` alanı UI'da `—` gösteriyordu | Gereksiz alan UI'dan kaldırıldı |
+
+#### Backend
+
+| # | Sorun | Düzeltme |
+|---|-------|----------|
+| 8 | **attendance_service.py** — InsightFace yüklü değilse yüz adımı otomatik `verified` dönüyordu (güvenlik açığı) | Motor yoksa 503 fırlatılıyor; bypass tamamen kaldırıldı |
+| 9 | **sessions.py** — `GET /sessions/{id}` endpoint'inde instructor scope kontrolü yoktu; herhangi bir instructor başka öğretmenin session'ına erişebiliyordu (IDOR) | `is_instructor_of_course()` kontrolü eklendi |
+| 10 | **attendance_service.py** — `completed_at` başarılı kayıt oluşturulmadan önce set ediliyordu; fake-GPS retry atılırsa kayıt "tamamlanmış" görünüyordu | `completed_at` yalnızca `final_repo.create()` başarılı olduktan sonra set ediliyor |
+| 11 | **attendance_service.py** — `accuracy_above_threshold` dead code olarak `fake_gps_detected` hesabına karışıyordu | Temizlendi; yalnızca `is_mocked` bayrağı kullanılıyor |
+| 12 | **attendance_service.py** — `_notify_instructor_flagged` lazy load `session.course` detached state riski | `_CourseRepo(self.db).get_by_id()` ile doğrudan sorgu yapılıyor |
+| 13 | **face.py** — `enroll-multi` API minimum 1 görüntü kabul ediyor, servis minimum 2 istiyor | API validator 2'ye güncellendi |
+| 14 | **sanitization.py** — `Content-Length` gönderilmemiş isteklerde body cap çalışmıyordu; path prefix eşleşmesi yanlıştı | No-Content-Length body okuma eklendi; path segmentleri düzeltildi |
+| 15 | **push.py** — Expo push ticket hataları loglanmıyor, `raise_for_status` eksikti | Ticket bazlı hata loglama ve `raise_for_status` eklendi |
+| 16 | **face_repo.py** — `datetime.utcnow()` deprecated kullanımı | `datetime.now(timezone.utc)` ile değiştirildi |
+| 17 | **attendance_repo.py** — Date filter naive datetime ile karşılaştırma | `tzinfo=timezone.utc` eklendi |
+| 18 | **sessions.py** — `if not end_time and not data.end_time` redundant çift kontrol | `if not end_time` ile sadeleştirildi |
+
+#### Web Panel
+
+| # | Sorun | Düzeltme |
+|---|-------|----------|
+| 19 | **apiBaseUrl.js** — Production'da `localhost:8000` hardcoded fallback; gerçek sunucuda yanlış origin'e istek atılıyordu | Same-origin fallback eklendi; proxy üzerinden `/api/...` yönlendirmesi varsayılan |
+| 20 | **AdminDashboardPage.jsx** — CSV import `window.__API_BASE_URL__` kullanıyordu (hiç set edilmez); production'da 404 alıyordu | `getApiBaseUrl()` ile değiştirildi |
+| 21 | **apiClient.js** — FastAPI validation hataları (`detail` array) `[object Object]` olarak görünüyordu | Array `detail` join ile okunabilir mesaja dönüştürülüyor |
+| 22 | **StudentsPage.jsx** — Instructor "Öğrenci Sil" butonu her zaman 403 dönüyordu (backend admin require) | Buton yalnızca `role === 'admin'` için gösteriliyor |
+| 23 | **useAttendance.js** — Undo sonrası optimistic state `'present'` set ediyordu; backend `pending_review` döndürüyor | `status: 'pending_review'` olarak düzeltildi |
+| 24 | **AuditLogPage.jsx** — Filter `useEffect` sadece mount'ta çalışıyordu; dropdown değişikliği yenileme yapmıyordu | `useCallback` deps zinciri düzeltildi: `[load]` |
+
+---
+
+### Kalibrasyon Güncellemeleri
+
+| Ayar | Eski | Yeni | Neden |
+|------|------|------|-------|
+| `GPS_ACCURACY_THRESHOLD` | 80m | **40m** | 80m çok gevşek; şehir içi mobil GPS için 40m gerçekçi eşik |
+| `DEFAULT_GEOFENCE_RADIUS_M` | 50m | **100m** | 50m sınıf ortasından köşeye bile yetmez |
+| `QR_TOKEN_TTL_SECONDS` | 60s | **90s** | Yavaş bağlantılarda 60s zaman aşımı çok sık görülüyordu |
+| `FACE_LIVENESS_THRESHOLD` | 0.5 (kullanılmıyordu) | **0.15** (aktif) | `check_liveness()` artık `settings` değerini okuyor |
+| `FACE_SIMILARITY_THRESHOLD` | 0.5 | **0.42** | Gerçek ortam testlerine göre gevşetildi |
+| InsightFace `det_size` | (320, 320) | **(480, 480)** | Uzak mesafede / düşük çözünürlükte daha iyi algılama |
+
+---
+
+### Yüz Tanıma İyileştirmeleri
+
+- **Thread lock** (`threading.Lock`) ile eş zamanlı ONNX inference yarış koşulu önlendi
+- Tüm `print()` çağrıları `logger` ile değiştirildi (production log yönetimi)
+- `check_liveness()` artık `FACE_LIVENESS_THRESHOLD` env değişkenini kullanıyor
+- `face-scan.js` — Liveness countdown UI eklendi; ikinci kare isteği opsiyonel hale getirildi (login akışıyla tutarlı)
+
+---
+
+### Dead Code Temizliği
+
+**Mobil (silindi):**
+- `src/utils/tokenStorage.js` — `apiAdapter.js` ile duplicate
+- `src/services/attendanceService.js` — `api.js` ile duplicate
+
+**Web Panel (silindi):**
+- `features/attendance/hooks/useClassDetails.js` — hiçbir sayfada import edilmiyordu
+- `features/dashboard/hooks/useDashboard.js` — `DashboardView.js` kendi fetch'ini yapıyor
+- `features/students/components/StudentRegistration.js` — hiçbir yerde kullanılmıyordu
+- `shared/hooks/useCamera.js` — web kamera özelliği yoktu
+
+---
+
+### Altyapı
+
+- **`DOCKER_MIGRATION.md`** oluşturuldu — Supabase'den kendi Linux sunucusuna Docker + Tailscale ile geçiş rehberi (10 bölüm, kontrol listesiyle)
+- `docker-compose.yml` güncellendi — web panel servisi eklendi
+- Alembic migration sorunları belgelendi (`alembic stamp head` → `alembic upgrade head` çözümü)
 
 ---
 

@@ -1,11 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStudents } from '../../hooks/useStudents';
+import { useAuth } from '../../../../features/auth/context/AuthContext';
 import './StudentsPage.css';
 
 export const StudentsPage = ({ onManualAttendance }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { students, loading, error, loadStudents, deleteStudent } = useStudents();
+  const canDelete = user?.role === 'admin';
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
 
@@ -134,12 +137,14 @@ export const StudentsPage = ({ onManualAttendance }) => {
                         {t('students.manualAttendance')}
                       </button>
                     )}
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(student.id)}
-                    >
-                      {t('common.delete')}
-                    </button>
+                    {canDelete && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleDelete(student.id)}
+                      >
+                        {t('common.delete')}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

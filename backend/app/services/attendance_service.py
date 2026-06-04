@@ -115,12 +115,12 @@ class AttendancePipelineService:
         if not attempt or attempt.qr_status != "verified":
             raise HTTPException(status_code=400, detail="Önce QR kodu taratın")
 
-        # If face engine is unavailable, simulate verification — will be flagged at location step
+        # Yüz motoru yoksa adımı geçme — 503 döndür (güvenlik: face bypass yok)
         if not self.face_service.engine.is_available:
-            attempt = self.attempt_repo.update(
-                attempt, face_status="verified", face_confidence=0.0
+            raise HTTPException(
+                status_code=503,
+                detail="Yüz tanıma servisi şu an kullanılamıyor. Lütfen öğretmeninizle iletişime geçin.",
             )
-            return attempt
 
         verified, confidence = self.face_service.verify(
             student.id,
@@ -207,24 +207,15 @@ class AttendancePipelineService:
                 detail=f"Konum doğrulaması başarısız. Mesafe: {distance_m:.0f}m (izin verilen: {effective_radius}m)",
             )
 
-        attempt = self.attempt_repo.update(
-            attempt, completed_at=datetime.now(timezone.utc)
-        )
-
         # ── GPS plausibility checks ───────────────────────────────────────────
-        # Öncelik sırası: fake_gps > suspicious_accuracy > low_accuracy
-        #                 > face_simulated > location_skipped
+        # Öncelik sırası: fake_gps > suspicious_accuracy > low_accuracy > location_skipped
         gps_issues = check_gps_plausibility(accuracy, is_mocked)
 
-        accuracy_above_threshold = (
-            accuracy is not None and accuracy > settings.GPS_ACCURACY_THRESHOLD
-        )
         low_accuracy = (
             accuracy is not None and 30 < accuracy <= settings.GPS_ACCURACY_THRESHOLD
         )
-        # fake_gps: cihazın is_mocked bildirimi VEYA eşik aşımı
-        fake_gps_detected = bool(is_mocked) or accuracy_above_threshold
-        # suspicious_accuracy: sub-metre hassasiyet → donanım üretemez → yazılım sahtesi
+        # fake_gps: yalnızca cihazın is_mocked bildirimi (accuracy eşik aşımı zaten 400 ile reddedildi)
+        fake_gps_detected = bool(is_mocked)
         suspicious_accuracy = "suspicious_accuracy" in gps_issues
 
         flag_reason = None
@@ -288,6 +279,11 @@ class AttendancePipelineService:
             "gps_issues": gps_issues,
         }
 
+        # completed_at yalnızca kayıt başarıyla oluşturulduğunda işaretlenir
+        attempt = self.attempt_repo.update(
+            attempt, completed_at=datetime.now(timezone.utc)
+        )
+
         final_record = self.final_repo.create(
             student_id=student.id,
             session_id=session_id,
@@ -298,7 +294,7 @@ class AttendancePipelineService:
             status=record_status,
         )
 
-        # Başarılı kayıt (veya eşik aşıldı ve kaydedildi) → retry sayacını sıfırla
+        # Başarılı kayıt → retry sayacını sıfırla
         reset_fake_gps_counter(student.id, session_id)
 
         log_action(
@@ -570,20 +566,21 @@ class AttendancePipelineService:
         """
         try:
             from app.services.notification_service import create_notification
+            from app.repositories.course_repo import CourseRepository as _CourseRepo
 
             REASON_LABELS = {
                 "face_simulated": "Yüz tanıma simüle edildi",
                 "location_skipped": "GPS koordinatı tanımlı değil",
                 "manual_no_face": "Manuel yoklama (yüzsüz)",
                 "manual_no_face_ref": "Yüz referansı bulunamadı",
-                "fake_gps_detected": "Sahte GPS / düşük doğruluk tespit edildi",
-                "suspicious_accuracy": "Şüpheli GPS hassasiyeti (sub-metre değer, donanımla üretilemez)",
+                "fake_gps_detected": "Sahte GPS tespit edildi",
+                "suspicious_accuracy": "Şüpheli GPS hassasiyeti (sub-metre değer)",
                 "low_accuracy": "GPS doğruluğu düşük (inceleme gerekli)",
             }
             label = REASON_LABELS.get(flag_reason, flag_reason)
-            course_code = (
-                session.course.code if session.course else f"Ders #{session.course_id}"
-            )
+            # course_code: detached session.course lazy load yerine doğrudan sorgu
+            course = _CourseRepo(self.db).get_by_id(session.course_id)
+            course_code = course.code if course else f"Ders #{session.course_id}"
             notif_data = {
                 "type": "flagged_attendance",
                 "session_id": session.id,
@@ -591,9 +588,8 @@ class AttendancePipelineService:
             }
 
             # ── Tüm öğretmenlere: DB notification + push ─────────────────────
-            if session.course:
-                from app.repositories.course_repo import CourseRepository
-                instructors = CourseRepository(self.db).get_instructors_for_course(
+            if course:
+                instructors = _CourseRepo(self.db).get_instructors_for_course(
                     session.course_id
                 )
                 instructor_title = "⚠️ Şüpheli Yoklama"

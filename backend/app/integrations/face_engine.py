@@ -3,19 +3,24 @@ InsightFace tabanlı yüz tanıma motoru.
 buffalo_l modeli kullanır, cosine similarity ile karşılaştırma yapar.
 Kütüphane yüklü değilse graceful fallback sağlar.
 
-Thread güvenliği: FaceEngine singleton'dır. ONNX inference CPU-ağır bir işlemdir;
-  - `def` FastAPI endpoint'lerinden çağrıldığında FastAPI zaten thread pool kullanır (güvenli).
-  - `async def` context'lerinden çağrılacaksa `extract_embedding_async` / `verify_async` kullanın.
+Thread güvenliği: Eş zamanlı istekler _face_lock ile sıralanır.
+ONNX inference thread-safe değildir; lock hem data race'i hem model
+bozulmasını önler.
 """
 import asyncio
 import concurrent.futures
+import threading
+import logging
 import numpy as np
 import io
 import base64
 from typing import Optional, Tuple
 
-# Yüz tanıma için ayrı bir thread pool — diğer sync route'larla rekabet etmez
+logger = logging.getLogger(__name__)
+
+# Yüz tanıma için ayrı thread pool ve mutex
 _FACE_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="face-")
+_face_lock = threading.Lock()
 
 try:
     import insightface
@@ -47,29 +52,28 @@ class FaceEngine:
 
     def _init_model(self):
         if not INSIGHTFACE_AVAILABLE:
-            print("WARNING: insightface not installed. Face recognition disabled.")
+            logger.warning("insightface not installed. Face recognition disabled.")
             return
-        import threading
         result = {"ok": False, "error": None}
 
         def _load():
             try:
                 app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-                app.prepare(ctx_id=0, det_size=(320, 320))
+                app.prepare(ctx_id=0, det_size=(480, 480))
                 self._app = app
                 self._initialized = True
                 result["ok"] = True
-                print("FaceEngine: buffalo_l model loaded successfully.")
+                logger.info("FaceEngine: buffalo_l model loaded (det_size=480x480).")
             except Exception as e:
                 result["error"] = e
 
         t = threading.Thread(target=_load, daemon=True)
         t.start()
-        t.join(timeout=120)  # 2 dakikadan uzun sürerse sunucu bloke olmaz
+        t.join(timeout=120)
         if t.is_alive():
-            print("WARNING: FaceEngine init timed out (120s). Face recognition disabled.")
+            logger.warning("FaceEngine init timed out (120s). Face recognition disabled.")
         elif not result["ok"]:
-            print(f"WARNING: FaceEngine init failed: {result['error']}")
+            logger.warning("FaceEngine init failed: %s", result["error"])
 
     @property
     def is_available(self) -> bool:
@@ -97,14 +101,14 @@ class FaceEngine:
         if img is None:
             return None
         try:
-            faces = self._app.get(img)
+            with _face_lock:
+                faces = self._app.get(img)
             if not faces:
                 return None
-            # Use the face with the largest bounding box
             face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
             return face.embedding
         except Exception as e:
-            print(f"FaceEngine extract_embedding error: {e}")
+            logger.error("FaceEngine extract_embedding error: %s", e)
             return None
 
     def compare(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
@@ -138,12 +142,14 @@ class FaceEngine:
         if emb1 is None or emb2 is None:
             return False, 0.0, emb1
 
+        from app.config.settings import settings
         sim = self.compare(emb1, emb2)
-        # Aynı kişinin iki canlı karesi: sim ~0.85-0.98
-        # Aynı statik fotoğraf: sim > 0.999
+        # sim > 0.999 → statik fotoğraf/ekran saldırısı
+        # sim < FACE_LIVENESS_THRESHOLD → farklı kişi / aşırı hareket
+        liveness_min = settings.FACE_LIVENESS_THRESHOLD
         if sim > 0.999:
             return False, 0.0, emb1
-        if sim < 0.5:
+        if sim < liveness_min:
             return False, 0.0, emb1
         return True, sim, emb1
 

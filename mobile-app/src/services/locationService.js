@@ -36,7 +36,8 @@ export const getCurrentLocation = async (options = {}) => {
 
   const location = await Location.getCurrentPositionAsync({
     accuracy: options.accuracy ?? Location.Accuracy.High,
-    timeout: options.timeout ?? 15000,
+    // maximumAge: expo-location'da geçerli seçenek (timeout değil)
+    maximumAge: options.maximumAge ?? 5000,
   });
 
   return {

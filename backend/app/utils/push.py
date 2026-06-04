@@ -42,12 +42,25 @@ def send_expo_push(tokens: List[str], title: str, body: str, data: Optional[dict
             json=messages,
             headers={
                 "Accept": "application/json",
+                "Accept-Encoding": "gzip, deflate",
                 "Content-Type": "application/json",
             },
             timeout=10,
         )
-        logger.info(f"[Push] Sent {len(tokens)} notifications. Status: {resp.status_code}")
-        return resp.json()
+        resp.raise_for_status()
+        result = resp.json()
+        # Expo tickets: her token için status kontrolü
+        tickets = result.get("data", [])
+        errors = [t for t in tickets if t.get("status") == "error"]
+        if errors:
+            for err in errors:
+                logger.warning(
+                    "[Push] Ticket error — %s: %s",
+                    err.get("details", {}).get("error", "unknown"),
+                    err.get("message", ""),
+                )
+        logger.info("[Push] Sent %d notifications, %d errors.", len(tokens), len(errors))
+        return result
     except Exception as e:
-        logger.error(f"[Push] Expo API error: {e}")
+        logger.error("[Push] Expo API error: %s", e)
         return {"error": str(e)}

@@ -1,0 +1,39 @@
+v4.2.0 - Kapsamli sistem denetimi ve duzeltmeleri (4 Haziran 2026)
+
+Kritik duzeltmeler:
+- face-scan.js: onFacesDetected -> onCameraReady (scan butonu sorunu)
+- apiAdapter + authService: refresh_token SecureStore'a kaydediliyor
+- apiAdapter: 401 retry'da AbortController eklendi
+- attendance_service: face engine bypass guvenlik acigi kaldirildi
+- sessions.py: GET /sessions/{id} IDOR kapatildi
+- attendance_service: completed_at kayit basarili olduktan sonra set ediliyor
+- qr-scan.js: 409 hatasinda face-scan'a yonlendirme + scope bug duzeltildi
+- locationService: gecersiz timeout -> maximumAge parametresi
+
+Kalibrasyon:
+- GPS_ACCURACY_THRESHOLD: 80m -> 40m
+- DEFAULT_GEOFENCE_RADIUS_M: 50m -> 100m
+- QR_TOKEN_TTL_SECONDS: 60s -> 90s
+- FACE_LIVENESS_THRESHOLD: 0.5 -> 0.15 (aktif kullanima alindi)
+- FACE_SIMILARITY_THRESHOLD: 0.5 -> 0.42
+- InsightFace det_size: (320,320) -> (480,480)
+
+Yuz tanima iyilestirmeleri:
+- face_engine.py: thread lock, print->logging, det_size 480
+- check_liveness() FACE_LIVENESS_THRESHOLD kullaniyor
+
+Web panel:
+- apiBaseUrl production hardcoded localhost duzeltildi
+- CSV import getApiBaseUrl() kullaniyor
+- FastAPI array error parse duzeltildi
+- Instructor delete student butonu admin-only yapildi
+- useAttendance undo optimistic state duzeltildi
+- AuditLogPage filter useEffect duzeltildi
+
+Dead code temizligi:
+- Silindi: tokenStorage.js, attendanceService.js (mobil)
+- Silindi: useClassDetails, useDashboard, StudentRegistration, useCamera (web)
+
+Altyapi:
+- DOCKER_MIGRATION.md eklendi (Supabase -> kendi sunucu gecis rehberi)
+- README v4.2.0 guncellendi

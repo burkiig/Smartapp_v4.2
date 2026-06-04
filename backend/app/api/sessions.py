@@ -77,7 +77,7 @@ def start_session(
 
     # Apply session template: if end_time not provided, derive from default_duration_minutes
     end_time = data.end_time
-    if not end_time and not data.end_time:
+    if not end_time:
         course = CourseRepository(db).get_by_id(data.course_id)
         if course and course.default_duration_minutes and data.start_time:
             from datetime import datetime, timedelta
@@ -182,17 +182,24 @@ def get_session(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
+    from app.repositories.course_repo import CourseRepository, EnrollmentRepository
+
     repo = SessionRepository(db)
     session = repo.get_by_id(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Oturum bulunamadı")
-    if current_user.role == "student":
-        from app.repositories.course_repo import EnrollmentRepository
 
+    if current_user.role == "student":
         enroll_repo = EnrollmentRepository(db)
         if not enroll_repo.student_can_attend_course(current_user.id, session.course_id):
             raise HTTPException(status_code=403, detail="Bu oturuma erişim yetkiniz yok")
         return SessionPublicResponse.model_validate(session)
+
+    if current_user.role == "instructor":
+        course_repo = CourseRepository(db)
+        if not course_repo.is_instructor_of_course(current_user.id, session.course_id):
+            raise HTTPException(status_code=403, detail="Bu oturuma erişim yetkiniz yok")
+
     return SessionResponse.model_validate(session)
 
 

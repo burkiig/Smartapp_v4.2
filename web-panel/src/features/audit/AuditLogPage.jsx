@@ -27,7 +27,8 @@ function FaceFailuresPanel() {
     }
   }, [days, minFail]);
 
-  useEffect(() => { load(days, minFail); }, []);
+  // load, days/minFail'e bağlı useCallback — değiştiğinde effect yeniden çalışır
+  useEffect(() => { load(days, minFail); }, [load]);
 
   const handleApply = () => load(days, minFail);
 

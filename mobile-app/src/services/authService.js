@@ -109,6 +109,9 @@ async function tryRefresh() {
     const data = await res.json();
     if (data.access_token) {
       await SecureStore.setItemAsync('access_token', data.access_token);
+      if (data.refresh_token) {
+        await SecureStore.setItemAsync('refresh_token', data.refresh_token);
+      }
       return true;
     }
     return false;
