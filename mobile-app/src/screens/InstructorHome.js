@@ -7,14 +7,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { dashboard, courses, sessions, attendance } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 
 export default function InstructorHome() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user } = useUser();
   const userName = user?.name || user?.username || '';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t('greetings.morning') : hour < 18 ? t('greetings.afternoon') : t('greetings.evening');
 
   const [stats,          setStats]          = useState(null);
   const [today,          setToday]          = useState([]);
@@ -80,11 +84,11 @@ export default function InstructorHome() {
     try {
       await sessions.start(course.id, room_id ? { room_id } : {});
       Alert.alert(
-        'Oturum Başlatıldı',
-        `${course.code} için yoklama oturumu açıldı.${room_id ? '' : '\n(Oda seçilmedi — coğrafi konum doğrulaması devre dışı)'}`,
+        t('attendance.sessionStarted'),
+        `${course.code} ${t('attendance.sessionActive')}.${room_id ? '' : `\n(${t('attendance.gpsMissing')})`}`,
       );
       fetchData();
-    } catch (err) { Alert.alert('Hata', err?.message || 'Oturum başlatılamadı.'); }
+    } catch (err) { Alert.alert(t('common.error'), err?.message || t('attendance.startFailed')); }
     finally { setStarting(null); }
   };
 
@@ -96,10 +100,10 @@ export default function InstructorHome() {
   };
 
   const STATS = [
-    { label: 'Toplam Ders',     value: stats?.total_courses   ?? '—', icon: 'book-outline',        color: Colors.primary },
-    { label: 'Kayıtlı Öğrenci', value: stats?.total_enrolled  ?? '—', icon: 'people-outline',       color: Colors.success },
-    { label: 'Aktif Oturum',    value: stats?.active_sessions ?? '—', icon: 'play-circle-outline',  color: Colors.warning },
-    { label: 'Bayraklı',        value: stats?.flagged_records ?? '—', icon: 'flag-outline',          color: Colors.error   },
+    { label: t('instructor.myCourses'),     value: stats?.total_courses   ?? '—', icon: 'book-outline',        color: Colors.primary },
+    { label: t('attendance.enrolled'), value: stats?.total_enrolled  ?? '—', icon: 'people-outline',       color: Colors.success },
+    { label: t('attendance.sessionActive'),    value: stats?.active_sessions ?? '—', icon: 'play-circle-outline',  color: Colors.warning },
+    { label: t('attendance.flagged'),        value: stats?.flagged_records ?? '—', icon: 'flag-outline',          color: Colors.error   },
   ];
 
   // Aktif oturumun ders bilgisini bul
@@ -116,8 +120,8 @@ export default function InstructorHome() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Merhaba,</Text>
-            <Text style={styles.name}>{userName?.split(' ')[0] || 'Hoca'} 👋</Text>
+            <Text style={styles.greeting}>{greeting},</Text>
+            <Text style={styles.name}>{userName?.split(' ')[0] || t('common.instructorFallback')} 👋</Text>
           </View>
           <TouchableOpacity
             style={styles.notifBtn}
@@ -143,21 +147,21 @@ export default function InstructorHome() {
                 <View style={styles.statusCardHeader}>
                   <View style={styles.liveRow}>
                     <Animated.View style={[styles.livePulse, { opacity: pulseAnim }]} />
-                    <Text style={styles.statusCardBadge}>CANLI YOKLAMA</Text>
+                    <Text style={styles.statusCardBadge}>{t('attendance.liveAttendance')}</Text>
                   </View>
                   <TouchableOpacity
                     style={styles.statusCardBtn}
                     onPress={() => router.push({ pathname: '/class-details', params: { courseId: liveSession.course_id, code: liveCourse?.code ?? '', title: liveCourse?.name ?? '' } })}
                   >
-                    <Text style={styles.statusCardBtnText}>Yönet</Text>
+                    <Text style={styles.statusCardBtnText}>{t('common.manage')}</Text>
                     <Ionicons name="arrow-forward" size={13} color="#DC2626" />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.statusCardCode}>{liveCourse?.code ?? `Ders #${liveSession.course_id}`}</Text>
-                <Text style={styles.statusCardName} numberOfLines={1}>{liveCourse?.name ?? 'Aktif oturum'}</Text>
+                <Text style={styles.statusCardCode}>{liveCourse?.code ?? t('common.courseWithId', { id: liveSession.course_id })}</Text>
+                <Text style={styles.statusCardName} numberOfLines={1}>{liveCourse?.name ?? t('attendance.sessionActive')}</Text>
                 <View style={styles.statusCardMeta}>
                   <Ionicons name="people-outline" size={13} color="rgba(255,255,255,0.75)" />
-                  <Text style={styles.statusCardMetaText}>{liveCourse?.enrolled_count ?? 0} öğrenci kayıtlı</Text>
+                  <Text style={styles.statusCardMetaText}>{t('common.enrolledCount', { count: liveCourse?.enrolled_count ?? 0 })}</Text>
                   {activeSessions.length > 1 && (
                     <>
                       <Text style={styles.statusCardMetaDot}>·</Text>
@@ -172,13 +176,13 @@ export default function InstructorHome() {
                 <View style={styles.statusCardHeader}>
                   <View style={styles.liveRow}>
                     <Ionicons name="alarm-outline" size={14} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.statusCardBadge}>SIRADAKİ DERSİNİZ</Text>
+                    <Text style={styles.statusCardBadge}>{t('home.nextCourseBadge')}</Text>
                   </View>
                   <TouchableOpacity
                     style={styles.statusCardBtn}
                     onPress={() => router.push('/(tabs)/schedule')}
                   >
-                    <Text style={styles.statusCardBtnText}>Programa Git</Text>
+                    <Text style={styles.statusCardBtnText}>{t('tabs.schedule')}</Text>
                     <Ionicons name="arrow-forward" size={13} color="#2563EB" />
                   </TouchableOpacity>
                 </View>
@@ -189,7 +193,7 @@ export default function InstructorHome() {
                   <Text style={styles.statusCardMetaText}>{getTime(nextCourse.schedule)}</Text>
                   <Text style={styles.statusCardMetaDot}>·</Text>
                   <Ionicons name="people-outline" size={13} color="rgba(255,255,255,0.75)" />
-                  <Text style={styles.statusCardMetaText}>{nextCourse.enrolled_count ?? 0} öğrenci</Text>
+                  <Text style={styles.statusCardMetaText}>{t('common.studentCount', { count: nextCourse.enrolled_count ?? 0 })}</Text>
                 </View>
               </LinearGradient>
             ) : null}
@@ -215,8 +219,8 @@ export default function InstructorHome() {
                     <Ionicons name="flag" size={18} color={Colors.warning} />
                   </View>
                   <View>
-                    <Text style={styles.alertTitle}>{flagged} kayıt inceleme bekliyor</Text>
-                    <Text style={styles.alertSub}>Yoklama Yönetimi'ne git</Text>
+                    <Text style={styles.alertTitle}>{t('home.flaggedPending', { count: flagged })}</Text>
+                    <Text style={styles.alertSub}>{t('instructor.attendanceMgmtTitle')}</Text>
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.warning} />
@@ -226,16 +230,16 @@ export default function InstructorHome() {
             {/* Today's classes */}
             <View style={styles.section}>
               <View style={styles.sectionHead}>
-                <Text style={styles.sectionTitle}>Bugünkü Dersler</Text>
+                <Text style={styles.sectionTitle}>{t('home.todayCourses')}</Text>
                 <TouchableOpacity onPress={() => router.push('/(tabs)/schedule')}>
-                  <Text style={styles.seeAll}>Tümünü Gör</Text>
+                  <Text style={styles.seeAll}>{t('common.seeAll')}</Text>
                 </TouchableOpacity>
               </View>
 
               {today.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Ionicons name="calendar-outline" size={36} color={Colors.border} />
-                  <Text style={styles.emptyText}>Bugün ders yok</Text>
+                  <Text style={styles.emptyText}>{t('home.noClassesToday')}</Text>
                 </View>
               ) : today.map(course => (
                 <View key={course.id} style={styles.courseCard}>
@@ -255,7 +259,7 @@ export default function InstructorHome() {
                         <Text style={styles.courseMetaText}>{getTime(course.schedule)}</Text>
                         <Text style={styles.courseDot}>·</Text>
                         <Ionicons name="people-outline" size={12} color={Colors.textMuted} />
-                        <Text style={styles.courseMetaText}>{course.enrolled_count ?? 0} öğrenci</Text>
+                        <Text style={styles.courseMetaText}>{t('common.studentCount', { count: course.enrolled_count ?? 0 })}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -268,7 +272,7 @@ export default function InstructorHome() {
                       ? <ActivityIndicator size="small" color="#fff" />
                       : <>
                           <Ionicons name="play" size={13} color="#fff" />
-                          <Text style={styles.startBtnText}>Başlat</Text>
+                          <Text style={styles.startBtnText}>{t('common.start')}</Text>
                         </>
                     }
                   </TouchableOpacity>
@@ -278,12 +282,12 @@ export default function InstructorHome() {
 
             {/* Quick actions */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Hızlı Erişim</Text>
+              <Text style={styles.sectionTitle}>{t('home.quickAccess')}</Text>
               <View style={styles.quickGrid}>
-                <QuickCard icon="calendar" label="Program"   colors={['#2563EB','#1D4ED8']} onPress={() => router.push('/(tabs)/schedule')} />
-                <QuickCard icon="bar-chart" label="Raporlar" colors={['#059669','#047857']} onPress={() => router.push('/(tabs)/reports')} />
-                <QuickCard icon="flag"     label="Bayraklı"  colors={['#D97706','#B45309']} onPress={() => router.push('/(tabs)/attendance')} />
-                <QuickCard icon="person"   label="Profil"    colors={['#7C3AED','#6D28D9']} onPress={() => router.push('/(tabs)/more')} />
+                <QuickCard icon="calendar" label={t('tabs.schedule')}   colors={['#2563EB','#1D4ED8']} onPress={() => router.push('/(tabs)/schedule')} />
+                <QuickCard icon="bar-chart" label={t('instructor.reportsTitle')} colors={['#059669','#047857']} onPress={() => router.push('/(tabs)/reports')} />
+                <QuickCard icon="flag"     label={t('home.flaggedQuick')}  colors={['#D97706','#B45309']} onPress={() => router.push('/(tabs)/attendance')} />
+                <QuickCard icon="person"   label={t('tabs.profile')}    colors={['#7C3AED','#6D28D9']} onPress={() => router.push('/(tabs)/more')} />
               </View>
             </View>
           </>

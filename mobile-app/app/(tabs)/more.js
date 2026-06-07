@@ -1,53 +1,55 @@
-﻿import React from 'react';
+﻿import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import ProfileScreen from './profile';
 import { Colors, Shadows } from '@/config/theme';
 
-const MENU = [
-  {
-    title: 'Yönetim',
-    items: [
-      { icon: 'checkmark-circle-outline', color: Colors.primary,  bg: Colors.primaryLight,  label: 'Yoklama Yönetimi', sub: 'Bayraklı ve mazeretler', route: '/(tabs)/attendance' },
-      { icon: 'calendar-outline',         color: '#7C3AED',       bg: '#EDE9FE',            label: 'Ders Programı',    sub: 'Haftalık program',    route: '/(tabs)/schedule'   },
-      { icon: 'bar-chart-outline',        color: Colors.success,  bg: Colors.successLight,  label: 'Raporlar',         sub: 'İstatistikler',        route: '/(tabs)/reports'    },
-    ],
-  },
-  {
-    title: 'Araçlar',
-    items: [
-      { icon: 'scan-outline',         color: Colors.warning, bg: Colors.warningLight, label: 'Yüz Kaydı',       sub: 'Öğrenci yüzü kaydet', route: '/register-face', adminOnly: true },
-      { icon: 'close-circle-outline', color: Colors.error,   bg: Colors.errorLight,   label: 'Ders İptal',      sub: 'Oturum iptali',       route: '/cancel-class'  },
-    ],
-  },
-  {
-    title: 'Hesap',
-    items: [
-      { icon: 'notifications-outline', color: '#0EA5E9', bg: '#E0F2FE', label: 'Bildirimler',       sub: 'Bildirim tercihleri', route: '/settings' },
-      { icon: 'lock-closed-outline',   color: Colors.primary, bg: Colors.primaryLight, label: 'Güvenlik', sub: 'Gizlilik ayarları', route: '/settings' },
-    ],
-  },
-];
-
 export default function MoreScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user, logout } = useUser();
   const role = user?.role;
   const userName = user?.name || user?.username || '';
 
+  const menu = useMemo(() => [
+    {
+      title: t('more.management'),
+      items: [
+        { icon: 'checkmark-circle-outline', color: Colors.primary,  bg: Colors.primaryLight,  label: t('more.attendanceMgmt'), sub: t('more.attendanceMgmtSub'), route: '/(tabs)/attendance' },
+        { icon: 'calendar-outline',         color: '#7C3AED',       bg: '#EDE9FE',            label: t('instructor.scheduleTitle'), sub: t('more.scheduleSub'), route: '/(tabs)/schedule'   },
+        { icon: 'bar-chart-outline',        color: Colors.success,  bg: Colors.successLight,  label: t('tabs.reports'),         sub: t('more.reportsSub'),        route: '/(tabs)/reports'    },
+      ],
+    },
+    {
+      title: t('more.tools'),
+      items: [
+        { icon: 'scan-outline',         color: Colors.warning, bg: Colors.warningLight, label: t('more.faceRegister'),       sub: t('more.faceRegisterSub'), route: '/register-face', adminOnly: true },
+        { icon: 'close-circle-outline', color: Colors.error,   bg: Colors.errorLight,   label: t('more.cancelClass'),      sub: t('more.cancelClassSub'),       route: '/cancel-class'  },
+      ],
+    },
+    {
+      title: t('more.account'),
+      items: [
+        { icon: 'notifications-outline', color: '#0EA5E9', bg: '#E0F2FE', label: t('settings.notifications'),       sub: t('more.notificationsSub'), route: '/settings' },
+        { icon: 'lock-closed-outline',   color: Colors.primary, bg: Colors.primaryLight, label: t('more.security'), sub: t('more.securitySub'), route: '/settings' },
+      ],
+    },
+  ], [t]);
+
   if (role === 'student') return <ProfileScreen />;
 
   const initials = userName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'RC';
-  const roleLabel = role === 'admin' ? 'Yönetici' : 'Öğretim Görevlisi';
+  const roleLabel = role === 'admin' ? t('roles.admin') : t('roles.instructor');
 
   const handleLogout = () =>
-    Alert.alert('Çıkış Yap', 'Hesabınızdan çıkmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      { text: 'Çıkış Yap', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
+    Alert.alert(t('common.logout'), t('more.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.logout'), style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
     ]);
 
   return (
@@ -59,14 +61,14 @@ export default function MoreScreen() {
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
-          <Text style={styles.heroName}>{userName || 'Kullanıcı'}</Text>
+          <Text style={styles.heroName}>{userName || t('common.userFallback')}</Text>
           <View style={styles.rolePill}>
             <Text style={styles.roleText}>{roleLabel}</Text>
           </View>
         </LinearGradient>
 
         {/* Menu sections */}
-        {MENU.map(section => (
+        {menu.map(section => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionLabel}>{section.title}</Text>
             <View style={styles.group}>
@@ -95,11 +97,11 @@ export default function MoreScreen() {
         <View style={styles.section}>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
             <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-            <Text style={styles.logoutText}>Çıkış Yap</Text>
+            <Text style={styles.logoutText}>{t('common.logout')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.version}>Smart Attendance · v1.0.0</Text>
+        <Text style={styles.version}>{t('common.version')}</Text>
       </ScrollView>
     </SafeAreaView>
   );

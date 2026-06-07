@@ -7,14 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { dashboard, courses, sessions } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import HomeScreen from './home';
+import { useCalendar } from '@/i18n/helpers';
 
 // ── Yardımcı ─────────────────────────────────────────────────────────────────
 const DAY_EN   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DAY_FULL = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
 
 function parseSchedule(sch) {
   try { return typeof sch === 'string' ? JSON.parse(sch) : sch; }
@@ -68,8 +69,12 @@ function findNextClass(allCourses) {
 // ── Öğretmen Dashboard ────────────────────────────────────────────────────────
 function InstructorDashboard() {
   const router   = useRouter();
+  const { t } = useTranslation();
+  const { daysShort, daysFull } = useCalendar();
   const { user } = useUser();
   const userName = user?.name || user?.username || '';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t('greetings.morning') : hour < 18 ? t('greetings.afternoon') : t('greetings.evening');
 
   const [stats,          setStats]          = useState(null);
   const [allCourses,     setAllCourses]     = useState([]);
@@ -93,7 +98,7 @@ function InstructorDashboard() {
         setActiveSessions(Array.isArray(raw) ? raw : (raw?.items || raw?.sessions || []));
       }
     } catch (err) {
-      setError(err?.message || 'Veriler yüklenemedi');
+      setError(err?.message || t('common.dataLoadFailed'));
     } finally {
       setLoading(false);
       setRefresh(false);
@@ -126,8 +131,8 @@ function InstructorDashboard() {
         {/* ── Header ─────────────────────────────────────── */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Merhaba,</Text>
-            <Text style={styles.name}>{userName?.split(' ')[0] || 'Hoca'} 👋</Text>
+            <Text style={styles.greeting}>{greeting},</Text>
+            <Text style={styles.name}>{userName?.split(' ')[0] || t('common.instructorFallback')} 👋</Text>
           </View>
           <TouchableOpacity
             style={styles.notifBtn}
@@ -149,7 +154,7 @@ function InstructorDashboard() {
             <Ionicons name="cloud-offline-outline" size={52} color={Colors.border} />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={fetchData}>
-              <Text style={styles.retryText}>Tekrar Dene</Text>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -163,7 +168,7 @@ function InstructorDashboard() {
                       <View style={styles.liveDot} />
                     </View>
                     <View>
-                      <Text style={styles.bannerLabel}>CANLI YOKLAMA</Text>
+                      <Text style={styles.bannerLabel}>{t('attendance.liveAttendance')}</Text>
                       <Text style={styles.bannerCode}>{activeCourse.code}</Text>
                       <Text style={styles.bannerName} numberOfLines={1}>{activeCourse.name}</Text>
                     </View>
@@ -172,7 +177,7 @@ function InstructorDashboard() {
                     style={styles.bannerBtn}
                     onPress={() => router.push({ pathname: '/class-details', params: { courseId: activeCourse.id, code: activeCourse.code, title: activeCourse.name } })}
                   >
-                    <Text style={styles.bannerBtnText}>Yönet</Text>
+                    <Text style={styles.bannerBtnText}>{t('common.manage')}</Text>
                     <Ionicons name="chevron-forward" size={14} color="#fff" />
                   </TouchableOpacity>
                 </LinearGradient>
@@ -184,7 +189,7 @@ function InstructorDashboard() {
                     </View>
                     <View>
                       <Text style={styles.bannerLabel}>
-                        {nextClass.daysAhead === 0 ? 'SIRADAKI DERS — BUGÜN' : `SIRADAKI DERS — ${DAY_FULL[(new Date().getDay() + nextClass.daysAhead) % 7]?.toUpperCase()}`}
+                        {nextClass.daysAhead === 0 ? t('instructor.nextClassToday') : t('history.nextClassOnDay', { day: daysFull[(new Date().getDay() + nextClass.daysAhead) % 7] })}
                       </Text>
                       <Text style={styles.bannerCode}>{nextClass.course.code}</Text>
                       <Text style={styles.bannerName} numberOfLines={1}>
@@ -196,7 +201,7 @@ function InstructorDashboard() {
                     style={styles.bannerBtn}
                     onPress={() => router.push({ pathname: '/class-details', params: { courseId: nextClass.course.id, code: nextClass.course.code, title: nextClass.course.name } })}
                   >
-                    <Text style={styles.bannerBtnText}>Aç</Text>
+                    <Text style={styles.bannerBtnText}>{t('common.manage')}</Text>
                     <Ionicons name="chevron-forward" size={14} color="#fff" />
                   </TouchableOpacity>
                 </LinearGradient>
@@ -205,8 +210,8 @@ function InstructorDashboard() {
                   <View style={styles.bannerLeft}>
                     <Ionicons name="school-outline" size={28} color="rgba(255,255,255,0.7)" />
                     <View>
-                      <Text style={styles.bannerLabel}>HOŞ GELDİNİZ</Text>
-                      <Text style={styles.bannerName}>Bugün için ders programında ders yok</Text>
+                      <Text style={styles.bannerLabel}>{t('greetings.morning').toUpperCase()}</Text>
+                      <Text style={styles.bannerName}>{t('instructor.dashboardWelcomeEmpty')}</Text>
                     </View>
                   </View>
                 </LinearGradient>
@@ -224,14 +229,14 @@ function InstructorDashboard() {
                     </View>
                   )}
                 </View>
-                <Text style={styles.quickLabel}>Bayraklı Kayıtlar</Text>
+                <Text style={styles.quickLabel}>{t('instructor.flaggedRecords')}</Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.quickBtn} onPress={() => router.push('/(tabs)/reports')}>
                 <View style={[styles.quickIcon, { backgroundColor: Colors.success + '20' }]}>
                   <Ionicons name="bar-chart" size={18} color={Colors.success} />
                 </View>
-                <Text style={styles.quickLabel}>Raporlar</Text>
+                <Text style={styles.quickLabel}>{t('instructor.reportsTitle')}</Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -239,14 +244,14 @@ function InstructorDashboard() {
             {/* ── Derslerim listesi ──────────────────────── */}
             <View style={styles.section}>
               <View style={styles.sectionRow}>
-                <Text style={styles.sectionTitle}>Derslerim</Text>
-                <Text style={styles.sectionCount}>{allCourses.length} ders</Text>
+                <Text style={styles.sectionTitle}>{t('instructor.myCourses')}</Text>
+                <Text style={styles.sectionCount}>{t('calendar.classCount', { count: allCourses.length })}</Text>
               </View>
 
               {allCourses.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Ionicons name="book-outline" size={44} color={Colors.border} />
-                  <Text style={styles.emptyText}>Henüz ders atanmamış</Text>
+                  <Text style={styles.emptyText}>{t('instructor.noCoursesAssigned')}</Text>
                 </View>
               ) : (
                 allCourses.map(course => {
@@ -270,14 +275,14 @@ function InstructorDashboard() {
                           {isLive && (
                             <View style={styles.livePill}>
                               <View style={styles.liveDotSm} />
-                              <Text style={styles.liveText}>CANLI</Text>
+                              <Text style={styles.liveText}>{t('attendance.live')}</Text>
                             </View>
                           )}
                         </View>
                         <Text style={styles.courseName} numberOfLines={1}>{course.name}</Text>
                         <View style={styles.metaRow}>
                           <Ionicons name="people-outline" size={11} color={Colors.textMuted} />
-                          <Text style={styles.metaText}>{course.enrolled_count ?? 0} öğrenci</Text>
+                          <Text style={styles.metaText}>{t('common.studentCount', { count: course.enrolled_count ?? 0 })}</Text>
                           {time && (
                             <>
                               <Text style={styles.metaDot}>·</Text>
@@ -288,7 +293,7 @@ function InstructorDashboard() {
                         </View>
                         {days.length > 0 && (
                           <Text style={styles.courseDays} numberOfLines={1}>
-                            {days.map(d => ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][d]).join('  ')}
+                            {days.map(d => daysShort[d]).join('  ')}
                           </Text>
                         )}
                       </View>

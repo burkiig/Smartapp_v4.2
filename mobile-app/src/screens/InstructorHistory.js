@@ -7,17 +7,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { dashboard, sessions, courses } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
+import { getDateLocale } from '@/i18n';
 
-const SESSION_STATUS = {
-  active:    { label: 'Aktif',       color: Colors.success, bg: Colors.successLight },
-  ended:     { label: 'Tamamlandı',  color: Colors.textMuted, bg: Colors.borderLight },
-  cancelled: { label: 'İptal',       color: Colors.error,   bg: Colors.errorLight   },
+const SESSION_STATUS_KEYS = {
+  active:    'attendance.live',
+  ended:     'instructor.sessionEnded',
+  cancelled: 'instructor.sessionCancelled',
 };
 
 export default function InstructorHistory() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
   const [stats,      setStats]      = useState(null);
   const [list,       setList]       = useState([]);
   const [courseMap,  setCourseMap]  = useState({});
@@ -48,7 +52,12 @@ export default function InstructorHistory() {
 
   const renderItem = ({ item }) => {
     const startDate = item.started_at ? new Date(item.started_at) : null;
-    const s         = SESSION_STATUS[item.status] || SESSION_STATUS.ended;
+    const statusKey = SESSION_STATUS_KEYS[item.status] || SESSION_STATUS_KEYS.ended;
+    const sStyle = item.status === 'active'
+      ? { color: Colors.success, bg: Colors.successLight }
+      : item.status === 'cancelled'
+      ? { color: Colors.error, bg: Colors.errorLight }
+      : { color: Colors.textMuted, bg: Colors.borderLight };
     const course    = courseMap[item.course_id];
     const isActive  = item.status === 'active';
 
@@ -74,31 +83,31 @@ export default function InstructorHistory() {
           <View style={styles.cardTop}>
             <View style={{ flex: 1 }}>
               <Text style={styles.courseCode} numberOfLines={1}>
-                {course?.code ?? `Ders #${item.course_id}`}
+                {course?.code ?? t('common.courseWithId', { id: item.course_id })}
               </Text>
               <Text style={styles.courseName} numberOfLines={1}>
-                {course?.name ?? `Oturum #${item.id}`}
+                {course?.name ?? t('common.sessionWithId', { id: item.id })}
               </Text>
             </View>
-            <View style={[styles.pill, { backgroundColor: s.bg }]}>
-              <Text style={[styles.pillText, { color: s.color }]}>{s.label}</Text>
+            <View style={[styles.pill, { backgroundColor: sStyle.bg }]}>
+              <Text style={[styles.pillText, { color: sStyle.color }]}>{t(statusKey)}</Text>
             </View>
           </View>
           <View style={styles.metaRow}>
             {startDate && (
               <>
                 <Ionicons name="calendar-outline" size={12} color={Colors.textMuted} />
-                <Text style={styles.metaText}>{startDate.toLocaleDateString('tr-TR')}</Text>
+                <Text style={styles.metaText}>{startDate.toLocaleDateString(dateLocale)}</Text>
                 <Text style={styles.metaDot}>·</Text>
                 <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
                 <Text style={styles.metaText}>
-                  {startDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                  {startDate.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                 </Text>
                 {course?.enrolled_count != null && (
                   <>
                     <Text style={styles.metaDot}>·</Text>
                     <Ionicons name="people-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{course.enrolled_count} öğrenci</Text>
+                    <Text style={styles.metaText}>{t('common.studentCount', { count: course.enrolled_count })}</Text>
                   </>
                 )}
               </>
@@ -114,8 +123,8 @@ export default function InstructorHistory() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Ders Geçmişi</Text>
-          <Text style={styles.headerSub}>Tüm yoklama oturumları</Text>
+          <Text style={styles.headerTitle}>{t('instructor.historyTitle')}</Text>
+          <Text style={styles.headerSub}>{t('instructor.historySub')}</Text>
         </View>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
           <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
@@ -128,18 +137,18 @@ export default function InstructorHistory() {
         <>
           <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <SumStat label="Toplam Ders"   value={stats?.total_courses   ?? 0} />
+              <SumStat label={t('instructor.myCourses')}   value={stats?.total_courses   ?? 0} />
               <View style={styles.sumDivider} />
-              <SumStat label="Öğrenci"        value={stats?.total_enrolled  ?? 0} />
+              <SumStat label={t('attendance.enrolled')}        value={stats?.total_enrolled  ?? 0} />
               <View style={styles.sumDivider} />
-              <SumStat label="Bayraklı"       value={stats?.flagged_records ?? 0} />
+              <SumStat label={t('attendance.flagged')}       value={stats?.flagged_records ?? 0} />
               <View style={styles.sumDivider} />
-              <SumStat label="Oturum"         value={list.length} />
+              <SumStat label={t('instructor.courseDetailSessions')}         value={list.length} />
             </View>
           </LinearGradient>
 
           <View style={styles.countRow}>
-            <Text style={styles.countText}>{list.length} oturum kaydı</Text>
+            <Text style={styles.countText}>{t('history.subHistory', { count: list.length })}</Text>
           </View>
 
           <FlatList
@@ -152,7 +161,7 @@ export default function InstructorHistory() {
             ListEmptyComponent={
               <View style={styles.centered}>
                 <Ionicons name="calendar-outline" size={56} color={Colors.border} />
-                <Text style={styles.emptyText}>Oturum kaydı bulunamadı</Text>
+                <Text style={styles.emptyText}>{t('instructor.noSessions')}</Text>
               </View>
             }
           />

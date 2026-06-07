@@ -12,6 +12,7 @@ import {
   isAuthenticated,
   getStoredUser,
 } from '@/services/authService';
+import i18n from '@/i18n';
 
 /**
  * @typedef {Object} User
@@ -72,7 +73,7 @@ export function UserProvider({ children }) {
       const result = await apiLogin(username, password);
 
       if (!result.success) {
-        const err = result.message || 'Kullanıcı adı veya şifre hatalı';
+        const err = result.message || i18n.t('auth.loginFailed');
         setAuthError(err);
         return { success: false, error: err };
       }
@@ -80,7 +81,7 @@ export function UserProvider({ children }) {
       const loggedInUser = result.user;
 
       if (expectedRole && loggedInUser.role !== expectedRole) {
-        const err = `Bu hesap ${expectedRole} olarak kayıtlı değil`;
+        const err = i18n.t('auth.wrongRole', { role: expectedRole });
         setAuthError(err);
         return { success: false, error: err };
       }
@@ -89,7 +90,7 @@ export function UserProvider({ children }) {
       setIsLoggedIn(true);
       return { success: true, user: loggedInUser };
     } catch (err) {
-      const message = err?.message || 'Beklenmeyen bir hata oluştu';
+      const message = err?.message || i18n.t('common.unexpectedError');
       setAuthError(message);
       return { success: false, error: message };
     }

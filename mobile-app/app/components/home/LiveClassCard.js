@@ -2,9 +2,11 @@
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
 
 export default function LiveClassCard({ liveClass, onStartAttendance, disabled = false }) {
+  const { t } = useTranslation();
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function LiveClassCard({ liveClass, onStartAttendance, disabled =
         <View style={styles.row}>
           <View style={styles.liveBadge}>
             <Animated.View style={[styles.pulseDot, { transform: [{ scale: pulse }] }]} />
-            <Text style={styles.liveText}>CANLI</Text>
+            <Text style={styles.liveText}>{t('attendance.live')}</Text>
           </View>
           <Text style={styles.time}>{liveClass.time}</Text>
         </View>
@@ -53,7 +55,7 @@ export default function LiveClassCard({ liveClass, onStartAttendance, disabled =
           activeOpacity={0.88}
         >
           <Ionicons name={disabled ? 'checkmark-done-outline' : 'qr-code-outline'} size={18} color="#059669" />
-          <Text style={styles.ctaText}>{disabled ? 'Yoklama Alındı' : 'Yoklama Al'}</Text>
+          <Text style={styles.ctaText}>{disabled ? t('attendance.taken') : t('attendance.take')}</Text>
           <Ionicons name={disabled ? 'lock-closed-outline' : 'arrow-forward'} size={16} color="#059669" />
         </TouchableOpacity>
       </LinearGradient>
@@ -62,10 +64,11 @@ export default function LiveClassCard({ liveClass, onStartAttendance, disabled =
 }
 
 function MetaItem({ icon, label }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.metaItem}>
       <Ionicons name={icon} size={13} color="rgba(255,255,255,0.8)" />
-      <Text style={styles.metaText}>{label || '—'}</Text>
+      <Text style={styles.metaText}>{label || t('common.notAvailable')}</Text>
     </View>
   );
 }

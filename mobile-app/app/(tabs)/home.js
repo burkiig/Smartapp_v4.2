@@ -2,6 +2,7 @@
 import { ScrollView, StyleSheet, Alert, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import InstructorHome from '@/screens/InstructorHome';
 import Header from '../components/home/Header';
@@ -11,10 +12,12 @@ import MonthStats from '../components/home/MonthStats';
 import RecentActivity from '../components/home/RecentActivity';
 import { attendance, dashboard, courses, notifications as notificationsApi } from '@/services/api';
 import { useActiveSessionsQuery } from '@/query/hooks/useActiveSessionsQuery';
+import { getDateLocale } from '@/i18n';
 
 // ─── Öğrenci Ana Ekranı ───────────────────────────────────────────────────────
 function StudentHomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user } = useUser();
   const userName = user?.name || user?.username || '';
 
@@ -66,13 +69,12 @@ function StudentHomeScreen() {
 
       // Son aktiviteler — component tek obje bekler: { course, time, status }
       if (activityRes.status === 'fulfilled' && activityRes.value?.activities?.length > 0) {
-        const STATUS_TR = { present: 'Katıldı', absent: 'Katılmadı', late: 'İncelemede', excused: 'İncelemede' };
         const first = activityRes.value.activities[0];
         const cInfo = cMap[first.course_id];
         setRecentActivity({
-          course: cInfo?.code || cInfo?.name || `Ders #${first.course_id}`,
-          time: first.timestamp ? new Date(first.timestamp).toLocaleDateString('tr-TR') : '',
-          status: STATUS_TR[first.status] || 'Katılmadı',
+          course: cInfo?.code || cInfo?.name || t('common.courseWithId', { id: first.course_id }),
+          time: first.timestamp ? new Date(first.timestamp).toLocaleDateString(getDateLocale()) : '',
+          status: first.status || 'absent',
         });
       }
 
@@ -91,11 +93,11 @@ function StudentHomeScreen() {
       }
     } catch (err) {
       console.error('[HomeScreen] fetchData error:', err?.message || err);
-      setLoadError(err?.message || 'Veriler yüklenemedi');
+      setLoadError(err?.message || t('common.dataLoadFailed'));
     } finally {
       setRefreshing(false);
     }
-  }, [refetchSessions]);
+  }, [refetchSessions, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -103,11 +105,11 @@ function StudentHomeScreen() {
 
   const handleStartAttendance = () => {
     if (!liveSession) {
-      Alert.alert('Aktif Ders Yok', 'Şu an aktif bir yoklama oturumu bulunmuyor.');
+      Alert.alert(t('attendance.noActiveSessionTitle'), t('attendance.noActiveSession'));
       return;
     }
     if (completedSessionIds.has(String(liveSession.id))) {
-      Alert.alert('Yoklama Zaten Alındı', 'Bu oturum için yoklaman zaten işlenmiş görünüyor.');
+      Alert.alert(t('attendance.alreadyTakenTitle'), t('attendance.alreadyTaken'));
       return;
     }
     router.push({ pathname: '/qr-scan', params: { session_id: liveSession.id } });
@@ -116,8 +118,8 @@ function StudentHomeScreen() {
   // Aktif ders kartı için nesne oluştur
   const activeCourse = liveSession ? (courseMap[liveSession.course_id] || null) : null;
   const liveClass = liveSession ? {
-    course: activeCourse?.code || activeCourse?.name || `Ders #${liveSession.course_id}`,
-    title: activeCourse?.name || `Oturum #${liveSession.id}`,
+    course: activeCourse?.code || activeCourse?.name || t('common.courseWithId', { id: liveSession.course_id }),
+    title: activeCourse?.name || t('common.sessionWithId', { id: liveSession.id }),
     time: liveSession.start_time
       ? `${liveSession.start_time}${liveSession.end_time ? ' – ' + liveSession.end_time : ''}`
       : (activeCourse?.schedule || '—'),

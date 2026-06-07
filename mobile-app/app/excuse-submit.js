@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,16 +32,18 @@ import * as DocumentPicker from 'expo-document-picker';
 import { excuses } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 
-const EXCUSE_TYPES = [
-  { key: 'medical',         label: 'Sağlık',          icon: '🏥', desc: 'Hastalık veya doktor raporu' },
-  { key: 'family',          label: 'Aile',             icon: '👨‍👩‍👧', desc: 'Aile acil durumu' },
-  { key: 'school_activity', label: 'Okul Etkinliği',   icon: '🎓', desc: 'Resmi okul etkinliği' },
-  { key: 'transportation',  label: 'Ulaşım',           icon: '🚌', desc: 'Ulaşım sorunu' },
-  { key: 'other',           label: 'Diğer',            icon: '📋', desc: 'Diğer nedenler' },
-];
+const EXCUSE_TYPE_KEYS = ['medical', 'family', 'school_activity', 'transportation', 'other'];
+const EXCUSE_ICONS = {
+  medical: '🏥',
+  family: '👨‍👩‍👧',
+  school_activity: '🎓',
+  transportation: '🚌',
+  other: '📋',
+};
 
 export default function ExcuseSubmitScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const rawParams = useLocalSearchParams();
   const course_id = Array.isArray(rawParams.course_id) ? rawParams.course_id[0] : rawParams.course_id;
   const session_id = Array.isArray(rawParams.session_id) ? rawParams.session_id[0] : rawParams.session_id;
@@ -60,7 +63,7 @@ export default function ExcuseSubmitScreen() {
   const pickFromGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('İzin Gerekli', 'Fotoğraf seçmek için galeri iznini verin.');
+      Alert.alert(t('common.warning'), t('excuse.galleryRequired'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -88,25 +91,25 @@ export default function ExcuseSubmitScreen() {
 
   const showAttachmentOptions = () => {
     Alert.alert(
-      'Belge Ekle',
-      'Nasıl eklemek istersiniz?',
+      t('excuse.attachmentTitle'),
+      t('excuse.attachmentBody'),
       [
-        { text: 'Galeriden Fotoğraf', onPress: pickFromGallery },
-        { text: 'Dosya Seç (PDF)', onPress: pickDocument },
-        { text: 'İptal', style: 'cancel' },
+        { text: t('excuse.takePhoto'), onPress: pickFromGallery },
+        { text: t('excuse.chooseGallery'), onPress: pickDocument },
+        { text: t('common.cancel'), style: 'cancel' },
       ]
     );
   };
 
   const handleSubmit = async () => {
     if (!isValid) {
-      Alert.alert('Eksik Bilgi', 'Lütfen mazeret türü seçin ve en az 10 karakter açıklama yazın.');
+      Alert.alert(t('common.missingInfo'), t('excuse.missingFields'));
       return;
     }
 
     const parsedCourseId = parseInt(course_id, 10);
     if (!parsedCourseId || isNaN(parsedCourseId)) {
-      Alert.alert('Hata', 'Ders bilgisi eksik. Lütfen geçmişinizden devamsız olduğunuz dersi seçin.');
+      Alert.alert(t('common.error'), t('excuse.missingCourse'));
       return;
     }
 
@@ -127,23 +130,21 @@ export default function ExcuseSubmitScreen() {
         } catch {
           // Belge yükleme başarısız olsa bile mazeret kaydedildi, kullanıcıyı uyar
           Alert.alert(
-            'Kısmen Başarılı',
-            'Mazeretiniz gönderildi ancak belge yüklenemedi. Lütfen belgeyi daha sonra tekrar ekleyin.',
-            [{ text: 'Tamam', onPress: () => router.back() }]
+            t('excuse.partialSuccess'),
+            t('excuse.success'),
+            [{ text: t('common.ok'), onPress: () => router.back() }]
           );
           return;
         }
       }
 
       Alert.alert(
-        'Mazeret Gönderildi ✅',
-        attachment
-          ? 'Mazeretiniz ve belgeniz öğretmene iletildi.'
-          : 'Mazeretiniz öğretmene iletildi. Değerlendirme sonucu size bildirilecektir.',
-        [{ text: 'Tamam', onPress: () => router.back() }]
+        t('common.success'),
+        attachment ? t('excuse.success') : t('excuse.success'),
+        [{ text: t('common.ok'), onPress: () => router.back() }]
       );
     } catch (err) {
-      Alert.alert('Bağlantı Hatası', err?.message || 'Sunucuya bağlanılamadı.');
+      Alert.alert(t('common.connectionError'), err?.message || t('common.serverUnreachable'));
     } finally {
       setIsSubmitting(false);
     }
@@ -156,9 +157,9 @@ export default function ExcuseSubmitScreen() {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Mazeret Gönder</Text>
+          <Text style={styles.headerTitle}>{t('excuse.title')}</Text>
           <Text style={styles.headerSubtitle}>
-            {course_name ? `${course_name}` : `Ders #${course_id}`}
+            {course_name ? `${course_name}` : t('common.courseWithId', { id: course_id })}
           </Text>
         </View>
       </LinearGradient>
@@ -171,7 +172,7 @@ export default function ExcuseSubmitScreen() {
 
           {/* Tarih */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📅 Devamsızlık Tarihi</Text>
+            <Text style={styles.sectionLabel}>📅 {t('excuse.title')}</Text>
             <View style={styles.dateBox}>
               <Ionicons name="calendar-outline" size={20} color="#6366F1" />
               <Text style={styles.dateText}>{date}</Text>
@@ -180,24 +181,24 @@ export default function ExcuseSubmitScreen() {
 
           {/* Mazeret Türü */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📌 Mazeret Türü</Text>
+            <Text style={styles.sectionLabel}>📌 {t('excuse.title')}</Text>
             <View style={styles.typeGrid}>
-              {EXCUSE_TYPES.map((t) => (
+              {EXCUSE_TYPE_KEYS.map((key) => (
                 <TouchableOpacity
-                  key={t.key}
+                  key={key}
                   style={[
                     styles.typeCard,
-                    selectedType === t.key && styles.typeCardSelected,
+                    selectedType === key && styles.typeCardSelected,
                   ]}
-                  onPress={() => setSelectedType(t.key)}
+                  onPress={() => setSelectedType(key)}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.typeIcon}>{t.icon}</Text>
-                  <Text style={[styles.typeLabel, selectedType === t.key && styles.typeLabelSelected]}>
-                    {t.label}
+                  <Text style={styles.typeIcon}>{EXCUSE_ICONS[key]}</Text>
+                  <Text style={[styles.typeLabel, selectedType === key && styles.typeLabelSelected]}>
+                    {t(`excuse.types.${key}.label`)}
                   </Text>
-                  <Text style={styles.typeDesc}>{t.desc}</Text>
-                  {selectedType === t.key && (
+                  <Text style={styles.typeDesc}>{t(`excuse.types.${key}.desc`)}</Text>
+                  {selectedType === key && (
                     <View style={styles.typeCheckmark}>
                       <Ionicons name="checkmark" size={14} color="#fff" />
                     </View>
@@ -209,12 +210,12 @@ export default function ExcuseSubmitScreen() {
 
           {/* Açıklama */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>✏️ Açıklama</Text>
+            <Text style={styles.sectionLabel}>✏️ {t('excuse.title')}</Text>
             <TextInput
               style={styles.descInput}
               multiline
               numberOfLines={5}
-              placeholder="Mazeret nedeninizi detaylı açıklayın... (en az 10 karakter)"
+              placeholder={t('excuse.missingFields')}
               placeholderTextColor="#94A3B8"
               value={description}
               onChangeText={setDescription}
@@ -227,7 +228,7 @@ export default function ExcuseSubmitScreen() {
 
           {/* Belge Ekleme */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📎 Destekleyici Belge (Opsiyonel)</Text>
+            <Text style={styles.sectionLabel}>📎 {t('excuse.attachmentTitle')}</Text>
             {attachment ? (
               <View style={styles.attachmentCard}>
                 {attachment.mimeType?.startsWith('image/') ? (
@@ -248,7 +249,7 @@ export default function ExcuseSubmitScreen() {
             ) : (
               <TouchableOpacity style={styles.attachmentBtn} onPress={showAttachmentOptions} activeOpacity={0.8}>
                 <Ionicons name="cloud-upload-outline" size={22} color="#6366F1" />
-                <Text style={styles.attachmentBtnText}>Belge / Fotoğraf Ekle</Text>
+                <Text style={styles.attachmentBtnText}>{t('excuse.attachmentTitle')}</Text>
                 <Text style={styles.attachmentBtnHint}>PDF, JPG, PNG desteklenir</Text>
               </TouchableOpacity>
             )}
@@ -266,7 +267,7 @@ export default function ExcuseSubmitScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={20} color="#fff" />
-                <Text style={styles.submitBtnText}>Mazeret Gönder</Text>
+                <Text style={styles.submitBtnText}>{t('excuse.submit')}</Text>
               </>
             )}
           </TouchableOpacity>

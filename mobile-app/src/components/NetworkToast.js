@@ -3,6 +3,7 @@ import { Animated, StyleSheet, Text } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Ekranın en üstünde kayan bant.
@@ -16,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  *     (iç içe setState anti-pattern → ekstra yeniden render → timer iptali).
  */
 export default function NetworkToast() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [isConnected, setIsConnected] = useState(null); // null → henüz bilinmiyor
@@ -90,7 +92,7 @@ export default function NetworkToast() {
         color="#fff"
       />
       <Text style={s.text}>
-        {isConnected ? 'İnternet bağlantısı yeniden kuruldu' : 'İnternet Bağlantısı Yok'}
+        {isConnected ? t('network.online') : t('network.offline')}
       </Text>
     </Animated.View>
   );

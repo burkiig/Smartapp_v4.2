@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/config/theme';
 
 /**
@@ -14,18 +15,22 @@ import { Colors } from '@/config/theme';
  *  - onRetry: Fonksiyon varsa "Yenile" butonu göster
  *  - retryLabel: Buton etiketi (varsayılan "Yenile")
  */
-export default function EmptyState({ icon = 'cube-outline', title = 'Veri bulunamadı', subtitle, onRetry, retryLabel = 'Yenile' }) {
+export default function EmptyState({ icon = 'cube-outline', title, subtitle, onRetry, retryLabel }) {
+  const { t } = useTranslation();
+  const displayTitle = title ?? t('empty.defaultTitle');
+  const displayRetryLabel = retryLabel ?? t('common.refresh');
+
   return (
     <View style={s.container}>
       <View style={s.iconWrap}>
         <Ionicons name={icon} size={52} color={Colors.border} />
       </View>
-      <Text style={s.title}>{title}</Text>
+      <Text style={s.title}>{displayTitle}</Text>
       {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
       {onRetry && (
         <TouchableOpacity style={s.btn} onPress={onRetry}>
           <Ionicons name="refresh" size={15} color={Colors.primary} />
-          <Text style={s.btnText}>{retryLabel}</Text>
+          <Text style={s.btnText}>{displayRetryLabel}</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -7,19 +7,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { sessions, rooms as roomsApi, attendance as attendanceApi, courses as coursesApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
+import { getDateLocale, useCancelReasons, useAttendanceStatusLabel } from '@/i18n';
 
-const STATUS_MAP = {
-  present: { label: 'Mevcut',    color: Colors.success, bg: Colors.successLight },
-  absent:  { label: 'Devamsız',  color: Colors.error,   bg: Colors.errorLight   },
-  excused: { label: 'Mazeretli', color: Colors.warning, bg: Colors.warningLight },
+const STATUS_META = {
+  present: { color: Colors.success, bg: Colors.successLight },
+  absent:  { color: Colors.error,   bg: Colors.errorLight   },
+  excused: { color: Colors.warning, bg: Colors.warningLight },
 };
-
-const CANCEL_REASONS = ['Öğretim görevlisi müsait değil', 'Teknik sorun', 'Tatil / Etkinlik', 'Acil durum'];
 
 export default function ClassDetailsScreen() {
   const router  = useRouter();
+  const { t } = useTranslation();
+  const getStatusLabel = useAttendanceStatusLabel();
+  const cancelReasons = useCancelReasons();
   const params   = useLocalSearchParams();
   const courseId  = params.courseId  ? Number(params.courseId)  : null;
   const sessionId = params.sessionId ? Number(params.sessionId) : null;
@@ -36,9 +39,15 @@ export default function ClassDetailsScreen() {
   // Modals
   const [facultyModal, setFacultyModal] = useState(false);
   const [cancelModal,  setCancelModal]  = useState(false);
-  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
+  const [cancelReason, setCancelReason] = useState(null);
   const [starting,     setStarting]     = useState(false);
   const [facLoading,   setFacLoading]   = useState(false);
+
+  useEffect(() => {
+    if (cancelReasons.length > 0 && !cancelReason) {
+      setCancelReason(cancelReasons[0]);
+    }
+  }, [cancelReasons, cancelReason]);
 
   useEffect(() => {
     if (courseId) {
@@ -80,7 +89,7 @@ export default function ClassDetailsScreen() {
       if (enrolled.status === 'fulfilled' && Array.isArray(enrolled.value) && enrolled.value.length > 0) {
         setStudents(enrolled.value.map(s => {
           const rec  = statusMap[s.id] || {};
-          const name = s.name || s.username || `Öğrenci ${s.id}`;
+          const name = s.name || s.username || t('common.studentWithId', { id: s.id });
           return {
             id: String(s.id),
             dbId: rec.dbId || null,
@@ -98,7 +107,7 @@ export default function ClassDetailsScreen() {
           id: String(r.student_id),
           dbId: r.id,
           recSessionId: r.session_id,
-          name: r.student_name || `Öğrenci ${r.student_id}`,
+          name: r.student_name || t('common.studentWithId', { id: r.student_id }),
           status: r.status || 'absent',
           avatar: (r.student_name || `S${r.student_id}`).split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
         })));
@@ -112,46 +121,46 @@ export default function ClassDetailsScreen() {
     try {
       const data = await roomsApi.list();
       setFaculties(Array.isArray(data) ? data : []);
-    } catch (err) { Alert.alert('Hata', err?.message || 'Fakülteler yüklenemedi.'); }
+    } catch (err) { Alert.alert(t('common.error'), err?.message || t('attendance.facultiesLoadFailed')); }
     finally { setFacLoading(false); }
   };
 
   const handleStartSession = async () => {
-    if (!selFaculty) { Alert.alert('Fakülte Seçin', 'Lütfen dersin yapılacağı fakülte / binayı seçin.'); return; }
-    if (!selFaculty.latitude) { Alert.alert('GPS Eksik', `${selFaculty.name} için GPS konumu tanımlı değil.`); return; }
-    if (!courseId) { Alert.alert('Hata', 'Ders bilgisi eksik.'); return; }
+    if (!selFaculty) { Alert.alert(t('attendance.selectFaculty'), t('attendance.selectFacultyBody')); return; }
+    if (!selFaculty.latitude) { Alert.alert(t('attendance.gpsMissing'), t('attendance.gpsMissingBody', { name: selFaculty.name })); return; }
+    if (!courseId) { Alert.alert(t('common.error'), t('attendance.missingCourse')); return; }
     setStarting(true);
     setFacultyModal(false);
     try {
       const result = await sessions.start(courseId, { room_id: selFaculty.id });
       setActiveSession(result.session);
-      Alert.alert('Yoklama Başlatıldı', `${selFaculty.name} konumu kullanılıyor. ±${selFaculty.geofence_radius}m yarıçap`);
-    } catch (err) { Alert.alert('Başlatılamadı', err?.message || 'Oturum başlatılamadı.'); }
+      Alert.alert(t('attendance.sessionStarted'), t('attendance.sessionStartedBody', { name: selFaculty.name, radius: selFaculty.geofence_radius }));
+    } catch (err) { Alert.alert(t('attendance.startFailed'), err?.message || t('attendance.startFailed')); }
     finally { setStarting(false); }
   };
 
   const handleEndSession = () => {
     if (!activeSession) return;
-    Alert.alert('Yoklamayı Bitir', 'Oturumu kapatmak istiyor musunuz?', [
-      { text: 'Hayır', style: 'cancel' },
-      { text: 'Bitir', style: 'destructive', onPress: async () => {
-        try { await sessions.end(activeSession.id); setActiveSession(null); Alert.alert('Tamamlandı', 'Yoklama oturumu kapatıldı.'); }
-        catch (err) { Alert.alert('Hata', err?.message); }
+    Alert.alert(t('attendance.endConfirmTitle'), t('attendance.endConfirmBody'), [
+      { text: t('common.no'), style: 'cancel' },
+      { text: t('attendance.endSession'), style: 'destructive', onPress: async () => {
+        try { await sessions.end(activeSession.id); setActiveSession(null); Alert.alert(t('common.done'), t('attendance.sessionEnded')); }
+        catch (err) { Alert.alert(t('common.error'), err?.message); }
       }},
     ]);
   };
 
   const handleCancelClass = () => {
     if (!courseId) return;
-    Alert.alert('Ders İptali', `Sebep: ${cancelReason}`, [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'İptal Et', style: 'destructive', onPress: async () => {
+    Alert.alert(t('cancel.title'), t('cancel.reasonPrefix', { reason: cancelReason }), [
+      { text: t('common.giveUp'), style: 'cancel' },
+      { text: t('cancel.cancelAction'), style: 'destructive', onPress: async () => {
         try {
           await sessions.cancel(courseId, cancelReason, activeSession?.id);
           setActiveSession(null);
           setCancelModal(false);
-          Alert.alert('İptal Edildi', 'Ders iptal edildi.', [{ text: 'Tamam', onPress: () => router.back() }]);
-        } catch (err) { Alert.alert('Hata', err?.message || 'İptal başarısız.'); }
+          Alert.alert(t('cancel.cancelled'), t('cancel.classCancelled'), [{ text: t('common.ok'), onPress: () => router.back() }]);
+        } catch (err) { Alert.alert(t('common.error'), err?.message || t('cancel.cancelFailed')); }
       }},
     ]);
   };
@@ -167,30 +176,31 @@ export default function ClassDetailsScreen() {
     const withoutRecord = students.filter(s => !s.dbId && sessionId);
 
     if (withRecord.length === 0 && withoutRecord.length === 0) {
-      Alert.alert('Bilgi', 'Güncellenecek kayıt bulunamadı. Aktif yoklama oturumu gerekli.');
+      Alert.alert(t('common.info'), t('attendance.noRecordsToUpdate'));
       return;
     }
     try {
       const ops = [
-        ...withRecord.map(s => attendanceApi.override(s.dbId, s.status, 'Öğretmen tarafından manuel güncellendi')),
-        ...withoutRecord.map(s => attendanceApi.setStatus(sessionId, Number(s.id), s.status, 'Öğretmen tarafından oluşturuldu')),
+        ...withRecord.map(s => attendanceApi.override(s.dbId, s.status, t('attendance.teacherManualUpdate'))),
+        ...withoutRecord.map(s => attendanceApi.setStatus(sessionId, Number(s.id), s.status, t('attendance.teacherCreated'))),
       ];
       const results = await Promise.allSettled(ops);
       const fail = results.filter(r => r.status === 'rejected').length;
       const total = ops.length;
       setUnsaved(false);
       if (fail > 0) {
-        Alert.alert('Kısmen Kaydedildi', `${total - fail}/${total} kayıt güncellendi.`);
+        Alert.alert(t('attendance.partialSaved'), t('attendance.partialSavedBody', { success: total - fail, total }));
       } else {
-        Alert.alert('Kaydedildi', `${total} öğrencinin yoklama kaydı güncellendi.`);
+        Alert.alert(t('attendance.saved'), t('attendance.savedStudents', { count: total }));
       }
       // Yüklü listeyi yenile
       if (courseId) loadStudents(courseId, sessionId);
-    } catch (err) { Alert.alert('Hata', err?.message); }
+    } catch (err) { Alert.alert(t('common.error'), err?.message); }
   };
 
-  const code    = params.code    || '—';
-  const title   = params.title   || '—';
+  const code    = params.code    || t('common.notAvailable');
+  const title   = params.title   || t('common.notAvailable');
+  const dateLocale = getDateLocale();
   const present = students.filter(s => s.status === 'present').length;
   const absent  = students.filter(s => s.status === 'absent').length;
   const excused = students.filter(s => s.status === 'excused').length;
@@ -202,13 +212,13 @@ export default function ClassDetailsScreen() {
 
   const timeline = activeSession
     ? [
-        { time: activeSession.started_at ? new Date(activeSession.started_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—', event: 'Yoklama oturumu başlatıldı', type: 'success' },
-        { time: '—', event: `${present} mevcut · ${absent} devamsız · ${excused} mazeretli`, type: 'info' },
+        { time: activeSession.started_at ? new Date(activeSession.started_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) : t('common.notAvailable'), event: t('attendance.sessionStartedEvent'), type: 'success' },
+        { time: t('common.notAvailable'), event: `${present} ${getStatusLabel('present')} · ${absent} ${getStatusLabel('absent')} · ${excused} ${getStatusLabel('excused')}`, type: 'info' },
       ]
-    : [{ time: '—', event: 'Henüz yoklama başlatılmadı', type: 'info' }];
+    : [{ time: t('common.notAvailable'), event: t('attendance.notStartedYet'), type: 'info' }];
 
   const renderStudent = ({ item }) => {
-    const s = STATUS_MAP[item.status] || STATUS_MAP.absent;
+    const s = STATUS_META[item.status] || STATUS_META.absent;
     return (
       <View style={styles.studentCard}>
         <View style={styles.avatarBox}>
@@ -221,7 +231,7 @@ export default function ClassDetailsScreen() {
         {tab === 'manual' ? (
           <View style={styles.markBtns}>
             {['present', 'excused', 'absent'].map(st => {
-              const m = STATUS_MAP[st];
+              const m = STATUS_META[st];
               const active = item.status === st;
               return (
                 <TouchableOpacity
@@ -230,7 +240,7 @@ export default function ClassDetailsScreen() {
                   onPress={() => handleMark(item.id, st)}
                 >
                   <Text style={[styles.markBtnText, active && { color: m.color }]}>
-                    {STATUS_MAP[st].label}
+                    {getStatusLabel(st)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -238,7 +248,7 @@ export default function ClassDetailsScreen() {
           </View>
         ) : (
           <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
-            <Text style={[styles.statusText, { color: s.color }]}>{s.label}</Text>
+            <Text style={[styles.statusText, { color: s.color }]}>{getStatusLabel(item.status)}</Text>
           </View>
         )}
       </View>
@@ -266,18 +276,18 @@ export default function ClassDetailsScreen() {
         {activeSession ? (
           <TouchableOpacity style={styles.endBtn} onPress={handleEndSession}>
             <Ionicons name="stop-circle" size={18} color="#fff" />
-            <Text style={styles.sessionBtnText}>Yoklamayı Bitir</Text>
+            <Text style={styles.sessionBtnText}>{t('attendance.endSession')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.startBtn} onPress={() => setFacultyModal(true)} disabled={starting}>
             {starting ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="play-circle" size={18} color="#fff" />}
-            <Text style={styles.sessionBtnText}>{starting ? 'Başlatılıyor...' : 'Yoklama Başlat'}</Text>
+            <Text style={styles.sessionBtnText}>{starting ? t('attendance.starting') : t('attendance.startSession')}</Text>
           </TouchableOpacity>
         )}
         {activeSession && (
           <View style={styles.liveTag}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveTagText}>CANLI</Text>
+            <Text style={styles.liveTagText}>{t('attendance.live')}</Text>
           </View>
         )}
       </View>
@@ -285,19 +295,19 @@ export default function ClassDetailsScreen() {
       {/* Stats gradient card */}
       <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.statsCard}>
         <View style={styles.statsRow}>
-          <StatCol label="Toplam"   value={total}   />
+          <StatCol label={t('home.statsTotal')}   value={total}   />
           <View style={styles.statDiv} />
-          <StatCol label="Mevcut"   value={present} />
+          <StatCol label={t('home.statsPresent')}   value={present} />
           <View style={styles.statDiv} />
-          <StatCol label="Devamsız" value={absent}  />
+          <StatCol label={t('instructor.absentStat')} value={absent}  />
           <View style={styles.statDiv} />
-          <StatCol label="Mazeret"  value={excused} />
+          <StatCol label={t('attendance.excusedLabel')}  value={excused} />
         </View>
         {activeSession && (
           <View style={styles.statsSessionInfo}>
             <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.7)" />
             <Text style={styles.statsSessionText}>
-              {activeSession.started_at ? new Date(activeSession.started_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—'} — Yoklama aktif
+              {activeSession.started_at ? new Date(activeSession.started_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }) : t('common.notAvailable')} — {t('attendance.sessionActive')}
             </Text>
           </View>
         )}
@@ -305,12 +315,16 @@ export default function ClassDetailsScreen() {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        {['overview', 'students', 'manual'].map(t => {
-          const labels = { overview: 'Genel Bakış', students: 'Öğrenciler', manual: 'Manuel' };
-          const isActive = tab === t;
+        {['overview', 'students', 'manual'].map(tabKey => {
+          const labels = {
+            overview: t('instructor.classDetailsOverview'),
+            students: t('instructor.classDetailsStudents'),
+            manual: t('instructor.classDetailsManual'),
+          };
+          const isActive = tab === tabKey;
           return (
-            <TouchableOpacity key={t} style={[styles.tabBtn, isActive && styles.tabBtnActive]} onPress={() => setTab(t)}>
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{labels[t]}</Text>
+            <TouchableOpacity key={tabKey} style={[styles.tabBtn, isActive && styles.tabBtnActive]} onPress={() => setTab(tabKey)}>
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{labels[tabKey]}</Text>
             </TouchableOpacity>
           );
         })}
@@ -319,7 +333,7 @@ export default function ClassDetailsScreen() {
       {/* Content */}
       {tab === 'overview' ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewContent}>
-          <Text style={styles.sectionTitle}>Zaman Çizelgesi</Text>
+          <Text style={styles.sectionTitle}>{t('attendance.sessionActive')}</Text>
           {timeline.map((item, i) => (
             <View key={i} style={styles.timelineItem}>
               <View style={[styles.timelineDot, { backgroundColor: item.type === 'success' ? Colors.success : Colors.primary }]} />
@@ -330,11 +344,11 @@ export default function ClassDetailsScreen() {
             </View>
           ))}
           <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>Oturum Durumu</Text>
+          <Text style={styles.sectionTitle}>{t('attendance.sessionActive')}</Text>
           <View style={styles.infoCard}>
-            <InfoRow icon="checkmark-circle" color={activeSession ? Colors.success : Colors.border} text={activeSession ? 'Yoklama oturumu aktif' : 'Yoklama başlatılmadı'} />
-            <InfoRow icon="people-outline"   color={Colors.primary}  text={`${total} kayıtlı öğrenci`} />
-            <InfoRow icon="location-outline" color="#7C3AED"          text={selFaculty?.name || 'Konum seçilmedi'} last />
+            <InfoRow icon="checkmark-circle" color={activeSession ? Colors.success : Colors.border} text={activeSession ? t('attendance.sessionActive') : t('attendance.notStartedYet')} />
+            <InfoRow icon="people-outline"   color={Colors.primary}  text={t('common.studentCount', { count: total })} />
+            <InfoRow icon="location-outline" color="#7C3AED"          text={selFaculty?.name || t('common.notAvailable')} last />
           </View>
         </ScrollView>
       ) : (
@@ -343,7 +357,7 @@ export default function ClassDetailsScreen() {
             <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Öğrenci ara..."
+              placeholder={t('attendance.searchStudent')}
               placeholderTextColor={Colors.textMuted}
               value={search}
               onChangeText={setSearch}
@@ -361,7 +375,7 @@ export default function ClassDetailsScreen() {
               ListEmptyComponent={
                 <View style={styles.centered}>
                   <Ionicons name="people-outline" size={48} color={Colors.border} />
-                  <Text style={styles.emptyText}>Öğrenci bulunamadı</Text>
+                  <Text style={styles.emptyText}>{t('attendance.noStudentFound')}</Text>
                 </View>
               }
             />
@@ -370,7 +384,7 @@ export default function ClassDetailsScreen() {
             <View style={styles.savebar}>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                 <Ionicons name="save-outline" size={18} color="#fff" />
-                <Text style={styles.saveBtnText}>Değişiklikleri Kaydet</Text>
+                <Text style={styles.saveBtnText}>{t('attendance.saveChanges')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -382,13 +396,13 @@ export default function ClassDetailsScreen() {
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Fakülte / Bina Seç</Text>
-            <Text style={styles.sheetSub}>GPS konumu seçilen binadan alınacaktır</Text>
+            <Text style={styles.sheetTitle}>{t('attendance.selectFacultyTitle')}</Text>
+            <Text style={styles.sheetSub}>{t('attendance.selectFacultyBody')}</Text>
             {facLoading ? (
               <ActivityIndicator color={Colors.primary} size="large" style={{ marginVertical: 32 }} />
             ) : faculties.length === 0 ? (
               <View style={styles.centered}>
-                <Text style={styles.emptyText}>Kayıtlı fakülte bulunamadı.{'\n'}Yönetici panelinden ekleyin.</Text>
+                <Text style={styles.emptyText}>{t('attendance.noFacultyFound')}</Text>
               </View>
             ) : (
               <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
@@ -402,7 +416,7 @@ export default function ClassDetailsScreen() {
                       <Text style={styles.facName}>{f.name}</Text>
                       {f.latitude
                         ? <Text style={styles.facGps}>📍 {f.latitude.toFixed(4)}, {f.longitude.toFixed(4)} — ±{f.geofence_radius}m</Text>
-                        : <Text style={[styles.facGps, { color: Colors.error }]}>⚠ GPS tanımlı değil</Text>
+                        : <Text style={[styles.facGps, { color: Colors.error }]}>⚠ {t('attendance.gpsMissing')}</Text>
                       }
                     </View>
                     {selFaculty?.id === f.id && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
@@ -412,10 +426,10 @@ export default function ClassDetailsScreen() {
             )}
             <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.sheetCancel} onPress={() => setFacultyModal(false)}>
-                <Text style={styles.sheetCancelText}>İptal</Text>
+                <Text style={styles.sheetCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.sheetConfirm, !selFaculty && { opacity: 0.4 }]} onPress={handleStartSession} disabled={!selFaculty}>
-                <Text style={styles.sheetConfirmText}>Yoklamayı Başlat</Text>
+                <Text style={styles.sheetConfirmText}>{t('attendance.startSession')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -427,9 +441,9 @@ export default function ClassDetailsScreen() {
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Ders İptali</Text>
-            <Text style={styles.sheetSub}>İptal nedenini seçin</Text>
-            {CANCEL_REASONS.map(r => (
+            <Text style={styles.sheetTitle}>{t('cancel.title')}</Text>
+            <Text style={styles.sheetSub}>{t('cancel.reasonPrefix', { reason: '' }).replace(/{{reason}}:?\s*/, '')}</Text>
+            {cancelReasons.map(r => (
               <TouchableOpacity
                 key={r}
                 style={[styles.reasonRow, cancelReason === r && styles.reasonRowActive]}
@@ -441,10 +455,10 @@ export default function ClassDetailsScreen() {
             ))}
             <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.sheetCancel} onPress={() => setCancelModal(false)}>
-                <Text style={styles.sheetCancelText}>Vazgeç</Text>
+                <Text style={styles.sheetCancelText}>{t('common.giveUp')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.sheetConfirm, { backgroundColor: Colors.error }]} onPress={handleCancelClass}>
-                <Text style={styles.sheetConfirmText}>İptal Et</Text>
+                <Text style={styles.sheetConfirmText}>{t('cancel.cancelAction')}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -1,23 +1,35 @@
 ﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
 
-const STATUS_MAP = {
-  'Katıldı':   { icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
-  'İncelemede':{ icon: 'time',              color: Colors.warning, bg: Colors.warningLight },
-  'Katılmadı': { icon: 'close-circle',      color: Colors.error,   bg: Colors.errorLight  },
+const STATUS_STYLE = {
+  attended:     { icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
+  notAttended:  { icon: 'close-circle',      color: Colors.error,   bg: Colors.errorLight  },
+  underReview:  { icon: 'time',              color: Colors.warning, bg: Colors.warningLight },
+  present:      { icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
+  absent:       { icon: 'close-circle',      color: Colors.error,   bg: Colors.errorLight  },
+  late:         { icon: 'time',              color: Colors.warning, bg: Colors.warningLight },
+  excused:      { icon: 'time',              color: Colors.warning, bg: Colors.warningLight },
 };
 
+function resolveStatusCode(status) {
+  return status || 'absent';
+}
+
 export default function RecentActivity({ activity, onViewAll }) {
-  const s = STATUS_MAP[activity.status] || STATUS_MAP['Katılmadı'];
+  const { t } = useTranslation();
+  const code = resolveStatusCode(activity.status);
+  const s = STATUS_STYLE[code] || STATUS_STYLE.notAttended;
+  const statusLabel = t(`attendance.status.${code}`, { defaultValue: activity.status });
 
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Son Aktivite</Text>
+        <Text style={styles.sectionTitle}>{t('home.recentActivity')}</Text>
         <TouchableOpacity onPress={onViewAll}>
-          <Text style={styles.viewAll}>Tümünü Gör →</Text>
+          <Text style={styles.viewAll}>{t('common.seeAll')} →</Text>
         </TouchableOpacity>
       </View>
 
@@ -30,7 +42,7 @@ export default function RecentActivity({ activity, onViewAll }) {
           <Text style={styles.time}>{activity.time}</Text>
         </View>
         <View style={[styles.badge, { backgroundColor: s.bg }]}>
-          <Text style={[styles.badgeText, { color: s.color }]}>{activity.status}</Text>
+          <Text style={[styles.badgeText, { color: s.color }]}>{statusLabel}</Text>
         </View>
       </View>
     </View>

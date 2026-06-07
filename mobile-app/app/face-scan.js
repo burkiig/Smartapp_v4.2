@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +22,7 @@ const { width } = Dimensions.get('window');
 
 export default function FaceScanScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const session_id = Array.isArray(params.session_id) ? params.session_id[0] : params.session_id;
 
@@ -62,35 +64,35 @@ export default function FaceScanScreen() {
 
     const MESSAGES = {
       no_reference: {
-        title: 'Yüz Kaydı Bulunamadı',
-        body: 'Sisteme kayıtlı yüzünüz bulunamadı. Yoklamaya devam edebilmek için önce yüzünüzü kaydetmeniz gerekiyor.',
+        title: t('flows.face.errors.noReferenceTitle'),
+        body: t('flows.face.errors.noReferenceBody'),
         actions: [
-          { text: 'Yüzü Kaydet', onPress: () => router.replace('/register-face') },
-          { text: 'İptal', style: 'cancel' },
+          { text: t('flows.face.errors.registerFace'), onPress: () => router.replace('/register-face') },
+          { text: t('common.cancel'), style: 'cancel' },
         ],
       },
       no_face: {
-        title: 'Yüz Algılanamadı',
-        body: 'Yüzünüz çerçeve içinde algılanamadı. Kameraya doğrudan bakın, iyi aydınlatılmış bir ortamda tekrar deneyin.',
-        actions: [{ text: 'Tamam' }],
+        title: t('flows.face.errors.noFaceTitle'),
+        body: t('flows.face.errors.noFaceBody'),
+        actions: [{ text: t('common.ok') }],
       },
       liveness: {
-        title: 'Canlılık Testi Başarısız',
-        body: 'Statik görüntü tespit edildi. Tarama sırasında hafifçe başınızı hareket ettirin ve tekrar deneyin.',
-        actions: [{ text: 'Tamam' }],
+        title: t('flows.face.errors.livenessTitle'),
+        body: t('flows.face.errors.livenessBody'),
+        actions: [{ text: t('common.ok') }],
       },
       similarity: {
-        title: 'Yüz Eşleşmedi',
-        body: 'Yüzünüz kayıtlı görüntüyle eşleşmedi. İyi aydınlatılmış bir ortamda, gözlüksüz tekrar deneyin. Sorun devam ederse yüzünüzü yeniden kaydedin.',
+        title: t('flows.face.errors.mismatchTitle'),
+        body: t('flows.face.errors.mismatchBody'),
         actions: [
-          { text: 'Yeniden Kaydet', onPress: () => router.replace('/register-face') },
-          { text: 'Tekrar Dene', style: 'cancel' },
+          { text: t('flows.face.errors.reRegister'), onPress: () => router.replace('/register-face') },
+          { text: t('common.retry'), style: 'cancel' },
         ],
       },
       unknown: {
-        title: 'Yüz Tanıma Başarısız',
-        body: errMessage || 'Yüz tanıma sırasında bir hata oluştu. Lütfen tekrar deneyin.',
-        actions: [{ text: 'Tamam' }],
+        title: t('flows.face.errors.unknownTitle'),
+        body: errMessage || t('flows.face.errors.unknownBody'),
+        actions: [{ text: t('common.ok') }],
       },
     };
 
@@ -101,7 +103,7 @@ export default function FaceScanScreen() {
   const handleStartScan = async () => {
     if (!cameraRef.current || isScanning) return;
     if (!sessionIdValid) {
-      Alert.alert('Hata', 'Geçersiz oturum. Lütfen QR tarama adımından başlayın.');
+      Alert.alert(t('common.error'), t('flows.face.invalidSession'));
       router.replace('/(tabs)/home');
       return;
     }
@@ -112,7 +114,7 @@ export default function FaceScanScreen() {
       const photo1 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
 
       if (!photo1?.uri) {
-        Alert.alert('Hata', 'Fotoğraf çekilemedi. Lütfen tekrar deneyin.');
+        Alert.alert(t('common.error'), t('flows.face.photoFailed'));
         return;
       }
 
@@ -172,8 +174,8 @@ export default function FaceScanScreen() {
         <LinearGradient colors={['#7C3AED', '#A855F7']} style={styles.gradient}>
           <View style={styles.permissionContainer}>
             <Ionicons name="camera-outline" size={64} color="#fff" />
-            <Text style={styles.permissionTitle}>İzin İsteniyor...</Text>
-            <Text style={styles.permissionText}>Lütfen bekleyin</Text>
+            <Text style={styles.permissionTitle}>{t('flows.face.permissionWait')}</Text>
+            <Text style={styles.permissionText}>{t('flows.face.pleaseWait')}</Text>
           </View>
         </LinearGradient>
       </SafeAreaView>
@@ -186,23 +188,23 @@ export default function FaceScanScreen() {
         <LinearGradient colors={['#7C3AED', '#A855F7']} style={styles.gradient}>
           <View style={styles.permissionContainer}>
             <Ionicons name="close-circle-outline" size={64} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.permissionTitle}>Kamera İzni Gerekli</Text>
+            <Text style={styles.permissionTitle}>{t('flows.face.cameraRequired')}</Text>
             <Text style={styles.permissionText}>
-              Yüz tanıma için kamera iznine ihtiyaç var. Lütfen ayarlardan kamera iznini etkinleştirin.
+              {t('flows.face.cameraSettingsBody')}
             </Text>
             {permission.canAskAgain ? (
               <TouchableOpacity style={styles.settingsButton} onPress={requestPermission}>
                 <Ionicons name="camera" size={20} color="#7C3AED" />
-                <Text style={styles.settingsButtonText}>İzin Ver</Text>
+                <Text style={styles.settingsButtonText}>{t('flows.qr.grantPermission')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.settingsButton} onPress={() => Linking.openSettings()}>
                 <Ionicons name="settings-outline" size={20} color="#7C3AED" />
-                <Text style={styles.settingsButtonText}>Ayarları Aç</Text>
+                <Text style={styles.settingsButtonText}>{t('flows.qr.openSettings')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.backButtonAlt} onPress={() => router.back()}>
-              <Text style={styles.backButtonAltText}>Geri Dön</Text>
+              <Text style={styles.backButtonAltText}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -224,8 +226,8 @@ export default function FaceScanScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Yüz Tanıma</Text>
-            <Text style={styles.headerSubtitle}>Adım 2 / 3 — Yüz Doğrulama</Text>
+            <Text style={styles.headerTitle}>{t('flows.face.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('flows.face.subtitle')}</Text>
           </View>
           <View style={styles.stepIndicator}>
             <View style={styles.stepDot} />
@@ -258,7 +260,7 @@ export default function FaceScanScreen() {
                   {isCameraReady && (
                     <View style={styles.faceIndicatorBadge}>
                       <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
-                      <Text style={styles.faceIndicatorText}>Kamera Hazır</Text>
+                      <Text style={styles.faceIndicatorText}>{t('flows.face.cameraReady')}</Text>
                     </View>
                   )}
                 </View>
@@ -270,7 +272,7 @@ export default function FaceScanScreen() {
                   <View style={styles.livenessCircle}>
                     <Text style={styles.livenessCountdownText}>{livenessCountdown}</Text>
                   </View>
-                  <Text style={styles.scanningText}>Hafifçe başınızı hareket ettirin</Text>
+                  <Text style={styles.scanningText}>{t('flows.face.moveHead')}</Text>
                 </View>
               )}
 
@@ -278,7 +280,7 @@ export default function FaceScanScreen() {
               {isScanning && livenessCountdown === null && (
                 <View style={styles.scanningOverlay}>
                   <ActivityIndicator size="large" color="#fff" />
-                  <Text style={styles.scanningText}>Yüz taranıyor...</Text>
+                  <Text style={styles.scanningText}>{t('flows.face.faceScanning')}</Text>
                 </View>
               )}
             </View>
@@ -286,14 +288,18 @@ export default function FaceScanScreen() {
 
           <View style={styles.statusContainer}>
             <Text style={styles.statusText}>
-              {isScanning ? 'Taranıyor...' : isCameraReady ? 'Kamera Hazır ✓' : 'Kamera Başlatılıyor...'}
+              {isScanning
+                ? t('flows.face.scanning')
+                : isCameraReady
+                  ? t('flows.face.cameraReadyOk')
+                  : t('flows.face.cameraStarting')}
             </Text>
             <Text style={styles.statusSubtext}>
               {isScanning
-                ? 'Lütfen hareketsiz bekleyin'
+                ? t('flows.face.holdStill')
                 : isCameraReady
-                  ? 'Taramaya başlamak için butona basın'
-                  : 'Kamera hazırlanıyor, lütfen bekleyin'}
+                  ? t('flows.face.pressToStart')
+                  : t('flows.face.cameraPreparing')}
             </Text>
           </View>
         </View>
@@ -315,7 +321,7 @@ export default function FaceScanScreen() {
               {isScanning ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.scanButtonText}>Yüz Taramasını Başlat</Text>
+                <Text style={styles.scanButtonText}>{t('flows.face.faceScanStart')}</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
@@ -323,24 +329,24 @@ export default function FaceScanScreen() {
 
         {/* Instructions */}
         <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionsTitle}>Talimatlar</Text>
+          <Text style={styles.instructionsTitle}>{t('flows.face.instructionsTitle')}</Text>
           <View style={styles.instructionItem}>
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>1</Text>
             </View>
-            <Text style={styles.instructionText}>Yüzünüzü çerçeve içine ortalayın</Text>
+            <Text style={styles.instructionText}>{t('flows.face.instruction1')}</Text>
           </View>
           <View style={styles.instructionItem}>
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>2</Text>
             </View>
-            <Text style={styles.instructionText}>İyi aydınlatılmış bir ortamda olduğunuzdan emin olun</Text>
+            <Text style={styles.instructionText}>{t('flows.face.instruction2')}</Text>
           </View>
           <View style={styles.instructionItem}>
             <View style={styles.instructionNumber}>
               <Text style={styles.instructionNumberText}>3</Text>
             </View>
-            <Text style={styles.instructionText}>Geri sayım sırasında hafifçe başınızı hareket ettirin</Text>
+            <Text style={styles.instructionText}>{t('flows.face.instruction3')}</Text>
           </View>
         </View>
 
@@ -349,7 +355,7 @@ export default function FaceScanScreen() {
           <View style={styles.lightHint}>
             <Ionicons name="sunny-outline" size={16} color="#FCD34D" />
             <Text style={styles.lightHintText}>
-              Kamera başlatılamadı — kamera iznini kontrol edin veya uygulamayı yeniden başlatın
+              {t('flows.face.lightHintCamera')}
             </Text>
           </View>
         )}
@@ -358,17 +364,17 @@ export default function FaceScanScreen() {
         <View style={styles.chainFooter}>
           <View style={styles.chainStep}>
             <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.chainLabel}>QR Kod</Text>
+            <Text style={styles.chainLabel}>{t('flows.qr.chainLabel')}</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
             <Ionicons name="scan" size={16} color="#fff" />
-            <Text style={[styles.chainLabel, styles.chainLabelActive]}>Yüz</Text>
+            <Text style={[styles.chainLabel, styles.chainLabelActive]}>{t('flows.face.chainLabel')}</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
             <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.chainLabel}>GPS</Text>
+            <Text style={styles.chainLabel}>{t('flows.gps.chainLabel')}</Text>
           </View>
         </View>
       </LinearGradient>

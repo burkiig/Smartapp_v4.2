@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +22,7 @@ const { width } = Dimensions.get('window');
 
 export default function QRScanScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { session_id } = useLocalSearchParams();
   const navTimerRef = useRef(null);
 
@@ -85,7 +87,7 @@ export default function QRScanScreen() {
 
       if (!resolvedSessionId || isNaN(resolvedSessionId)) {
         setScanState('error');
-        setErrorMessage('QR kod geçersiz veya tanınamadı.');
+        setErrorMessage(t('flows.qr.invalidQr'));
         return;
       }
 
@@ -100,7 +102,7 @@ export default function QRScanScreen() {
         }, 800);
       } else {
         setScanState('error');
-        setErrorMessage('QR kod doğrulanamadı. Lütfen tekrar deneyin.');
+        setErrorMessage(t('flows.qr.verifyFailed'));
       }
     } catch (err) {
       const msg = err?.message || '';
@@ -115,7 +117,7 @@ export default function QRScanScreen() {
         }
       }
       setScanState('error');
-      setErrorMessage(msg || 'Sunucuya bağlanılamadı');
+      setErrorMessage(msg || t('common.serverUnreachable'));
     }
   };
 
@@ -133,7 +135,7 @@ export default function QRScanScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerBox}>
           <Ionicons name="camera-outline" size={64} color="#3B82F6" />
-          <Text style={styles.permTitle}>İzin İsteniyor...</Text>
+          <Text style={styles.permTitle}>{t('flows.face.permissionWait')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -145,23 +147,23 @@ export default function QRScanScreen() {
         <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.gradient}>
           <View style={styles.centerBox}>
             <Ionicons name="close-circle-outline" size={72} color="#fff" />
-            <Text style={styles.permTitle}>Kamera İzni Gerekli</Text>
+            <Text style={styles.permTitle}>{t('flows.qr.cameraRequired')}</Text>
             <Text style={styles.permSubtitle}>
-              QR kod okumak için kamera iznine ihtiyaç var.
+              {t('flows.qr.cameraRequiredBody')}
             </Text>
             {permission.canAskAgain ? (
               <TouchableOpacity style={styles.actionBtn} onPress={requestPermission}>
                 <Ionicons name="camera" size={20} color="#3B82F6" />
-                <Text style={styles.actionBtnText}>İzin Ver</Text>
+                <Text style={styles.actionBtnText}>{t('flows.qr.grantPermission')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.actionBtn} onPress={Linking.openSettings}>
                 <Ionicons name="settings-outline" size={20} color="#3B82F6" />
-                <Text style={styles.actionBtnText}>Ayarları Aç</Text>
+                <Text style={styles.actionBtnText}>{t('flows.qr.openSettings')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-              <Text style={styles.backLinkText}>Geri Dön</Text>
+              <Text style={styles.backLinkText}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -192,8 +194,8 @@ export default function QRScanScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>QR Kod Okuyucu</Text>
-            <Text style={styles.headerSubtitle}>Adım 1 / 3 — QR Doğrulama</Text>
+            <Text style={styles.headerTitle}>{t('flows.qr.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('flows.qr.subtitle')}</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
@@ -232,7 +234,7 @@ export default function QRScanScreen() {
               {scanState === 'verifying' && (
                 <View style={styles.verifyingOverlay}>
                   <Ionicons name="sync" size={40} color="#fff" />
-                  <Text style={styles.verifyingText}>Doğrulanıyor...</Text>
+                  <Text style={styles.verifyingText}>{t('flows.face.verifying')}</Text>
                 </View>
               )}
             </View>
@@ -285,16 +287,16 @@ export default function QRScanScreen() {
           {/* Status text */}
           <View style={styles.statusBox}>
             <Text style={styles.statusTitle}>
-              {scanState === 'idle' ? 'Hazır' :
-                scanState === 'scanning' ? 'QR Kodu Çerçeveye Al' :
-                  scanState === 'verifying' ? 'Sunucuda Doğrulanıyor...' :
-                    scanState === 'success' ? 'QR Doğrulandı! ✅' :
-                      'Doğrulama Başarısız'}
+              {scanState === 'idle' ? t('flows.qr.ready') :
+                scanState === 'scanning' ? t('flows.qr.alignQr') :
+                  scanState === 'verifying' ? t('flows.qr.verifying') :
+                    scanState === 'success' ? t('flows.qr.verified') :
+                      t('flows.qr.failed')}
             </Text>
             <Text style={styles.statusSubtitle}>
-              {scanState === 'scanning' ? 'QR kodu otomatik olarak okunacak' :
-                scanState === 'verifying' ? 'Lütfen bekleyin...' :
-                  scanState === 'success' ? 'Yüz doğrulamasına yönlendiriliyorsunuz...' :
+              {scanState === 'scanning' ? t('flows.qr.autoScan') :
+                scanState === 'verifying' ? t('flows.face.pleaseWait') :
+                  scanState === 'success' ? t('flows.qr.redirectingToFace') :
                     scanState === 'error' ? errorMessage : ''}
             </Text>
           </View>
@@ -305,7 +307,7 @@ export default function QRScanScreen() {
           <View style={styles.buttonArea}>
             <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
               <Ionicons name="refresh" size={20} color="#3B82F6" />
-              <Text style={styles.retryBtnText}>Tekrar Dene</Text>
+              <Text style={styles.retryBtnText}>{t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -314,17 +316,17 @@ export default function QRScanScreen() {
         <View style={styles.footer}>
           <View style={styles.chainStep}>
             <Ionicons name="qr-code" size={16} color="#fff" />
-            <Text style={[styles.chainLabel, styles.chainLabelActive]}>QR Kod</Text>
+            <Text style={[styles.chainLabel, styles.chainLabelActive]}>{t('flows.qr.chainLabel')}</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
             <Ionicons name="scan-outline" size={16} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.chainLabel}>Yüz</Text>
+            <Text style={styles.chainLabel}>{t('flows.face.chainLabel')}</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
             <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.chainLabel}>GPS</Text>
+            <Text style={styles.chainLabel}>{t('flows.gps.chainLabel')}</Text>
           </View>
         </View>
       </LinearGradient>

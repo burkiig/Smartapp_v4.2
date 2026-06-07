@@ -4,6 +4,7 @@
  */
 import * as SecureStore from 'expo-secure-store';
 import { auth } from '@/services/api';
+import i18n from '@/i18n';
 
 async function saveTokens(accessToken, refreshToken) {
   try {
@@ -39,9 +40,9 @@ export const login = async (loginIdentifier, password) => {
       return { success: true, user: data.user };
     }
 
-    return { success: false, message: 'Giriş başarısız' };
+    return { success: false, message: i18n.t('auth.loginFailedTitle') };
   } catch (err) {
-    const message = err?.message || 'Sunucuya bağlanılamadı.';
+    const message = err?.message || i18n.t('common.serverUnreachable');
     return { success: false, message };
   }
 };

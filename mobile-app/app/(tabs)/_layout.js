@@ -1,6 +1,7 @@
 ﻿import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, View, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { Colors } from '@/config/theme';
 
@@ -41,6 +42,7 @@ const SCREEN_OPTIONS = {
 };
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const { user } = useUser();
   const role = user?.role;
 
@@ -50,35 +52,35 @@ export default function TabLayout() {
         <Tabs.Screen
           name="dashboard"
           options={{
-            title: 'Panel',
+            title: t('tabs.dashboard'),
             tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'grid' : 'grid-outline'} color={color} focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="schedule"
           options={{
-            title: 'Program',
+            title: t('tabs.schedule'),
             tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'calendar' : 'calendar-outline'} color={color} focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="attendance"
           options={{
-            title: 'Yoklama',
+            title: t('tabs.attendance'),
             tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'checkmark-circle' : 'checkmark-circle-outline'} color={color} focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="reports"
           options={{
-            title: 'Raporlar',
+            title: t('tabs.reports'),
             tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'bar-chart' : 'bar-chart-outline'} color={color} focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="more"
           options={{
-            title: 'Diğer',
+            title: t('tabs.more'),
             tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'menu' : 'menu-outline'} color={color} focused={focused} />,
           }}
         />
@@ -94,21 +96,21 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Ana Sayfa',
+          title: t('tabs.home'),
           tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: 'Program',
+          title: t('tabs.schedule'),
           tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'calendar' : 'calendar-outline'} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
+          title: t('tabs.profile'),
           tabBarIcon: ({ color, focused }) => <TabIcon name={focused ? 'person' : 'person-outline'} color={color} focused={focused} />,
         }}
       />

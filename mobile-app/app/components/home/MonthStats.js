@@ -1,20 +1,22 @@
 ﻿import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
 
 export default function MonthStats({ stats }) {
+  const { t } = useTranslation();
   const pct = Math.min(Math.max(stats.percentage || 0, 0), 100);
   const barColor = pct >= 80 ? Colors.success : pct >= 60 ? Colors.warning : Colors.error;
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Bu Ay</Text>
+      <Text style={styles.sectionTitle}>{t('home.thisMonth')}</Text>
       <View style={styles.card}>
         {/* Rate row */}
         <View style={styles.rateRow}>
           <View>
-            <Text style={styles.rateLabel}>Devam Oranı</Text>
+            <Text style={styles.rateLabel}>{t('home.attendanceRate')}</Text>
             <Text style={[styles.rateValue, { color: barColor }]}>{pct}%</Text>
           </View>
           <View style={[styles.iconBox, { backgroundColor: barColor + '20' }]}>
@@ -33,9 +35,9 @@ export default function MonthStats({ stats }) {
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatPill icon="calendar-outline" color={Colors.primary} label="Toplam" value={stats.totalDays} />
-          <StatPill icon="checkmark-circle-outline" color={Colors.success} label="Mevcut" value={stats.present} />
-          <StatPill icon="close-circle-outline" color={Colors.error} label="Yok" value={stats.absent} />
+          <StatPill icon="calendar-outline" color={Colors.primary} label={t('home.statsTotal')} value={stats.totalDays} />
+          <StatPill icon="checkmark-circle-outline" color={Colors.success} label={t('home.statsPresent')} value={stats.present} />
+          <StatPill icon="close-circle-outline" color={Colors.error} label={t('home.statsAbsent')} value={stats.absent} />
         </View>
       </View>
     </View>

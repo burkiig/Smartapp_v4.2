@@ -2,13 +2,15 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
 
 export default function QuickActions({ hasLiveSession, onStartAttendance, onExcuse, onHistory, attendanceDisabled = false }) {
+  const { t } = useTranslation();
   const primaryDisabled = !hasLiveSession || attendanceDisabled;
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
+      <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
 
       {/* Primary CTA */}
       <TouchableOpacity
@@ -30,9 +32,9 @@ export default function QuickActions({ hasLiveSession, onStartAttendance, onExcu
             />
           </View>
           <View style={styles.primaryText}>
-            <Text style={styles.primaryTitle}>{attendanceDisabled ? 'Yoklama Alındı' : 'Yoklama Al'}</Text>
+            <Text style={styles.primaryTitle}>{attendanceDisabled ? t('attendance.taken') : t('attendance.take')}</Text>
             <Text style={styles.primarySub}>
-              {attendanceDisabled ? 'Bu oturum için tamamlandı' : hasLiveSession ? 'QR → Yüz → Konum' : 'Aktif ders bekleniyor'}
+              {attendanceDisabled ? t('attendance.completedForSession') : hasLiveSession ? t('attendance.flowHint') : t('attendance.waitingActive')}
             </Text>
           </View>
           <View style={styles.arrowBox}>
@@ -45,16 +47,16 @@ export default function QuickActions({ hasLiveSession, onStartAttendance, onExcu
       <View style={styles.secondaryRow}>
         <ActionCard
           icon="document-text-outline"
-          label="Mazeret"
-          sublabel="Devamsızlık bildir"
+          label={t('home.excuseLabel')}
+          sublabel={t('home.excuseSub')}
           color={Colors.warning}
           bg={Colors.warningLight}
           onPress={onExcuse}
         />
         <ActionCard
           icon="time-outline"
-          label="Geçmiş"
-          sublabel="Yoklama kayıtları"
+          label={t('home.historyLabel')}
+          sublabel={t('home.historySub')}
           color={Colors.success}
           bg={Colors.successLight}
           onPress={onHistory}

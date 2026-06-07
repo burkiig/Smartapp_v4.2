@@ -7,13 +7,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import InstructorProfile from '@/screens/InstructorProfile';
 import { auth, face } from '@/services/api';
-import { Colors, Shadows, Radius } from '@/config/theme';
+import { Colors, Shadows } from '@/config/theme';
+import { getDateLocale } from '@/i18n';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const { user, logout } = useUser();
   const role = user?.role;
   const [profile, setProfile]     = useState(null);
@@ -33,19 +36,20 @@ export default function ProfileScreen() {
   if (role === 'instructor' || role === 'admin') return <InstructorProfile />;
 
   const handleLogout = () =>
-    Alert.alert('Çıkış Yap', 'Çıkmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      { text: 'Çıkış Yap', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
+    Alert.alert(t('common.logout'), t('profile.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.logout'), style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
     ]);
 
-  const name   = profile?.name || user?.name || user?.username || '—';
-  const email  = profile?.email || user?.email || '—';
-  const dept   = profile?.department || user?.department || '—';
-  const stuNum = profile?.student_number || user?.student_number || '—';
+  const na = t('common.notAvailable');
+  const name   = profile?.name || user?.name || user?.username || na;
+  const email  = profile?.email || user?.email || na;
+  const dept   = profile?.department || user?.department || na;
+  const stuNum = profile?.student_number || user?.student_number || na;
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'ST';
   const joinDate = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '—';
+    ? new Date(profile.created_at).toLocaleDateString(getDateLocale(i18n.language), { day: 'numeric', month: 'long', year: 'numeric' })
+    : na;
   const faceOk   = faceStatus?.is_enrolled === true;
 
   return (
@@ -61,7 +65,7 @@ export default function ProfileScreen() {
             <Ionicons name={faceOk ? 'scan' : 'scan-outline'} size={11} color="#fff" />
           </View>
           <Text style={styles.heroName}>{name}</Text>
-          <Text style={styles.heroSub}>Öğrenci · {stuNum}</Text>
+          <Text style={styles.heroSub}>{t('roles.studentHero', { number: stuNum })}</Text>
         </LinearGradient>
 
         {loading ? (
@@ -72,25 +76,25 @@ export default function ProfileScreen() {
             {!faceOk ? (
               <TouchableOpacity style={styles.warnBanner} onPress={() => router.push('/register-face')}>
                 <Ionicons name="warning-outline" size={18} color={Colors.warning} />
-                <Text style={styles.warnText}>Yüz kaydı yapılmamış — Kayıt için dokunun</Text>
+                <Text style={styles.warnText}>{t('profile.faceNotRegistered')}</Text>
                 <Ionicons name="chevron-forward" size={16} color={Colors.warning} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.okBanner} onPress={() => router.push('/register-face')}>
                 <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                <Text style={styles.okText}>Yüz tanıma aktif ve hazır</Text>
-                <Text style={styles.okSub}>Yeniden kaydet</Text>
+                <Text style={styles.okText}>{t('profile.faceActive')}</Text>
+                <Text style={styles.okSub}>{t('profile.reRegisterFace')}</Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.success} />
               </TouchableOpacity>
             )}
 
             {/* Info card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Kişisel Bilgiler</Text>
-              <InfoRow icon="mail-outline"     color={Colors.primary}  label="E-posta"     value={email} />
-              <InfoRow icon="business-outline" color="#7C3AED"         label="Bölüm"       value={dept} />
-              <InfoRow icon="card-outline"     color={Colors.warning}  label="Öğrenci No"  value={stuNum} />
-              <InfoRow icon="calendar-outline" color={Colors.error}    label="Kayıt Tarihi" value={joinDate} last />
+              <Text style={styles.cardTitle}>{t('profile.personalInfo')}</Text>
+              <InfoRow icon="mail-outline"     color={Colors.primary}  label={t('profile.email')}     value={email} />
+              <InfoRow icon="business-outline" color="#7C3AED"         label={t('profile.department')}       value={dept} />
+              <InfoRow icon="card-outline"     color={Colors.warning}  label={t('profile.studentNumber')}  value={stuNum} />
+              <InfoRow icon="calendar-outline" color={Colors.error}    label={t('profile.enrollmentDate')} value={joinDate} last />
             </View>
 
             {/* Actions */}
@@ -100,8 +104,8 @@ export default function ProfileScreen() {
                   icon="scan-outline"
                   bg={Colors.warningLight}
                   color={Colors.warning}
-                  title="Yüz Kaydet"
-                  sub="Face ID yoklaması için gerekli"
+                  title={t('profile.registerFace')}
+                  sub={t('profile.registerFaceSub')}
                   onPress={() => router.push('/register-face')}
                 />
               ) : (
@@ -109,8 +113,8 @@ export default function ProfileScreen() {
                   icon="refresh-outline"
                   bg="#F3E8FF"
                   color="#7C3AED"
-                  title="Yüzümü Yeniden Kaydet"
-                  sub="Tanıma başarısız oluyorsa güncelle"
+                  title={t('profile.reRegisterFaceTitle')}
+                  sub={t('profile.reRegisterFaceSub')}
                   onPress={() => router.push('/register-face')}
                 />
               )}
@@ -118,14 +122,14 @@ export default function ProfileScreen() {
                 icon="log-out-outline"
                 bg={Colors.errorLight}
                 color={Colors.error}
-                title="Çıkış Yap"
-                sub="Hesabınızdan çıkış yapın"
+                title={t('common.logout')}
+                sub={t('profile.logoutSub')}
                 onPress={handleLogout}
                 danger
               />
             </View>
 
-            <Text style={styles.version}>Smart Attendance · v1.0.0</Text>
+            <Text style={styles.version}>{t('common.version')}</Text>
           </>
         )}
       </ScrollView>

@@ -6,41 +6,49 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { attendance, excuses as excusesApi, disputes as disputesApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import EmptyState from '@/components/EmptyState';
+import { getDateLocale } from '@/i18n';
 
 /* ─── Student placeholder ────────────────────────────────────────────────── */
 function StudentPlaceholder() {
   const router = useRouter();
+  const { t } = useTranslation();
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.placeholder}>
         <View style={styles.placeholderIcon}>
           <Ionicons name="shield-checkmark-outline" size={48} color={Colors.textMuted} />
         </View>
-        <Text style={styles.placeholderTitle}>Eğitmenlere Özel</Text>
-        <Text style={styles.placeholderSub}>Bu sekme yalnızca öğretmen ve yöneticiler tarafından kullanılabilir.</Text>
+        <Text style={styles.placeholderTitle}>{t('instructor.instructorOnly')}</Text>
+        <Text style={styles.placeholderSub}>{t('instructor.goToMyHistory')}</Text>
         <TouchableOpacity style={styles.placeholderBtn} onPress={() => router.push('/(tabs)/history')}>
           <Ionicons name="time-outline" size={16} color="#fff" />
-          <Text style={styles.placeholderBtnText}>Devam Geçmişime Git</Text>
+          <Text style={styles.placeholderBtnText}>{t('instructor.goToMyHistory')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-/* ─── Helpers ────────────────────────────────────────────────────────────── */
-const BADGE = {
-  approved: { label: 'Onaylandı', color: Colors.success, bg: Colors.successLight },
-  rejected: { label: 'Reddedildi', color: Colors.error,   bg: Colors.errorLight  },
-  pending:  { label: 'Beklemede', color: Colors.warning,  bg: Colors.warningLight },
+const BADGE_KEYS = {
+  approved: 'attendance.review.approved',
+  rejected: 'attendance.review.rejected',
+  pending:  'attendance.review.pending',
 };
-const badge = (status) => BADGE[status] || BADGE.pending;
+const BADGE_STYLE = {
+  approved: { color: Colors.success, bg: Colors.successLight },
+  rejected: { color: Colors.error,   bg: Colors.errorLight  },
+  pending:  { color: Colors.warning,  bg: Colors.warningLight },
+};
+const badgeStyle = (status) => BADGE_STYLE[status] || BADGE_STYLE.pending;
 
 /* ─── Main component ─────────────────────────────────────────────────────── */
 export default function AttendanceScreen() {
+  const { t } = useTranslation();
   const { user } = useUser();
   const role = user?.role;
   const { filter, session_id } = useLocalSearchParams();
@@ -109,12 +117,12 @@ export default function AttendanceScreen() {
   const handleFlagged = async (record, isFlagged, status) => {
     setProcessingId(record.id);
     try {
-      const note = !isFlagged && status === 'present' ? 'Öğretmen onayladı'
-        : !isFlagged && status === 'absent' ? 'Öğretmen reddetti'
-        : 'Karar geri alındı';
+      const note = !isFlagged && status === 'present' ? t('attendance.teacherOverride')
+        : !isFlagged && status === 'absent' ? t('attendance.review.rejected')
+        : t('common.cancel');
       await attendance.override(record.id, status === record.status ? 'pending_review' : status, note);
       setFlagged(prev => prev.map(r => r.id === record.id ? { ...r, is_flagged: isFlagged, status } : r));
-    } catch (err) { Alert.alert('Hata', err.message || 'İşlem başarısız'); }
+    } catch (err) { Alert.alert(t('common.error'), err.message || t('common.somethingWrong')); }
     finally { setProcessingId(null); }
   };
 
@@ -123,7 +131,7 @@ export default function AttendanceScreen() {
     try {
       await excusesApi.review(exc.id, newStatus, '');
       setExcuseList(prev => prev.map(e => e.id === exc.id ? { ...e, status: newStatus } : e));
-    } catch (err) { Alert.alert('Hata', err.message || 'İşlem başarısız'); }
+    } catch (err) { Alert.alert(t('common.error'), err.message || t('common.somethingWrong')); }
     finally { setProcessingId(null); }
   };
 
@@ -132,15 +140,15 @@ export default function AttendanceScreen() {
     try {
       await disputesApi.review(dispute.id, newStatus, '');
       setDisputeList(prev => prev.map(d => d.id === dispute.id ? { ...d, status: newStatus } : d));
-    } catch (err) { Alert.alert('Hata', err.message || 'İşlem başarısız'); }
+    } catch (err) { Alert.alert(t('common.error'), err.message || t('common.somethingWrong')); }
     finally { setProcessingId(null); }
   };
 
   const TABS = [
-    { id: 'pending',   label: 'Bayraklı',  count: flagged.filter(r => r.is_flagged).length,   color: Colors.warning },
-    { id: 'excuses',   label: 'Mazeretler', count: excuseList.filter(e => e.status === 'pending').length, color: '#7C3AED' },
-    { id: 'disputes',  label: 'İtirazlar',  count: disputeList.filter(d => d.status === 'pending').length, color: Colors.error },
-    { id: 'all',       label: 'Tümü',       count: flagged.length,                             color: Colors.primary },
+    { id: 'pending',   label: t('instructor.tabFlagged'),  count: flagged.filter(r => r.is_flagged).length,   color: Colors.warning },
+    { id: 'excuses',   label: t('instructor.tabExcuses'), count: excuseList.filter(e => e.status === 'pending').length, color: '#7C3AED' },
+    { id: 'disputes',  label: t('instructor.tabDisputes'),  count: disputeList.filter(d => d.status === 'pending').length, color: Colors.error },
+    { id: 'all',       label: t('instructor.tabAll'),       count: flagged.length,                             color: Colors.primary },
   ];
 
   const listData = activeTab === 'excuses' ? excuseList
@@ -181,11 +189,13 @@ export default function AttendanceScreen() {
 
   /* ── Render items ─────────────────────────────────────────────────────── */
   const renderFlagged = ({ item }) => {
-    const b = badge(item.status);
+    const bStyle = badgeStyle(item.status);
+    const bLabel = t(BADGE_KEYS[item.status] || BADGE_KEYS.pending);
     const busy = processingId === item.id;
-    const nameLabel = item.student_name || `Öğrenci #${item.student_id}`;
+    const nameLabel = item.student_name || t('common.studentWithId', { id: item.student_id });
     const initial = item.student_name ? item.student_name[0].toUpperCase() : '#';
     const isHighlighted = highlightedSessionId && String(item.session_id) === highlightedSessionId;
+    const dateLocale = getDateLocale();
     return (
       <View style={[styles.card, isHighlighted && styles.highlightCard]}>
         <View style={styles.cardTop}>
@@ -195,18 +205,18 @@ export default function AttendanceScreen() {
             </View>
             <View>
               <Text style={styles.studentName}>{nameLabel}</Text>
-              <Text style={styles.studentSub}>{item.student_number ? `No: ${item.student_number}` : `Ders #${item.course_id}`}</Text>
+              <Text style={styles.studentSub}>{item.student_number ? `No: ${item.student_number}` : t('common.courseWithId', { id: item.course_id })}</Text>
             </View>
           </View>
-          <View style={[styles.pill, { backgroundColor: b.bg }]}>
-            <Text style={[styles.pillText, { color: b.color }]}>{b.label}</Text>
+          <View style={[styles.pill, { backgroundColor: bStyle.bg }]}>
+            <Text style={[styles.pillText, { color: bStyle.color }]}>{bLabel}</Text>
           </View>
         </View>
 
         {item.marked_at && (
           <View style={styles.metaRow}>
             <Ionicons name="time-outline" size={13} color={Colors.textMuted} />
-            <Text style={styles.metaText}>{new Date(item.marked_at).toLocaleString('tr-TR')}</Text>
+            <Text style={styles.metaText}>{new Date(item.marked_at).toLocaleString(dateLocale)}</Text>
           </View>
         )}
         {item.flag_reason && (
@@ -218,13 +228,13 @@ export default function AttendanceScreen() {
 
         {busy ? <ActivityIndicator color={Colors.primary} style={{ marginTop: 12 }} /> : item.is_flagged ? (
           <View style={styles.actions}>
-            <ActionBtn label="Onayla"  icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleFlagged(item, false, 'present')} />
-            <ActionBtn label="Reddet"  icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleFlagged(item, false, 'absent')} />
+            <ActionBtn label={t('attendance.review.approved')}  icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleFlagged(item, false, 'present')} />
+            <ActionBtn label={t('attendance.review.rejected')}  icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleFlagged(item, false, 'absent')} />
           </View>
         ) : (
           <TouchableOpacity style={styles.undoBtn} onPress={() => handleFlagged(item, true, item.status)}>
             <Ionicons name="arrow-undo-outline" size={15} color={Colors.primary} />
-            <Text style={styles.undoText}>Geri Al</Text>
+            <Text style={styles.undoText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -236,27 +246,28 @@ export default function AttendanceScreen() {
     try {
       const res = await excusesApi.getDocumentUrl(excuseId);
       const url = res?.signed_url;
-      if (!url) { Alert.alert('Hata', 'Belge URL\'si alınamadı'); return; }
+      if (!url) { Alert.alert(t('common.error'), t('common.somethingWrong')); return; }
       const supported = await Linking.canOpenURL(url);
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('Hata', 'Belge açılamadı: desteklenmeyen URL formatı');
+        Alert.alert(t('common.error'), t('common.somethingWrong'));
       }
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'Belge açılamadı');
+      Alert.alert(t('common.error'), err?.message || t('common.somethingWrong'));
     } finally {
       setDocLoadingId(null);
     }
   };
 
   const renderExcuse = ({ item }) => {
-    const b = badge(item.status);
+    const bStyle = badgeStyle(item.status);
+    const bLabel = t(BADGE_KEYS[item.status] || BADGE_KEYS.pending);
     const busy = processingId === `e-${item.id}`;
     const docBusy = docLoadingId === item.id;
-    const excuseLabels = { medical: 'Sağlık', family: 'Aile', school_activity: 'Okul Etkinliği', transportation: 'Ulaşım', other: 'Diğer' };
-    const nameLabel = item.student_name || `Öğrenci #${item.student_id}`;
+    const nameLabel = item.student_name || t('common.studentWithId', { id: item.student_id });
     const initial = item.student_name ? item.student_name[0].toUpperCase() : '#';
+    const typeLabel = t(`excuse.types.${item.excuse_type}.label`, { defaultValue: item.excuse_type });
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
@@ -269,13 +280,13 @@ export default function AttendanceScreen() {
               <Text style={styles.studentSub}>{item.student_number ? `No: ${item.student_number}` : `Ders #${item.course_id}`}</Text>
             </View>
           </View>
-          <View style={[styles.pill, { backgroundColor: b.bg }]}>
-            <Text style={[styles.pillText, { color: b.color }]}>{b.label}</Text>
+          <View style={[styles.pill, { backgroundColor: bStyle.bg }]}>
+            <Text style={[styles.pillText, { color: bStyle.color }]}>{bLabel}</Text>
           </View>
         </View>
 
         <View style={styles.typePill}>
-          <Text style={styles.typeText}>{excuseLabels[item.excuse_type] || item.excuse_type}</Text>
+          <Text style={styles.typeText}>{typeLabel}</Text>
         </View>
         {item.description && <Text style={styles.descText}>{item.description}</Text>}
         {item.session_date && (
@@ -296,15 +307,15 @@ export default function AttendanceScreen() {
               : <Ionicons name="document-text-outline" size={15} color="#7C3AED" />
             }
             <Text style={styles.docBtnText}>
-              {docBusy ? 'Yükleniyor...' : 'Belgeyi Görüntüle'}
+              {docBusy ? t('common.loading') : t('instructor.viewDocument')}
             </Text>
           </TouchableOpacity>
         )}
 
         {busy ? <ActivityIndicator color="#7C3AED" style={{ marginTop: 12 }} /> : item.status === 'pending' ? (
           <View style={styles.actions}>
-            <ActionBtn label="Onayla" icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleExcuse(item, 'approved')} />
-            <ActionBtn label="Reddet" icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleExcuse(item, 'rejected')} />
+            <ActionBtn label={t('attendance.review.approved')} icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleExcuse(item, 'approved')} />
+            <ActionBtn label={t('attendance.review.rejected')} icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleExcuse(item, 'rejected')} />
           </View>
         ) : null}
       </View>
@@ -312,10 +323,12 @@ export default function AttendanceScreen() {
   };
 
   const renderDispute = ({ item }) => {
-    const b = badge(item.status);
+    const bStyle = badgeStyle(item.status);
+    const bLabel = t(BADGE_KEYS[item.status] || BADGE_KEYS.pending);
     const busy = processingId === `d-${item.id}`;
-    const nameLabel = item.student_name || `Öğrenci #${item.student_id}`;
+    const nameLabel = item.student_name || t('common.studentWithId', { id: item.student_id });
     const initial = item.student_name ? item.student_name[0].toUpperCase() : '#';
+    const dateLocale = getDateLocale();
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
@@ -325,11 +338,11 @@ export default function AttendanceScreen() {
             </View>
             <View>
               <Text style={styles.studentName}>{nameLabel}</Text>
-              <Text style={styles.studentSub}>{item.course_code || `Ders #${item.course_id}`}</Text>
+              <Text style={styles.studentSub}>{item.course_code || t('common.courseWithId', { id: item.course_id })}</Text>
             </View>
           </View>
-          <View style={[styles.pill, { backgroundColor: b.bg }]}>
-            <Text style={[styles.pillText, { color: b.color }]}>{b.label}</Text>
+          <View style={[styles.pill, { backgroundColor: bStyle.bg }]}>
+            <Text style={[styles.pillText, { color: bStyle.color }]}>{bLabel}</Text>
           </View>
         </View>
 
@@ -340,14 +353,14 @@ export default function AttendanceScreen() {
         {item.created_at && (
           <View style={styles.metaRow}>
             <Ionicons name="time-outline" size={13} color={Colors.textMuted} />
-            <Text style={styles.metaText}>{new Date(item.created_at).toLocaleString('tr-TR')}</Text>
+            <Text style={styles.metaText}>{new Date(item.created_at).toLocaleString(dateLocale)}</Text>
           </View>
         )}
 
         {busy ? <ActivityIndicator color={Colors.error} style={{ marginTop: 12 }} /> : item.status === 'pending' ? (
           <View style={styles.actions}>
-            <ActionBtn label="Onayla" icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleDispute(item, 'approved')} />
-            <ActionBtn label="Reddet" icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleDispute(item, 'rejected')} />
+            <ActionBtn label={t('attendance.review.approved')} icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleDispute(item, 'approved')} />
+            <ActionBtn label={t('attendance.review.rejected')} icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleDispute(item, 'rejected')} />
           </View>
         ) : null}
       </View>
@@ -363,8 +376,8 @@ export default function AttendanceScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Yoklama Yönetimi</Text>
-          <Text style={styles.headerSub}>Kayıtlar, mazeretler ve itirazlar</Text>
+          <Text style={styles.headerTitle}>{t('instructor.attendanceMgmtTitle')}</Text>
+          <Text style={styles.headerSub}>{t('instructor.attendanceMgmtSub')}</Text>
         </View>
         <TouchableOpacity onPress={onRefresh} disabled={loading} style={styles.refreshBtn}>
           <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
@@ -412,8 +425,8 @@ export default function AttendanceScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="checkmark-done-circle-outline"
-              title="Yoklama kaydı bulunamadı"
-              subtitle="Filtreyi değiştirmeyi veya sayfayı yenilemeyi deneyin"
+              title={t('instructor.emptyRecords')}
+              subtitle={t('instructor.emptyRecordsSub')}
               onRetry={onRefresh}
             />
           }

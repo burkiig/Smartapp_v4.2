@@ -1,3 +1,6 @@
+import i18n from '@/i18n';
+import { getDateLocale } from '@/i18n/format';
+
 /**
  * Check if a student can still submit an excuse for a given class date
  * @param {string} classDate - The date of the class (e.g., '2025-11-29')
@@ -18,7 +21,7 @@ export const canSubmitExcuse = (classDate) => {
 export const getExcuseDeadline = (classDate) => {
   const classDateTime = new Date(classDate);
   const deadline = new Date(classDateTime.getTime() + 24 * 60 * 60 * 1000);
-  return deadline.toLocaleString('tr-TR', {
+  return deadline.toLocaleString(getDateLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -38,29 +41,29 @@ export const getExcuseStatusColor = (status) => {
       return {
         bg: '#FEF3C7',
         text: '#92400E',
-        label: 'Mazeret Beklemede',
-        icon: 'time'
+        label: i18n.t('excuse.statusPending'),
+        icon: 'time',
       };
     case 'approved':
       return {
         bg: '#D1FAE5',
         text: '#065F46',
-        label: 'Mazeret Onaylandı',
-        icon: 'checkmark-circle'
+        label: i18n.t('excuse.statusApproved'),
+        icon: 'checkmark-circle',
       };
     case 'rejected':
       return {
         bg: '#FEE2E2',
         text: '#991B1B',
-        label: 'Mazeret Reddedildi',
-        icon: 'close-circle'
+        label: i18n.t('excuse.statusRejected'),
+        icon: 'close-circle',
       };
     default:
       return {
         bg: '#F3F4F6',
         text: '#6B7280',
-        label: 'Mazeret Yok',
-        icon: 'alert-circle'
+        label: i18n.t('excuse.statusNone'),
+        icon: 'alert-circle',
       };
   }
 };
@@ -72,12 +75,12 @@ export const getExcuseStatusColor = (status) => {
  */
 export const getExcuseTypeInfo = (type) => {
   const types = {
-    health: { label: 'Sağlık', icon: '🏥', color: '#EF4444' },
-    medical: { label: 'Sağlık', icon: '🏥', color: '#EF4444' },
-    school_activity: { label: 'Okul Etkinliği', icon: '🏆', color: '#F59E0B' },
-    family: { label: 'Aile Acil Durumu', icon: '👨‍👩‍👧', color: '#8B5CF6' },
-    technical: { label: 'Teknik Sorun', icon: '🔧', color: '#6B7280' },
-    other: { label: 'Diğer', icon: '📝', color: '#3B82F6' },
+    health: { label: i18n.t('excuse.typeHealth'), icon: '🏥', color: '#EF4444' },
+    medical: { label: i18n.t('excuse.typeHealth'), icon: '🏥', color: '#EF4444' },
+    school_activity: { label: i18n.t('excuse.typeSchoolActivity'), icon: '🏆', color: '#F59E0B' },
+    family: { label: i18n.t('excuse.typeFamilyEmergency'), icon: '👨‍👩‍👧', color: '#8B5CF6' },
+    technical: { label: i18n.t('excuse.typeTechnical'), icon: '🔧', color: '#6B7280' },
+    other: { label: i18n.t('excuse.typeOther'), icon: '📝', color: '#3B82F6' },
   };
   return types[type] || types.other;
 };
@@ -95,12 +98,12 @@ export const formatExcuseTime = (timestamp) => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Az önce';
-  if (diffMins < 60) return `${diffMins} dk önce`;
-  if (diffHours < 24) return `${diffHours} saat önce`;
-  if (diffDays < 7) return `${diffDays} gün önce`;
+  if (diffMins < 1) return i18n.t('common.justNow');
+  if (diffMins < 60) return i18n.t('common.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return i18n.t('common.hoursAgo', { count: diffHours });
+  if (diffDays < 7) return i18n.t('common.daysAgo', { count: diffDays });
 
-  return date.toLocaleDateString('tr-TR', {
+  return date.toLocaleDateString(getDateLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,14 +23,9 @@ import { useUser } from '@/context/UserContext';
 
 const { width } = Dimensions.get('window');
 
-const STEPS = [
-  { label: 'Düz Bakın',   desc: 'Kameraya doğrudan bakın', icon: 'eye-outline' },
-  { label: 'Sola Dönün',  desc: 'Başınızı hafifçe sola çevirin', icon: 'arrow-back-outline' },
-  { label: 'Sağa Dönün',  desc: 'Başınızı hafifçe sağa çevirin', icon: 'arrow-forward-outline' },
-];
-
 export default function RegisterFaceScreen() {
   const router  = useRouter();
+  const { t } = useTranslation();
   const { user } = useUser();
   const { onboarding, login_flow } = useLocalSearchParams();
   // login_flow: came from login screen → must complete face registration then verify
@@ -42,6 +38,12 @@ export default function RegisterFaceScreen() {
   const [photos, setPhotos]         = useState([]);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const cameraRef = useRef(null);
+
+  const STEPS = useMemo(() => [
+    { label: t('flows.register.poseStraight'), desc: t('flows.register.poseStraightDesc'), icon: 'eye-outline' },
+    { label: t('flows.register.poseLeft'), desc: t('flows.register.poseLeftDesc'), icon: 'arrow-back-outline' },
+    { label: t('flows.register.poseRight'), desc: t('flows.register.poseRightDesc'), icon: 'arrow-forward-outline' },
+  ], [t]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -62,7 +64,7 @@ export default function RegisterFaceScreen() {
         <LinearGradient colors={['#7C3AED', '#A855F7']} style={styles.gradient}>
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.permTitle}>İzin İsteniyor...</Text>
+            <Text style={styles.permTitle}>{t('flows.face.permissionWait')}</Text>
           </View>
         </LinearGradient>
       </SafeAreaView>
@@ -79,23 +81,23 @@ export default function RegisterFaceScreen() {
             <View style={styles.permIcon}>
               <Ionicons name="camera-outline" size={48} color="#fff" />
             </View>
-            <Text style={styles.permTitle}>Kamera İzni Gerekli</Text>
+            <Text style={styles.permTitle}>{t('flows.face.cameraRequired')}</Text>
             <Text style={styles.permSub}>
-              Yüz kaydı için kamera erişimi gerekiyor.
+              {t('flows.register.registerCameraBody')}
             </Text>
             {permission.canAskAgain ? (
               <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
                 <Ionicons name="camera" size={18} color="#7C3AED" />
-                <Text style={styles.permBtnText}>İzin Ver</Text>
+                <Text style={styles.permBtnText}>{t('flows.qr.grantPermission')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.permBtn} onPress={() => Linking.openSettings()}>
                 <Ionicons name="settings-outline" size={18} color="#7C3AED" />
-                <Text style={styles.permBtnText}>Ayarları Aç</Text>
+                <Text style={styles.permBtnText}>{t('flows.qr.openSettings')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-              <Text style={styles.backLinkText}>Geri Dön</Text>
+              <Text style={styles.backLinkText}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -112,7 +114,7 @@ export default function RegisterFaceScreen() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
       if (!photo?.uri) {
-        Alert.alert('Hata', 'Fotoğraf çekilemedi. Tekrar deneyin.');
+        Alert.alert(t('common.error'), t('flows.face.photoFailed'));
         return;
       }
 
@@ -139,10 +141,10 @@ export default function RegisterFaceScreen() {
             : '/(tabs)/home';
 
           Alert.alert(
-            'Kayıt Başarılı',
-            'Yüzünüz sisteme kaydedildi. Şimdi kimliğinizi doğrulayın.',
+            t('flows.register.successTitle'),
+            t('flows.register.successBody'),
             [{
-              text: 'Devam Et',
+              text: t('flows.register.continue'),
               onPress: () => isLoginFlow
                 ? router.replace('/login-face-verify')
                 : isOnboarding
@@ -151,13 +153,13 @@ export default function RegisterFaceScreen() {
             }]
           );
         } else {
-          Alert.alert('Hata', 'Yüz kaydı başarısız oldu. Lütfen tekrar deneyin.');
+          Alert.alert(t('common.error'), t('flows.register.failed'));
           setStep(1);
           setPhotos([]);
         }
       }
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'Bir hata oluştu. Tekrar deneyin.');
+      Alert.alert(t('common.error'), err?.message || t('flows.register.genericError'));
     } finally {
       setProcessing(false);
     }
@@ -183,9 +185,9 @@ export default function RegisterFaceScreen() {
           )}
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>
-              {isOnboarding ? 'Yüz Kaydı Gerekli' : 'Yüz Kaydı'}
+              {isOnboarding ? t('flows.register.requiredTitle') : t('flows.register.title')}
             </Text>
-            <Text style={styles.headerSub}>Adım {step} / 3</Text>
+            <Text style={styles.headerSub}>{t('flows.register.step', { current: step })}</Text>
           </View>
           {/* Step dots */}
           <View style={styles.dots}>
@@ -208,8 +210,8 @@ export default function RegisterFaceScreen() {
             <Ionicons name="information-circle-outline" size={18} color="rgba(255,255,255,0.9)" />
             <Text style={styles.onboardingText}>
               {isLoginFlow
-                ? 'Uygulamaya giriş yapabilmek için yüzünüzü bir kez kaydetmeniz gerekiyor.'
-                : 'Yoklama alabilmek için yüzünüzü bir kez kaydetmeniz gerekiyor.'}
+                ? t('flows.register.onboardingLogin')
+                : t('flows.register.onboardingAttendance')}
             </Text>
           </View>
         )}
@@ -234,7 +236,7 @@ export default function RegisterFaceScreen() {
             {processing && (
               <View style={styles.processingOverlay}>
                 <ActivityIndicator size="large" color="#fff" />
-                <Text style={styles.processingText}>İşleniyor...</Text>
+                <Text style={styles.processingText}>{t('common.processing')}</Text>
               </View>
             )}
           </Animated.View>
@@ -283,7 +285,7 @@ export default function RegisterFaceScreen() {
                 <>
                   <Ionicons name="camera" size={20} color="#7C3AED" />
                   <Text style={styles.captureBtnText}>
-                    {step < 3 ? 'Fotoğraf Çek' : 'Kaydet'}
+                    {step < 3 ? t('flows.register.capture') : t('flows.register.save')}
                   </Text>
                 </>
               )}
@@ -293,10 +295,10 @@ export default function RegisterFaceScreen() {
 
         {/* Tips */}
         <View style={styles.tips}>
-          <Text style={styles.tipsTitle}>İpuçları</Text>
-          <Text style={styles.tipsText}>• İyi aydınlatılmış bir ortamda olun</Text>
-          <Text style={styles.tipsText}>• Gözlük veya maske takmayın</Text>
-          <Text style={styles.tipsText}>• Yüzünüzü çerçeve içinde tutun</Text>
+          <Text style={styles.tipsTitle}>{t('flows.register.tipsTitle')}</Text>
+          <Text style={styles.tipsText}>{t('flows.face.tipsGoodLight')}</Text>
+          <Text style={styles.tipsText}>{t('flows.face.tipsNoGlasses')}</Text>
+          <Text style={styles.tipsText}>{t('flows.register.tipsInFrame')}</Text>
         </View>
 
         {/* Skip only available for non-login onboarding */}
@@ -311,7 +313,7 @@ export default function RegisterFaceScreen() {
               router.replace(target);
             }}
           >
-            <Text style={styles.skipText}>Sonra Yap</Text>
+            <Text style={styles.skipText}>{t('flows.register.later')}</Text>
             <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
         )}

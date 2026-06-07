@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '@/config/env';
 import eventBus from '@/utils/eventBus';
+import i18n from '@/i18n';
 
 const BASE_URL = `${API_URL}/api/v1`;
 const TIMEOUT_MS = 30000;         // 30s — base64 fotoğraf upload için yeterli
@@ -97,7 +98,7 @@ async function request(method, path, body = null, customToken = null) {
           return await retryResponse.json();
         } catch (retryErr) {
           clearTimeout(retryTimer);
-          if (retryErr.name === 'AbortError') throw new Error('İstek zaman aşımına uğradı');
+          if (retryErr.name === 'AbortError') throw new Error(i18n.t('common.requestTimeout'));
           throw retryErr;
         }
       }
@@ -105,7 +106,7 @@ async function request(method, path, body = null, customToken = null) {
       await SecureStore.deleteItemAsync('access_token').catch(() => {});
       await SecureStore.deleteItemAsync('refresh_token').catch(() => {});
       eventBus.emit('FORCE_LOGOUT');
-      const loginError = new Error('Oturum süresi doldu');
+      const loginError = new Error(i18n.t('common.sessionExpired'));
       loginError.requiresLogin = true;
       throw loginError;
     }
@@ -123,7 +124,7 @@ async function request(method, path, body = null, customToken = null) {
   } catch (err) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
-      throw new Error('İstek zaman aşımına uğradı');
+      throw new Error(i18n.t('common.requestTimeout'));
     }
     throw err;
   }
@@ -175,7 +176,7 @@ async function uploadFile(path, fileUri, fileName, mimeType) {
     return data;
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('İstek zaman aşımına uğradı');
+    if (err.name === 'AbortError') throw new Error(i18n.t('common.requestTimeout'));
     throw err;
   }
 }

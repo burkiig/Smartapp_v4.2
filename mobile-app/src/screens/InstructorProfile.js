@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '@/context/UserContext';
@@ -13,6 +14,7 @@ import { Colors, Shadows } from '@/config/theme';
 
 export default function InstructorProfile() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user, logout } = useUser();
   const [profile, setProfile] = useState(null);
   const [stats,   setStats]   = useState(null);
@@ -28,21 +30,21 @@ export default function InstructorProfile() {
   }, []);
 
   const handleLogout = () =>
-    Alert.alert('Çıkış Yap', 'Çıkmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      { text: 'Çıkış Yap', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
+    Alert.alert(t('common.logout'), t('profile.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.logout'), style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
     ]);
 
-  const name     = profile?.name || user?.name || user?.username || '—';
-  const email    = profile?.email || user?.email || '—';
-  const dept     = profile?.department || user?.department || '—';
+  const name     = profile?.name || user?.name || user?.username || t('common.notAvailable');
+  const email    = profile?.email || user?.email || t('common.notAvailable');
+  const dept     = profile?.department || user?.department || t('common.notAvailable');
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'HO';
 
   const STATS = [
-    { icon: 'book-outline',       color: Colors.primary, value: stats?.total_courses   ?? '—', label: 'Aktif Ders' },
-    { icon: 'people-outline',     color: Colors.success, value: stats?.total_enrolled  ?? '—', label: 'Öğrenci' },
-    { icon: 'play-circle-outline',color: Colors.warning, value: stats?.active_sessions ?? '—', label: 'Aktif Oturum' },
-    { icon: 'flag-outline',       color: Colors.error,   value: stats?.flagged_records ?? '—', label: 'Bayraklı' },
+    { icon: 'book-outline',       color: Colors.primary, value: stats?.total_courses   ?? '—', labelKey: 'instructor.myCourses' },
+    { icon: 'people-outline',     color: Colors.success, value: stats?.total_enrolled  ?? '—', labelKey: 'attendance.enrolled' },
+    { icon: 'play-circle-outline',color: Colors.warning, value: stats?.active_sessions ?? '—', labelKey: 'attendance.sessionActive' },
+    { icon: 'flag-outline',       color: Colors.error,   value: stats?.flagged_records ?? '—', labelKey: 'attendance.flagged' },
   ];
 
   return (
@@ -56,7 +58,7 @@ export default function InstructorProfile() {
           <Text style={styles.heroName}>{name}</Text>
           <View style={styles.rolePill}>
             <Text style={styles.roleText}>
-              {user?.role === 'admin' ? 'Yönetici' : 'Öğretim Görevlisi'}
+              {user?.role === 'admin' ? t('roles.admin') : t('roles.instructor')}
             </Text>
           </View>
         </LinearGradient>
@@ -67,30 +69,30 @@ export default function InstructorProfile() {
           <>
             <View style={styles.statsGrid}>
               {STATS.map(s => (
-                <View key={s.label} style={styles.statCard}>
+                <View key={s.labelKey} style={styles.statCard}>
                   <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
                     <Ionicons name={s.icon} size={20} color={s.color} />
                   </View>
                   <Text style={styles.statValue}>{s.value}</Text>
-                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={styles.statLabel}>{t(s.labelKey)}</Text>
                 </View>
               ))}
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Kişisel Bilgiler</Text>
-              <InfoRow icon="mail-outline"     color={Colors.primary} label="E-posta" value={email} />
-              <InfoRow icon="business-outline" color="#7C3AED"        label="Bölüm"   value={dept} last />
+              <Text style={styles.cardTitle}>{t('profile.personalInfo')}</Text>
+              <InfoRow icon="mail-outline"     color={Colors.primary} label={t('profile.email')} value={email} />
+              <InfoRow icon="business-outline" color="#7C3AED"        label={t('profile.department')}   value={dept} last />
             </View>
 
             <View style={styles.section}>
               <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
                 <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-                <Text style={styles.logoutText}>Çıkış Yap</Text>
+                <Text style={styles.logoutText}>{t('common.logout')}</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.version}>Smart Attendance · v1.0.0</Text>
+            <Text style={styles.version}>{t('common.version')}</Text>
           </>
         )}
       </ScrollView>

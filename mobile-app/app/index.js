@@ -8,11 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { face, auth } from '@/services/api';
 import { Colors, Shadows, Radius, Spacing } from '@/config/theme';
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { login } = useUser();
 
@@ -54,16 +56,16 @@ export default function LoginScreen() {
 
   const handleForgot = async () => {
     if (!resetEmail.trim()) {
-      Alert.alert('Hata', 'E-posta adresinizi girin.');
+      Alert.alert(t('common.error'), t('auth.enterEmail'));
       return;
     }
     setResetLoading(true);
     try {
       await auth.forgotPassword(resetEmail.trim());
-      setResetMsg('E-posta gönderildi. Token\'ınızı alın ve aşağıya girin.');
+      setResetMsg(t('auth.resetEmailSent'));
       setResetMode('reset');
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'Bir sorun oluştu.');
+      Alert.alert(t('common.error'), err?.message || t('common.somethingWrong'));
     } finally {
       setResetLoading(false);
     }
@@ -71,16 +73,16 @@ export default function LoginScreen() {
 
   const handleResetPassword = async () => {
     if (!resetToken.trim() || !resetNewPass.trim()) {
-      Alert.alert('Hata', 'Token ve yeni şifreyi girin.');
+      Alert.alert(t('common.error'), t('auth.enterTokenAndPassword'));
       return;
     }
     setResetLoading(true);
     try {
       await auth.resetPassword(resetToken.trim(), resetNewPass.trim());
       setResetMode(null);
-      Alert.alert('Başarılı', 'Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.');
+      Alert.alert(t('common.success'), t('auth.passwordUpdated'));
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'Token geçersiz veya süresi dolmuş.');
+      Alert.alert(t('common.error'), err?.message || t('auth.tokenInvalid'));
     } finally {
       setResetLoading(false);
     }
@@ -89,7 +91,7 @@ export default function LoginScreen() {
   const handleSignIn = async () => {
     if (!username.trim() || !password.trim()) {
       shake();
-      Alert.alert('Eksik Bilgi', 'Kullanıcı adı ve şifrenizi girin.');
+      Alert.alert(t('common.missingInfo'), t('auth.missingCredentials'));
       return;
     }
     setLoading(true);
@@ -110,7 +112,7 @@ export default function LoginScreen() {
           isRedirectingRef.current = false;
           setIsRedirecting(false);
           shake();
-          Alert.alert('Bağlantı Hatası', 'Yüz durumu kontrol edilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+          Alert.alert(t('common.connectionError'), t('auth.faceCheckFailed'));
           return;
         }
 
@@ -125,13 +127,13 @@ export default function LoginScreen() {
 
       } else {
         shake();
-        Alert.alert('Giriş Başarısız', result.error || 'Kullanıcı adı veya şifre hatalı.');
+        Alert.alert(t('auth.loginFailedTitle'), result.error || t('auth.loginFailed'));
       }
     } catch (err) {
       isRedirectingRef.current = false;
       setIsRedirecting(false);
       shake();
-      Alert.alert('Bağlantı Hatası', err.message || 'Sunucuya bağlanılamadı.');
+      Alert.alert(t('common.connectionError'), err.message || t('common.serverUnreachable'));
     } finally {
       if (!isRedirectingRef.current) setLoading(false);
     }
@@ -158,23 +160,23 @@ export default function LoginScreen() {
             >
               <Ionicons name="school" size={40} color="#fff" />
             </LinearGradient>
-            <Text style={styles.appName}>Smart Attendance</Text>
-            <Text style={styles.tagline}>Yoklama yönetim sistemi</Text>
+            <Text style={styles.appName}>{t('common.appName')}</Text>
+            <Text style={styles.tagline}>{t('common.tagline')}</Text>
           </View>
 
           {/* Card */}
           <Animated.View style={[styles.card, { transform: [{ translateX: shakeAnim }] }]}>
-            <Text style={styles.cardTitle}>Giriş Yap</Text>
-            <Text style={styles.cardSub}>Devam etmek için giriş yapın</Text>
+            <Text style={styles.cardTitle}>{t('auth.loginTitle')}</Text>
+            <Text style={styles.cardSub}>{t('auth.loginSubtitle')}</Text>
 
             {/* Username */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Kullanıcı Adı</Text>
+              <Text style={styles.label}>{t('auth.usernameLabel')}</Text>
               <View style={[styles.inputRow, focusedField === 'user' && styles.inputRowFocused]}>
                 <Ionicons name="person-outline" size={18} color={focusedField === 'user' ? Colors.primary : Colors.textMuted} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Kullanıcı adınız"
+                  placeholder={t('auth.usernamePlaceholder')}
                   placeholderTextColor={Colors.textMuted}
                   value={username}
                   onChangeText={setUsername}
@@ -190,16 +192,16 @@ export default function LoginScreen() {
             {/* Password */}
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Şifre</Text>
+                <Text style={styles.label}>{t('auth.passwordLabel')}</Text>
                 <TouchableOpacity onPress={openForgot}>
-                  <Text style={styles.forgotText}>Şifremi unuttum</Text>
+                  <Text style={styles.forgotText}>{t('auth.forgotPassword')}</Text>
                 </TouchableOpacity>
               </View>
               <View style={[styles.inputRow, focusedField === 'pass' && styles.inputRowFocused]}>
                 <Ionicons name="lock-closed-outline" size={18} color={focusedField === 'pass' ? Colors.primary : Colors.textMuted} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Şifreniz"
+                  placeholder={t('auth.passwordPlaceholder')}
                   placeholderTextColor={Colors.textMuted}
                   value={password}
                   onChangeText={setPassword}
@@ -231,15 +233,15 @@ export default function LoginScreen() {
               >
                 {loading
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.submitText}>Giriş Yap</Text>
+                  : <Text style={styles.submitText}>{t('auth.signIn')}</Text>
                 }
               </LinearGradient>
             </TouchableOpacity>
 
             <View style={styles.signupRow}>
-              <Text style={styles.signupText}>Hesabınız yok mu? </Text>
-              <TouchableOpacity onPress={() => Alert.alert('Kayıt', 'Yeni hesap için sistem yöneticinizle iletişime geçin.')}>
-                <Text style={styles.signupLink}>Kayıt Ol</Text>
+              <Text style={styles.signupText}>{t('auth.noAccount')} </Text>
+              <TouchableOpacity onPress={() => Alert.alert(t('auth.signUpTitle'), t('auth.signUpContactAdmin'))}>
+                <Text style={styles.signupLink}>{t('common.register')}</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -258,7 +260,7 @@ export default function LoginScreen() {
             {/* Header */}
             <View style={styles.resetModalHeader}>
               <Text style={styles.resetModalTitle}>
-                {resetMode === 'forgot' ? 'Şifremi Unuttum' : 'Yeni Şifre Belirle'}
+                {resetMode === 'forgot' ? t('auth.resetForgotTitle') : t('auth.resetNewPasswordTitle')}
               </Text>
               <TouchableOpacity onPress={() => setResetMode(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
@@ -267,8 +269,8 @@ export default function LoginScreen() {
 
             <Text style={styles.resetModalSub}>
               {resetMode === 'forgot'
-                ? 'Kayıtlı e-posta adresinizi girin. Sıfırlama talimatları gönderilecek.'
-                : resetMsg || 'E-posta ile aldığınız token ve yeni şifrenizi girin.'}
+                ? t('auth.resetForgotSub')
+                : resetMsg || t('auth.resetTokenSub')}
             </Text>
 
             {resetMode === 'forgot' && (
@@ -276,7 +278,7 @@ export default function LoginScreen() {
                 <Ionicons name="mail-outline" size={18} color={Colors.textMuted} />
                 <TextInput
                   style={styles.resetInput}
-                  placeholder="E-posta adresiniz"
+                  placeholder={t('auth.emailPlaceholder')}
                   placeholderTextColor={Colors.textMuted}
                   value={resetEmail}
                   onChangeText={setResetEmail}
@@ -293,7 +295,7 @@ export default function LoginScreen() {
                   <Ionicons name="key-outline" size={18} color={Colors.textMuted} />
                   <TextInput
                     style={styles.resetInput}
-                    placeholder="Sıfırlama token'ı"
+                    placeholder={t('auth.tokenPlaceholder')}
                     placeholderTextColor={Colors.textMuted}
                     value={resetToken}
                     onChangeText={setResetToken}
@@ -305,7 +307,7 @@ export default function LoginScreen() {
                   <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} />
                   <TextInput
                     style={styles.resetInput}
-                    placeholder="Yeni şifreniz"
+                    placeholder={t('auth.newPasswordPlaceholder')}
                     placeholderTextColor={Colors.textMuted}
                     value={resetNewPass}
                     onChangeText={setResetNewPass}
@@ -324,14 +326,14 @@ export default function LoginScreen() {
               {resetLoading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={styles.resetSubmitText}>
-                    {resetMode === 'forgot' ? 'Gönder' : 'Şifreyi Güncelle'}
+                    {resetMode === 'forgot' ? t('common.send') : t('auth.updatePassword')}
                   </Text>
               }
             </TouchableOpacity>
 
             {resetMode === 'reset' && (
               <TouchableOpacity onPress={() => setResetMode('forgot')} style={{ marginTop: 12, alignItems: 'center' }}>
-                <Text style={styles.forgotText}>E-postayı yeniden gönder</Text>
+                <Text style={styles.forgotText}>{t('auth.resendEmail')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -359,8 +361,8 @@ export default function LoginScreen() {
               <Ionicons name="shield-checkmark" size={36} color="#fff" />
             </LinearGradient>
             <ActivityIndicator color="#fff" size="large" style={{ marginTop: 24 }} />
-            <Text style={styles.redirectText}>Kimlik Doğrulandı</Text>
-            <Text style={styles.redirectSub}>Hazırlanıyor...</Text>
+            <Text style={styles.redirectText}>{t('auth.identityVerified')}</Text>
+            <Text style={styles.redirectSub}>{t('auth.preparing')}</Text>
           </View>
         </LinearGradient>
       </Modal>

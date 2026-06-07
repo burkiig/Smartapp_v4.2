@@ -1,12 +1,18 @@
 ﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
 
 export default function Header({ userName, hasNotification = false, onRefresh }) {
-  const firstName = userName?.split(' ')[0] || 'Öğrenci';
+  const { t } = useTranslation();
+  const firstName = userName?.split(' ')[0] || t('common.studentFallback');
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Günaydın' : hour < 18 ? 'İyi günler' : 'İyi akşamlar';
+  const greeting = hour < 12
+    ? t('greetings.morning')
+    : hour < 18
+      ? t('greetings.afternoon')
+      : t('greetings.evening');
 
   return (
     <View style={styles.header}>

@@ -8,20 +8,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { courses, sessions, rooms as roomsApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import HistoryScreen from './history';
+import { useCalendar, useCancelReasons } from '@/i18n/helpers';
 
 const { width } = Dimensions.get('window');
 
-const DAY_TR   = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-const DAY_FULL = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const DAY_EN   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const MONTHS   = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
-const CANCEL_REASONS = ['Öğretim görevlisi müsait değil', 'Teknik sorun', 'Tatil / Etkinlik', 'Acil durum'];
 
 // ── Yardımcı ─────────────────────────────────────────────────────────────────
 function parseSchedule(sch) {
@@ -49,6 +47,9 @@ function getCourseTime(course) {
 // ── Öğretmen Ders Programı ────────────────────────────────────────────────────
 function InstructorSchedule() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const { daysShort, daysFull, months } = useCalendar();
+  const cancelReasons = useCancelReasons();
 
   const [selectedDay,  setSelectedDay]  = useState(new Date().getDay());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -65,10 +66,16 @@ function InstructorSchedule() {
   const [selFaculty,   setSelFaculty]   = useState(null);
   const [starting,     setStarting]     = useState(false);
   const [facLoading,   setFacLoading]   = useState(false);
-  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
+  const [cancelReason, setCancelReason] = useState(null);
   const [cancelModal,  setCancelModal]  = useState(false);
   const [cancelCourse, setCancelCourse] = useState(null);
   const [ending,       setEnding]       = useState(null); // session id being ended
+
+  useEffect(() => {
+    if (cancelReasons.length > 0 && !cancelReason) {
+      setCancelReason(cancelReasons[0]);
+    }
+  }, [cancelReasons, cancelReason]);
 
   const sheetRef   = useRef(null);
   const snapPoints = useMemo(() => ['65%'], []);
@@ -129,31 +136,31 @@ function InstructorSchedule() {
   };
 
   const handleStartSession = async () => {
-    if (!selFaculty) { Alert.alert('Fakülte Seçin', 'Lütfen dersin yapılacağı binayı seçin.'); return; }
-    if (!selFaculty.latitude) { Alert.alert('GPS Eksik', `${selFaculty.name} için GPS konumu tanımlı değil.`); return; }
+    if (!selFaculty) { Alert.alert(t('attendance.selectFaculty'), t('attendance.selectBuildingBody')); return; }
+    if (!selFaculty.latitude) { Alert.alert(t('attendance.gpsMissing'), t('attendance.gpsMissingBody', { name: selFaculty.name })); return; }
     setStarting(true);
     try {
       await sessions.start(startCourse.id, { room_id: selFaculty.id });
       setStartModal(false);
-      Alert.alert('Yoklama Başlatıldı', `${startCourse.code} için yoklama aktif.\n${selFaculty.name} — ±${selFaculty.geofence_radius}m`);
-      fetchData();   // oturumu güncelle
-    } catch (err) { Alert.alert('Başlatılamadı', err?.message || 'Oturum başlatılamadı.'); }
+      Alert.alert(t('attendance.sessionStarted'), t('attendance.sessionStartedCourse', { code: startCourse.code, name: selFaculty.name, radius: selFaculty.geofence_radius }));
+      fetchData();
+    } catch (err) { Alert.alert(t('attendance.startFailed'), err?.message || t('attendance.startFailed')); }
     finally { setStarting(false); }
   };
 
   const handleEndSession = (session, courseName) => {
     Alert.alert(
-      'Yoklamayı Bitir',
-      `${courseName} yoklamasını kapatmak istiyor musunuz?`,
+      t('attendance.endConfirmTitle'),
+      t('attendance.endConfirmBody'),
       [
-        { text: 'Hayır', style: 'cancel' },
-        { text: 'Bitir', style: 'destructive', onPress: async () => {
+        { text: t('common.no'), style: 'cancel' },
+        { text: t('attendance.endSession'), style: 'destructive', onPress: async () => {
           setEnding(session.id);
           try {
             await sessions.end(session.id);
             fetchData();
-            Alert.alert('Tamamlandı', 'Yoklama oturumu kapatıldı.');
-          } catch (err) { Alert.alert('Hata', err?.message || 'Oturum kapatılamadı.'); }
+            Alert.alert(t('common.done'), t('attendance.sessionEnded'));
+          } catch (err) { Alert.alert(t('common.error'), err?.message || t('attendance.endFailed')); }
           finally { setEnding(null); }
         }},
       ]
@@ -162,7 +169,7 @@ function InstructorSchedule() {
 
   const openCancelModal = (course) => {
     setCancelCourse(course);
-    setCancelReason(CANCEL_REASONS[0]);
+    setCancelReason(cancelReasons[0] ?? null);
     setCancelModal(true);
   };
 
@@ -172,9 +179,9 @@ function InstructorSchedule() {
     try {
       await sessions.cancel(cancelCourse.id, cancelReason, activeSes?.id);
       setCancelModal(false);
-      Alert.alert('İptal Edildi', `${cancelCourse.code} dersi iptal edildi.`);
+      Alert.alert(t('cancel.cancelled'), t('cancel.courseCancelled', { code: cancelCourse.code }));
       fetchData();
-    } catch (err) { Alert.alert('Hata', err?.message || 'İptal başarısız.'); }
+    } catch (err) { Alert.alert(t('common.error'), err?.message || t('cancel.cancelFailed')); }
   };
 
   // ── Takvim ───────────────────────────────────────────────────────────────────
@@ -230,12 +237,12 @@ function InstructorSchedule() {
               {isLive && (
                 <View style={styles.liveBadge}>
                   <View style={styles.liveDot} />
-                  <Text style={styles.liveText}>CANLI</Text>
+                  <Text style={styles.liveText}>{t('attendance.live')}</Text>
                 </View>
               )}
               {!hasSchedule && (
                 <View style={styles.noSchBadge}>
-                  <Text style={styles.noSchText}>Program Yok</Text>
+                  <Text style={styles.noSchText}>{t('common.notAvailable')}</Text>
                 </View>
               )}
             </View>
@@ -249,11 +256,11 @@ function InstructorSchedule() {
                 </>
               ) : null}
               <Ionicons name="people-outline" size={11} color={Colors.textMuted} />
-              <Text style={styles.metaText}>{item.enrolled_count ?? 0} öğrenci</Text>
+              <Text style={styles.metaText}>{t('common.studentCount', { count: item.enrolled_count ?? 0 })}</Text>
             </View>
             {days.length > 0 && (
               <Text style={styles.schedDays} numberOfLines={1}>
-                {days.map(d => DAY_TR[d]).join('  ')}
+                {days.map(d => daysShort[d]).join('  ')}
               </Text>
             )}
           </View>
@@ -272,21 +279,21 @@ function InstructorSchedule() {
                 {isEnding
                   ? <ActivityIndicator size="small" color="#fff" />
                   : <Ionicons name="stop-circle" size={14} color="#fff" />}
-                <Text style={styles.actionBtnText}>Yoklamayı Bitir</Text>
+                <Text style={styles.actionBtnText}>{t('attendance.endSession')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.manageBtn}
                 onPress={() => router.push({ pathname: '/class-details', params: { courseId: item.id, code: item.code, title: item.name } })}
               >
                 <Ionicons name="list-outline" size={14} color={Colors.primary} />
-                <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Yönet</Text>
+                <Text style={[styles.actionBtnText, { color: Colors.primary }]}>{t('common.manage')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => openCancelModal(item)}
               >
                 <Ionicons name="close-circle-outline" size={14} color={Colors.error} />
-                <Text style={[styles.actionBtnText, { color: Colors.error }]}>İptal</Text>
+                <Text style={[styles.actionBtnText, { color: Colors.error }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -296,14 +303,14 @@ function InstructorSchedule() {
                 onPress={() => openStartModal(item)}
               >
                 <Ionicons name="play-circle" size={14} color="#fff" />
-                <Text style={styles.actionBtnText}>Yoklama Başlat</Text>
+                <Text style={styles.actionBtnText}>{t('attendance.startSession')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.manageBtn}
                 onPress={() => router.push({ pathname: '/class-details', params: { courseId: item.id, code: item.code, title: item.name } })}
               >
                 <Ionicons name="settings-outline" size={14} color={Colors.primary} />
-                <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Yönet</Text>
+                <Text style={[styles.actionBtnText, { color: Colors.primary }]}>{t('common.manage')}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -323,9 +330,11 @@ function InstructorSchedule() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Ders Programı</Text>
+            <Text style={styles.headerTitle}>{t('instructor.scheduleTitle')}</Text>
             <Text style={styles.headerSub}>
-              {activeCount > 0 ? `${activeCount} aktif yoklama` : `${allCourses.length} ders`}
+              {activeCount > 0
+                ? `${activeCount} ${t('attendance.live').toLowerCase()}`
+                : t('calendar.classCount', { count: allCourses.length })}
             </Text>
           </View>
           <View style={styles.headerBtns}>
@@ -342,7 +351,7 @@ function InstructorSchedule() {
         {activeCount > 0 && (
           <LinearGradient colors={[Colors.success, '#059669']} style={styles.liveBanner}>
             <Ionicons name="radio" size={16} color="#fff" />
-            <Text style={styles.liveBannerText}>{activeCount} aktif yoklama oturumu devam ediyor</Text>
+            <Text style={styles.liveBannerText}>{activeCount} {t('attendance.sessionActive')}</Text>
           </LinearGradient>
         )}
 
@@ -377,7 +386,7 @@ function InstructorSchedule() {
                         onPress={() => handleDaySelect(idx)}
                       >
                         <Text style={[styles.dayName, isActive && styles.dayNameActive, isToday && !isActive && styles.dayNameToday]}>
-                          {DAY_TR[idx]}
+                          {daysShort[idx]}
                         </Text>
                         {cnt > 0 && <View style={[styles.dayDot, isActive && styles.dayDotActive]} />}
                       </TouchableOpacity>
@@ -388,12 +397,12 @@ function InstructorSchedule() {
                 <View style={styles.listHeader}>
                   <Text style={styles.listHeaderText}>
                     {showAll
-                      ? `Tüm Derslerim (${allCourses.length})`
-                      : `${DAY_FULL[selectedDay]} Dersleri (${todayClasses.length})`}
+                      ? `${t('instructor.showAllCourses')} (${allCourses.length})`
+                      : `${t('calendar.classesOnDay', { day: daysFull[selectedDay] })} (${todayClasses.length})`}
                   </Text>
                   <TouchableOpacity style={styles.toggleBtn} onPress={() => setShowAll(v => !v)}>
                     <Ionicons name={showAll ? 'calendar-outline' : 'list-outline'} size={14} color={Colors.primary} />
-                    <Text style={styles.toggleBtnText}>{showAll ? 'Güne Göre' : 'Tümünü Gör'}</Text>
+                    <Text style={styles.toggleBtnText}>{showAll ? t('calendar.byDay') : t('calendar.showAll')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -401,11 +410,11 @@ function InstructorSchedule() {
             ListEmptyComponent={
               <View style={styles.emptyBox}>
                 <Ionicons name="calendar-outline" size={52} color={Colors.border} />
-                <Text style={styles.emptyTitle}>Bu gün için programda ders yok</Text>
-                <Text style={styles.emptySubt}>Diğer derslerinizi görmek için "Tümünü Gör" butonuna basın</Text>
+                <Text style={styles.emptyTitle}>{t('history.emptySchedule')}</Text>
+                <Text style={styles.emptySubt}>{t('instructor.emptyScheduleHint')}</Text>
                 <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowAll(true)}>
                   <Ionicons name="list-outline" size={15} color={Colors.primary} />
-                  <Text style={styles.emptyBtnText}>Tüm Derslerimi Göster</Text>
+                  <Text style={styles.emptyBtnText}>{t('instructor.showAllCourses')}</Text>
                 </TouchableOpacity>
               </View>
             }
@@ -417,14 +426,14 @@ function InstructorSchedule() {
           <View style={styles.overlay}>
             <View style={styles.sheet}>
               <View style={styles.sheetHandle} />
-              <Text style={styles.sheetTitle}>Yoklama Başlat</Text>
+              <Text style={styles.sheetTitle}>{t('attendance.startSession')}</Text>
               <Text style={styles.sheetSub}>{startCourse?.code} — {startCourse?.name}</Text>
-              <Text style={[styles.sheetSub, { marginBottom: 12 }]}>Dersin yapılacağı binayı seçin:</Text>
+              <Text style={[styles.sheetSub, { marginBottom: 12 }]}>{t('attendance.selectBuildingBody')}</Text>
 
               {facLoading ? (
                 <ActivityIndicator color={Colors.primary} size="large" style={{ marginVertical: 32 }} />
               ) : faculties.length === 0 ? (
-                <Text style={styles.emptyTitle}>Kayıtlı bina bulunamadı.{'\n'}Yönetici panelinden ekleyin.</Text>
+                <Text style={styles.emptyTitle}>{t('attendance.noBuildingFound')}</Text>
               ) : (
                 <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
                   {faculties.map(f => (
@@ -437,7 +446,7 @@ function InstructorSchedule() {
                         <Text style={styles.facName}>{f.name}</Text>
                         {f.latitude
                           ? <Text style={styles.facGps}>📍 {f.latitude?.toFixed(4)}, {f.longitude?.toFixed(4)} — ±{f.geofence_radius}m</Text>
-                          : <Text style={[styles.facGps, { color: Colors.error }]}>⚠ GPS tanımlı değil</Text>}
+                          : <Text style={[styles.facGps, { color: Colors.error }]}>⚠ {t('attendance.gpsMissing')}</Text>}
                       </View>
                       {selFaculty?.id === f.id && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
                     </TouchableOpacity>
@@ -447,7 +456,7 @@ function InstructorSchedule() {
 
               <View style={styles.sheetActions}>
                 <TouchableOpacity style={styles.sheetCancel} onPress={() => setStartModal(false)}>
-                  <Text style={styles.sheetCancelText}>İptal</Text>
+                  <Text style={styles.sheetCancelText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.sheetConfirm, (!selFaculty || starting) && { opacity: 0.45 }]}
@@ -456,7 +465,7 @@ function InstructorSchedule() {
                 >
                   {starting
                     ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={styles.sheetConfirmText}>Başlat</Text>}
+                    : <Text style={styles.sheetConfirmText}>{t('common.start')}</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -468,9 +477,9 @@ function InstructorSchedule() {
           <View style={styles.overlay}>
             <View style={styles.sheet}>
               <View style={styles.sheetHandle} />
-              <Text style={styles.sheetTitle}>Ders İptali</Text>
-              <Text style={styles.sheetSub}>{cancelCourse?.code} — İptal nedenini seçin</Text>
-              {CANCEL_REASONS.map(r => (
+              <Text style={styles.sheetTitle}>{t('cancel.title')}</Text>
+              <Text style={styles.sheetSub}>{cancelCourse?.code}</Text>
+              {cancelReasons.map(r => (
                 <TouchableOpacity
                   key={r}
                   style={[styles.reasonRow, cancelReason === r && styles.reasonRowActive]}
@@ -482,10 +491,10 @@ function InstructorSchedule() {
               ))}
               <View style={styles.sheetActions}>
                 <TouchableOpacity style={styles.sheetCancel} onPress={() => setCancelModal(false)}>
-                  <Text style={styles.sheetCancelText}>Vazgeç</Text>
+                  <Text style={styles.sheetCancelText}>{t('common.giveUp')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.sheetConfirm, { backgroundColor: Colors.error }]} onPress={handleCancelClass}>
-                  <Text style={styles.sheetConfirmText}>İptal Et</Text>
+                  <Text style={styles.sheetConfirmText}>{t('cancel.cancelAction')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -507,13 +516,13 @@ function InstructorSchedule() {
               <TouchableOpacity style={styles.monthBtn} onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}>
                 <Ionicons name="chevron-back" size={20} color={Colors.text} />
               </TouchableOpacity>
-              <Text style={styles.monthText}>{MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}</Text>
+              <Text style={styles.monthText}>{months[currentMonth.getMonth()]} {currentMonth.getFullYear()}</Text>
               <TouchableOpacity style={styles.monthBtn} onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}>
                 <Ionicons name="chevron-forward" size={20} color={Colors.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.calDayNames}>
-              {DAY_TR.map((d, i) => (
+              {daysShort.map((d, i) => (
                 <View key={i} style={styles.calDayName}>
                   <Text style={styles.calDayNameText}>{d}</Text>
                 </View>
@@ -544,7 +553,7 @@ function InstructorSchedule() {
               onPress={() => { const t = new Date(); setCurrentMonth(t); setSelectedDay(t.getDay()); sheetRef.current?.close(); }}
             >
               <Ionicons name="today-outline" size={18} color={Colors.primary} />
-              <Text style={styles.todayBtnText}>Bugüne Git</Text>
+              <Text style={styles.todayBtnText}>{t('calendar.goToToday')}</Text>
             </TouchableOpacity>
           </View>
         </BottomSheet>

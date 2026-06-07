@@ -5,6 +5,7 @@ import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { I18nProvider } from '@/context/I18nProvider';
 import { UserProvider, useUser } from '@/context/UserContext';
 import { isAuthenticated } from '@/services/authService';
 import { QueryProvider } from '@/query/QueryProvider';
@@ -12,6 +13,7 @@ import InAppBanner from '@/components/InAppBanner';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import NetworkToast from '@/components/NetworkToast';
 import eventBus from '@/utils/eventBus';
+import i18n from '@/i18n';
 import {
   setupPushNotifications,
   loadNotificationPreferences,
@@ -182,8 +184,8 @@ function NotificationManager() {
       } else {
         enqueueBanner({
           type: 'info',
-          message: title || body || 'Yoklama basladi. Katilim icin QR dogrulamaya gidin.',
-          actionLabel: 'Yoklama Al',
+          message: title || body || i18n.t('notifications.sessionStartedMessage'),
+          actionLabel: i18n.t('notifications.sessionStartedAction'),
           onAction: () =>
             router.push({
               pathname: '/qr-scan',
@@ -203,8 +205,8 @@ function NotificationManager() {
       } else {
         enqueueBanner({
           type: 'warning',
-          message: title || body || 'Supheli yoklama kaydi inceleme bekliyor.',
-          actionLabel: 'Incele',
+          message: title || body || i18n.t('notifications.flaggedMessage'),
+          actionLabel: i18n.t('notifications.flaggedAction'),
           onAction: () =>
             router.push({
               pathname: '/(tabs)/attendance',
@@ -218,7 +220,9 @@ function NotificationManager() {
     if (data?.type === 'class_cancelled') {
       enqueueBanner({
         type: 'error',
-        message: `Ders iptal edildi: ${data?.session_name || 'Bilinmeyen oturum'}`,
+        message: i18n.t('notifications.classCancelled', {
+          sessionName: data?.session_name || i18n.t('notifications.unknownSession'),
+        }),
       });
       return true;
     }
@@ -364,12 +368,14 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <QueryProvider>
-        <UserProvider>
-          <StatusBar style="light" />
-          <AppShell />
-        </UserProvider>
-      </QueryProvider>
+      <I18nProvider>
+        <QueryProvider>
+          <UserProvider>
+            <StatusBar style="light" />
+            <AppShell />
+          </UserProvider>
+        </QueryProvider>
+      </I18nProvider>
     </ErrorBoundary>
   );
 }

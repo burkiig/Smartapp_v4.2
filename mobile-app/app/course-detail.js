@@ -14,17 +14,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { sessions, attendance as attendanceApi, courses as coursesApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
+import { getDateLocale, useAttendanceStatusLabel } from '@/i18n';
 
-const ATTEND_BTN = [
-  { status: 'present', label: 'Katıldı',   icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
-  { status: 'excused', label: 'Mazeretli', icon: 'document-text',    color: Colors.warning, bg: Colors.warningLight },
-  { status: 'absent',  label: 'Katılmadı', icon: 'close-circle',     color: Colors.error,   bg: Colors.errorLight   },
+const ATTEND_BTN_KEYS = [
+  { status: 'present', labelKey: 'attendance.status.attended', icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
+  { status: 'excused', labelKey: 'attendance.status.excused', icon: 'document-text',    color: Colors.warning, bg: Colors.warningLight },
+  { status: 'absent',  labelKey: 'attendance.status.notAttended', icon: 'close-circle',     color: Colors.error,   bg: Colors.errorLight   },
 ];
-
-const STATUS_COLOR = { present: Colors.success, absent: Colors.error, excused: Colors.warning, pending_review: Colors.primary };
-const STATUS_LABEL = { present: 'Katıldı', absent: 'Katılmadı', excused: 'Mazeretli', pending_review: 'İncelemede' };
 
 // ── Yardımcı ─────────────────────────────────────────────────────────────────
 function initials(name) {
@@ -33,8 +32,11 @@ function initials(name) {
 
 export default function CourseDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const getStatusLabel = useAttendanceStatusLabel();
   const { courseId, code, title } = useLocalSearchParams();
   const cId = Number(courseId);
+  const dateLocale = getDateLocale();
 
   const [tab,           setTab]           = useState('sessions');
   const [sessionList,   setSessionList]   = useState([]);
@@ -71,7 +73,7 @@ export default function CourseDetailScreen() {
         setEnrolledStudents(Array.isArray(stuRes.value) ? stuRes.value : []);
       }
     } catch (err) {
-      setError(err?.message || 'Veriler yüklenemedi');
+      setError(err?.message || t('common.dataLoadFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -92,7 +94,7 @@ export default function CourseDetailScreen() {
       const raw = Array.isArray(res) ? res : (res?.records || []);
       setSessRecords(raw);
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'Yoklama kayıtları yüklenemedi');
+      Alert.alert(t('common.error'), err?.message || t('attendance.recordsLoadFailed'));
     } finally {
       setSessLoading(false);
     }
@@ -106,9 +108,9 @@ export default function CourseDetailScreen() {
     const existingRec = sessRecords.find(r => r.student_id === student.id);
     try {
       if (existingRec) {
-        await attendanceApi.override(existingRec.id, newStatus, 'Öğretmen tarafından güncellendi');
+        await attendanceApi.override(existingRec.id, newStatus, t('attendance.teacherOverride'));
       } else {
-        await attendanceApi.setStatus(selSession.id, student.id, newStatus, 'Öğretmen tarafından oluşturuldu');
+        await attendanceApi.setStatus(selSession.id, student.id, newStatus, t('attendance.teacherCreated'));
       }
       // Optimistik güncelleme
       setSessRecords(prev => {
@@ -121,7 +123,7 @@ export default function CourseDetailScreen() {
         return [...prev, { student_id: student.id, session_id: selSession.id, course_id: cId, status: newStatus, id: -Date.now() }];
       });
     } catch (err) {
-      Alert.alert('Güncelleme Hatası', err?.message || 'Durum değiştirilemedi');
+      Alert.alert(t('attendance.updateFailed'), err?.message || t('attendance.updateFailed'));
     } finally {
       setSaving(prev => { const n = new Set(prev); n.delete(student.id); return n; });
     }
@@ -152,7 +154,7 @@ export default function CourseDetailScreen() {
       const rate = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : null;
       return {
         id: stu.id,
-        name: stu.name || stu.username || `Öğrenci ${stu.id}`,
+        name: stu.name || stu.username || t('common.studentWithId', { id: stu.id }),
         number: stu.student_number || stu.username || '',
         totalSessions,
         present: presentCount,
@@ -177,20 +179,20 @@ export default function CourseDetailScreen() {
         </View>
         <View style={styles.sessBody}>
           <View style={styles.sessTopRow}>
-            <Text style={styles.sessId}>Oturum #{item.id}</Text>
+            <Text style={styles.sessId}>{t('common.sessionWithId', { id: item.id })}</Text>
             {isActive && (
               <View style={styles.livePill}>
                 <View style={styles.liveDot} />
-                <Text style={styles.liveText}>CANLI</Text>
+                <Text style={styles.liveText}>{t('attendance.live')}</Text>
               </View>
             )}
-            {isClosed && <Text style={styles.closedBadge}>Kapalı</Text>}
+            {isClosed && <Text style={styles.closedBadge}>{t('instructor.closed')}</Text>}
           </View>
           {date && (
             <Text style={styles.sessMeta}>
-              {date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}
               {'  '}
-              {date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              {date.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
             </Text>
           )}
         </View>
@@ -217,7 +219,7 @@ export default function CourseDetailScreen() {
           <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 4 }} />
         ) : (
           <View style={styles.overrideBtns}>
-            {ATTEND_BTN.map(btn => {
+            {ATTEND_BTN_KEYS.map(btn => {
               const isActive = status === btn.status;
               return (
                 <TouchableOpacity
@@ -261,7 +263,7 @@ export default function CourseDetailScreen() {
 
       {/* Alt sekmeler */}
       <View style={styles.tabs}>
-        {[['sessions','Oturumlar'],['summary','Genel Devam']].map(([key, label]) => (
+        {[['sessions', t('instructor.courseDetailSessions')], ['summary', t('instructor.courseDetailSummary')]].map(([key, label]) => (
           <TouchableOpacity key={key} style={[styles.tab, tab === key && styles.tabActive]} onPress={() => setTab(key)}>
             <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
           </TouchableOpacity>
@@ -275,7 +277,7 @@ export default function CourseDetailScreen() {
           <Ionicons name="cloud-offline-outline" size={48} color={Colors.border} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={fetchData}>
-            <Text style={styles.retryText}>Tekrar Dene</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : tab === 'sessions' ? (
@@ -288,14 +290,14 @@ export default function CourseDetailScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
           ListHeaderComponent={
             <View style={styles.listHdr}>
-              <Text style={styles.listHdrText}>{sessionList.length} oturum</Text>
-              <Text style={styles.listHdrSub}>{enrolledStudents.length} kayıtlı öğrenci</Text>
+              <Text style={styles.listHdrText}>{t('history.subHistory', { count: sessionList.length })}</Text>
+              <Text style={styles.listHdrSub}>{t('common.enrolledCount', { count: enrolledStudents.length })}</Text>
             </View>
           }
           ListEmptyComponent={
             <View style={styles.centered}>
               <Ionicons name="calendar-outline" size={52} color={Colors.border} />
-              <Text style={styles.emptyText}>Henüz oturum başlatılmamış</Text>
+              <Text style={styles.emptyText}>{t('attendance.notStartedYet')}</Text>
             </View>
           }
         />
@@ -312,8 +314,8 @@ export default function CourseDetailScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             ListHeaderComponent={
               <View style={styles.listHdr}>
-                <Text style={styles.listHdrText}>{enrolledStudents.length} öğrenci</Text>
-                <Text style={styles.listHdrSub}>{sessionList.filter(s => s.status === 'closed').length} tamamlanan oturum</Text>
+                <Text style={styles.listHdrText}>{t('common.studentCount', { count: enrolledStudents.length })}</Text>
+                <Text style={styles.listHdrSub}>{t('history.subHistory', { count: sessionList.filter(s => s.status === 'closed').length })}</Text>
               </View>
             }
             renderItem={({ item: stu }) => {
@@ -336,7 +338,7 @@ export default function CourseDetailScreen() {
                           %{stu.rate}
                         </Text>
                         <Text style={styles.sumDetail}>{stu.present}/{stu.totalSessions}</Text>
-                        {low && <Text style={styles.sumWarn}>⚠ Düşük</Text>}
+                        {low && <Text style={styles.sumWarn}>{t('instructor.lowAttendance')}</Text>}
                       </>
                     )}
                   </View>
@@ -346,7 +348,7 @@ export default function CourseDetailScreen() {
             ListEmptyComponent={
               <View style={styles.centered}>
                 <Ionicons name="people-outline" size={52} color={Colors.border} />
-                <Text style={styles.emptyText}>Kayıtlı öğrenci yok</Text>
+                <Text style={styles.emptyText}>{t('attendance.noStudentFound')}</Text>
               </View>
             }
           />
@@ -362,10 +364,10 @@ export default function CourseDetailScreen() {
               <Ionicons name="close" size={22} color={Colors.text} />
             </TouchableOpacity>
             <View style={styles.modalHeaderCenter}>
-              <Text style={styles.modalTitle}>Oturum #{selSession?.id}</Text>
+              <Text style={styles.modalTitle}>{t('common.sessionWithId', { id: selSession?.id })}</Text>
               <Text style={styles.modalSub}>
                 {selSession?.started_at
-                  ? new Date(selSession.started_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+                  ? new Date(selSession.started_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' })
                   : ''}
               </Text>
             </View>
@@ -377,34 +379,34 @@ export default function CourseDetailScreen() {
             <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.modalBanner}>
               <View style={styles.modalBannerItem}>
                 <Text style={styles.modalBannerVal}>{totalEnrolled}</Text>
-                <Text style={styles.modalBannerLabel}>Toplam</Text>
+                <Text style={styles.modalBannerLabel}>{t('home.statsTotal')}</Text>
               </View>
               <View style={styles.modalBannerDiv} />
               <View style={styles.modalBannerItem}>
                 <Text style={styles.modalBannerVal}>{presentCount}</Text>
-                <Text style={styles.modalBannerLabel}>Katıldı</Text>
+                <Text style={styles.modalBannerLabel}>{t('attendance.status.attended')}</Text>
               </View>
               <View style={styles.modalBannerDiv} />
               <View style={styles.modalBannerItem}>
                 <Text style={styles.modalBannerVal}>{totalEnrolled - presentCount}</Text>
-                <Text style={styles.modalBannerLabel}>Katılmadı</Text>
+                <Text style={styles.modalBannerLabel}>{t('attendance.status.notAttended')}</Text>
               </View>
               <View style={styles.modalBannerDiv} />
               <View style={styles.modalBannerItem}>
                 <Text style={styles.modalBannerVal}>
-                  {totalEnrolled > 0 ? `${Math.round(presentCount / totalEnrolled * 100)}%` : '—'}
+                  {totalEnrolled > 0 ? `${Math.round(presentCount / totalEnrolled * 100)}%` : t('common.notAvailable')}
                 </Text>
-                <Text style={styles.modalBannerLabel}>Oran</Text>
+                <Text style={styles.modalBannerLabel}>{t('home.attendanceRate')}</Text>
               </View>
             </LinearGradient>
           )}
 
           {/* Buton açıklaması */}
           <View style={styles.legendRow}>
-            {ATTEND_BTN.map(b => (
+            {ATTEND_BTN_KEYS.map(b => (
               <View key={b.status} style={styles.legendItem}>
                 <Ionicons name={b.icon} size={13} color={b.color} />
-                <Text style={[styles.legendText, { color: b.color }]}>{b.label}</Text>
+                <Text style={[styles.legendText, { color: b.color }]}>{t(b.labelKey)}</Text>
               </View>
             ))}
           </View>
@@ -420,7 +422,7 @@ export default function CourseDetailScreen() {
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
                 <View style={styles.centered}>
-                  <Text style={styles.emptyText}>Bu derse kayıtlı öğrenci yok</Text>
+                  <Text style={styles.emptyText}>{t('attendance.noStudentFound')}</Text>
                 </View>
               }
             />

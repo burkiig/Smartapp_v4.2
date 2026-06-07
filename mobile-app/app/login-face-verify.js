@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,12 +26,13 @@ const MAX_RETRIES = 3;
 
 export default function LoginFaceVerifyScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { logout, setFaceVerified, user } = useUser();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning]     = useState(false);
   const [retryCount, setRetryCount]     = useState(0);
-  const [statusText, setStatusText]     = useState('Taramaya Hazır');
+  const [statusKey, setStatusKey]       = useState('readyToScan');
   /** False until expo CameraView reports ready — avoids empty/black preview gap after login. */
   const [isCameraReady, setIsCameraReady] = useState(false);
   const cameraRef = useRef(null);
@@ -66,12 +68,12 @@ export default function LoginFaceVerifyScreen() {
   const handleScan = async () => {
     if (!isCameraReady || !cameraRef.current || isScanning) return;
     setIsScanning(true);
-    setStatusText('Taranıyor...');
+    setStatusKey('scanning');
 
     try {
       // First frame
       const photo1 = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
-      if (!photo1?.uri) throw new Error('Fotoğraf çekilemedi');
+      if (!photo1?.uri) throw new Error(t('flows.face.photoFailed'));
 
       // Resize to 640px wide — keep face recognition accuracy, cut payload size
       const resized1 = await ImageManipulator.manipulateAsync(
@@ -98,7 +100,7 @@ export default function LoginFaceVerifyScreen() {
       const result = await face.verify(resized1.base64, base64_2);
 
       if (result?.verified) {
-        setStatusText('Doğrulandı!');
+        setStatusKey('verified');
         // Mark face as verified — AuthGuard will now allow access
         setFaceVerified(true);
         const dest = (user?.role === 'instructor' || user?.role === 'admin')
@@ -112,23 +114,23 @@ export default function LoginFaceVerifyScreen() {
         if (remaining <= 0) {
           // Exhausted retries — force logout
           Alert.alert(
-            'Giriş Engellendi',
-            'Çok fazla başarısız deneme. Güvenlik için oturumunuz kapatılıyor.',
-            [{ text: 'Tamam', onPress: handleForceLogout }],
+            t('flows.face.errors.loginBlockedTitle'),
+            t('flows.face.errors.loginBlockedBody'),
+            [{ text: t('common.ok'), onPress: handleForceLogout }],
             { cancelable: false },
           );
         } else {
-          setStatusText('Taramaya Hazır');
+          setStatusKey('readyToScan');
           Alert.alert(
-            'Yüz Tanınamadı',
-            `Yüzünüz doğrulanamadı. ${remaining} deneme hakkınız kaldı.\n\nİyi aydınlatılmış ortamda, gözlük/maske olmadan tekrar deneyin.`,
-            [{ text: 'Tekrar Dene' }],
+            t('flows.face.errors.notRecognizedTitle'),
+            t('flows.face.errors.notRecognizedBody', { remaining }),
+            [{ text: t('common.retry') }],
           );
         }
       }
     } catch (err) {
-      setStatusText('Taramaya Hazır');
-      Alert.alert('Hata', err?.message || 'Yüz taraması sırasında bir hata oluştu.');
+      setStatusKey('readyToScan');
+      Alert.alert(t('common.error'), err?.message || t('flows.face.scanFailed'));
     } finally {
       setIsScanning(false);
     }
@@ -147,7 +149,7 @@ export default function LoginFaceVerifyScreen() {
         <LinearGradient colors={['#7C3AED', '#A855F7']} style={styles.gradient}>
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.permTitle}>Kamera İzni İsteniyor...</Text>
+            <Text style={styles.permTitle}>{t('flows.face.cameraPermissionRequesting')}</Text>
           </View>
         </LinearGradient>
       </SafeAreaView>
@@ -164,23 +166,23 @@ export default function LoginFaceVerifyScreen() {
             <View style={styles.permIcon}>
               <Ionicons name="camera-outline" size={48} color="#fff" />
             </View>
-            <Text style={styles.permTitle}>Kamera İzni Gerekli</Text>
+            <Text style={styles.permTitle}>{t('flows.face.cameraRequired')}</Text>
             <Text style={styles.permSub}>
-              Kimlik doğrulama için kamera erişimi zorunludur.
+              {t('flows.face.loginCameraRequiredBody')}
             </Text>
             {permission.canAskAgain ? (
               <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
                 <Ionicons name="camera" size={18} color="#7C3AED" />
-                <Text style={styles.permBtnText}>İzin Ver</Text>
+                <Text style={styles.permBtnText}>{t('flows.qr.grantPermission')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.permBtn} onPress={() => Linking.openSettings()}>
                 <Ionicons name="settings-outline" size={18} color="#7C3AED" />
-                <Text style={styles.permBtnText}>Ayarları Aç</Text>
+                <Text style={styles.permBtnText}>{t('flows.qr.openSettings')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.logoutLink} onPress={handleForceLogout}>
-              <Text style={styles.logoutLinkText}>Çıkış Yap</Text>
+              <Text style={styles.logoutLinkText}>{t('common.logout')}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -208,8 +210,8 @@ export default function LoginFaceVerifyScreen() {
             <Ionicons name="shield-checkmark" size={18} color="#A855F7" />
           </View>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Kimlik Doğrulama</Text>
-            <Text style={styles.headerSub}>Giriş için yüz taraması gerekli</Text>
+            <Text style={styles.headerTitle}>{t('flows.face.verifyTitle')}</Text>
+            <Text style={styles.headerSub}>{t('flows.face.verifySubtitle')}</Text>
           </View>
           {/* Retry counter */}
           <View style={[styles.retryBadge, isLastChance && styles.retryBadgeWarn]}>
@@ -246,17 +248,17 @@ export default function LoginFaceVerifyScreen() {
             {isScanning && (
               <View style={styles.scanningOverlay}>
                 <ActivityIndicator size="large" color="#fff" />
-                <Text style={styles.scanningText}>Doğrulanıyor...</Text>
+                <Text style={styles.scanningText}>{t('flows.face.verifying')}</Text>
               </View>
             )}
           </Animated.View>
 
           <View style={styles.statusWrap}>
-            <Text style={styles.statusText}>{statusText}</Text>
+            <Text style={styles.statusText}>{t(`flows.face.${statusKey}`)}</Text>
             <Text style={styles.statusSub}>
               {isScanning
-                ? 'Lütfen hareketsiz bekleyin'
-                : 'Yüzünüzü çerçeve içine alın, ardından butona basın'}
+                ? t('flows.face.holdStill')
+                : t('flows.face.alignFace')}
             </Text>
           </View>
         </View>
@@ -280,7 +282,7 @@ export default function LoginFaceVerifyScreen() {
               ) : (
                 <>
                   <Ionicons name="scan" size={20} color="#7C3AED" />
-                  <Text style={styles.scanBtnText}>Yüz Taramasını Başlat</Text>
+                  <Text style={styles.scanBtnText}>{t('flows.face.faceScanStart')}</Text>
                 </>
               )}
             </LinearGradient>
@@ -288,16 +290,16 @@ export default function LoginFaceVerifyScreen() {
 
           <TouchableOpacity style={styles.logoutBtn} onPress={handleForceLogout} activeOpacity={0.7}>
             <Ionicons name="close-outline" size={16} color="rgba(255,255,255,0.55)" />
-            <Text style={styles.logoutBtnText}>Vazgeç — Farklı Hesapla Giriş Yap</Text>
+            <Text style={styles.logoutBtnText}>{t('flows.face.switchAccount')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Tips */}
         <View style={styles.tips}>
-          <Text style={styles.tipsTitle}>İpuçları</Text>
-          <Text style={styles.tipsText}>• Yüzünüzü iyi aydınlatılmış bir ortamda tutun</Text>
-          <Text style={styles.tipsText}>• Gözlük veya maske takmayın</Text>
-          <Text style={styles.tipsText}>• Kameraya doğrudan bakın ve hareketsiz durun</Text>
+          <Text style={styles.tipsTitle}>{t('flows.face.tipsTitle')}</Text>
+          <Text style={styles.tipsText}>{t('flows.face.tipsGoodLight')}</Text>
+          <Text style={styles.tipsText}>{t('flows.face.tipsNoGlasses')}</Text>
+          <Text style={styles.tipsText}>{t('flows.face.tipsLookAtCamera')}</Text>
         </View>
       </LinearGradient>
 
@@ -318,8 +320,8 @@ export default function LoginFaceVerifyScreen() {
                 <Ionicons name="shield-checkmark" size={36} color="#fff" />
               </LinearGradient>
               <ActivityIndicator color="#fff" size="large" style={{ marginTop: 24 }} />
-              <Text style={styles.cameraWarmupTitle}>Kimlik Doğrulandı</Text>
-              <Text style={styles.cameraWarmupSub}>Yüz tarama sistemi başlatılıyor...</Text>
+              <Text style={styles.cameraWarmupTitle}>{t('auth.identityVerified')}</Text>
+              <Text style={styles.cameraWarmupSub}>{t('flows.face.cameraWarmup')}</Text>
             </View>
           </LinearGradient>
         </View>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { studentService } from '@/services/studentService';
+import i18n from '@/i18n';
 
 /**
  * Custom hook for managing students
@@ -23,7 +24,7 @@ export const useStudents = () => {
             setStudents(data);
         } catch (err) {
             console.error('[useStudents] Fetch error:', err);
-            setError(err.message || 'Öğrenci listesi alınamadı');
+            setError(err.message || i18n.t('common.studentListFailed'));
         } finally {
             setLoading(false);
             setRefreshing(false);

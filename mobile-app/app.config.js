@@ -65,6 +65,7 @@ module.exports = {
     },
     web: {},
     plugins: [
+      'expo-localization',
       [
         'expo-camera',
         {

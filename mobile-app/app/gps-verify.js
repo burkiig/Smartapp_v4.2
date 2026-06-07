@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -30,6 +31,7 @@ import { useUser } from '@/context/UserContext';
  */
 export default function GPSVerifyScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user } = useUser();
   const params = useLocalSearchParams();
   const session_id = Array.isArray(params.session_id) ? params.session_id[0] : params.session_id;
@@ -65,7 +67,7 @@ export default function GPSVerifyScreen() {
         const { granted, canAskAgain } = await requestLocationPermission();
         if (!granted) {
           setStep(canAskAgain ? 'error' : 'denied');
-          setErrorMessage('Konum izni reddedildi. Yoklama alabilmek için konum iznine ihtiyaç var.');
+          setErrorMessage(t('flows.gps.permissionDenied'));
           return;
         }
       }
@@ -103,10 +105,10 @@ export default function GPSVerifyScreen() {
         setErrorMessage(msg);
       } else {
         setStep('error');
-        setErrorMessage(msg || 'Konum alınamadı. Tekrar deneyin.');
+        setErrorMessage(msg || t('flows.gps.locationFailedRetry'));
       }
     }
-  }, [session_id]);
+  }, [session_id, t]);
 
   // Auto-start verification on mount (veya session_id değişirse yeniden başlat)
   useEffect(() => {
@@ -145,10 +147,10 @@ export default function GPSVerifyScreen() {
 
   const _gpsSignal = (acc) => {
     if (acc === null) return null;
-    if (acc < 10) return { label: 'Mükemmel', color: '#4ADE80' };
-    if (acc < 30) return { label: 'İyi',      color: '#FCD34D' };
-    if (acc < 60) return { label: 'Orta',     color: '#FB923C' };
-    return              { label: 'Zayıf',     color: '#F87171' };
+    if (acc < 10) return { label: t('flows.gps.signalExcellent'), color: '#4ADE80' };
+    if (acc < 30) return { label: t('flows.gps.signalGood'),      color: '#FCD34D' };
+    if (acc < 60) return { label: t('flows.gps.signalMedium'),     color: '#FB923C' };
+    return              { label: t('flows.gps.signalWeak'),     color: '#F87171' };
   };
 
   const renderChecking = () => {
@@ -159,18 +161,18 @@ export default function GPSVerifyScreen() {
           <Ionicons name="location" size={56} color="#fff" />
         </Animated.View>
         <Text style={styles.statusTitle}>
-          {step === 'requesting' ? 'Konum İzni İsteniyor...' : 'Konumunuz Doğrulanıyor...'}
+          {step === 'requesting' ? t('flows.gps.requestingPermission') : t('flows.gps.verifyingLocation')}
         </Text>
         <Text style={styles.statusSubtitle}>
           {step === 'requesting'
-            ? 'Lütfen konum iznini onaylayın'
-            : 'Sınıf koordinatlarıyla karşılaştırılıyor'}
+            ? t('flows.gps.approveLocation')
+            : t('flows.gps.comparing')}
         </Text>
         {signal && (
           <View style={styles.signalBadge}>
             <View style={[styles.signalDot, { backgroundColor: signal.color }]} />
             <Text style={[styles.signalText, { color: signal.color }]}>
-              GPS Sinyali: {signal.label} (±{Math.round(gpsAccuracy)}m)
+              {t('flows.gps.signalLabel', { quality: signal.label, meters: Math.round(gpsAccuracy) })}
             </Text>
           </View>
         )}
@@ -184,26 +186,26 @@ export default function GPSVerifyScreen() {
       <View style={[styles.iconCircle, styles.iconCircleGreen]}>
         <Ionicons name="checkmark-circle" size={64} color="#fff" />
       </View>
-      <Text style={styles.statusTitle}>Sınıf İçindesiniz!</Text>
-      <Text style={styles.statusSubtitle}>Konum doğrulama başarılı</Text>
+      <Text style={styles.statusTitle}>{t('flows.gps.insideClass')}</Text>
+      <Text style={styles.statusSubtitle}>{t('flows.gps.verifySuccess')}</Text>
 
       {result && (
         <View style={styles.infoCard}>
           {result.gps_accuracy ? (
             <View style={styles.infoRow}>
               <Ionicons name="pulse-outline" size={18} color="#059669" />
-              <Text style={styles.infoLabel}>GPS hassasiyeti:</Text>
+              <Text style={styles.infoLabel}>{t('flows.gps.gpsAccuracy')}</Text>
               <Text style={styles.infoValue}>±{Math.round(result.gps_accuracy)} m</Text>
             </View>
           ) : null}
           {result.is_flagged && (
             <View style={styles.infoRow}>
               <Ionicons name="flag-outline" size={18} color="#F59E0B" />
-              <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>Not:</Text>
+              <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>{t('flows.gps.note')}</Text>
               <Text style={[styles.infoValue, { color: '#F59E0B' }]}>
-                {result.flag_reason === 'location_skipped' ? 'GPS kontrolü atlandı (konum tanımlı değil)' :
-                 result.flag_reason === 'face_simulated' ? 'Yüz tanıma simüle edildi' :
-                 result.flag_reason === 'fake_gps_detected' ? 'Sahte GPS / düşük doğruluk nedeniyle incelemeye alındı' :
+                {result.flag_reason === 'location_skipped' ? t('flows.gps.flags.locationSkipped') :
+                 result.flag_reason === 'face_simulated' ? t('flows.gps.flags.faceSimulated') :
+                 result.flag_reason === 'fake_gps_detected' ? t('flows.gps.flags.fakeGps') :
                  result.flag_reason}
               </Text>
             </View>
@@ -213,7 +215,7 @@ export default function GPSVerifyScreen() {
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleContinue} activeOpacity={0.85}>
         <Ionicons name="checkmark-done-circle" size={22} color="#fff" />
-        <Text style={styles.primaryButtonText}>Yoklama Tamamlandı — Ana Sayfaya Dön</Text>
+        <Text style={styles.primaryButtonText}>{t('flows.gps.completeReturnHome')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -223,16 +225,16 @@ export default function GPSVerifyScreen() {
       <View style={[styles.iconCircle, styles.iconCircleRed]}>
         <Ionicons name="location-outline" size={56} color="#fff" />
       </View>
-      <Text style={styles.statusTitle}>Sınıf Dışındasınız</Text>
+      <Text style={styles.statusTitle}>{t('flows.gps.outsideClass')}</Text>
       <Text style={styles.statusSubtitle}>
-        Yoklama alabilmek için sınıfın içinde olmanız gerekiyor
+        {t('flows.gps.outsideSub')}
       </Text>
 
       {distanceFromClass !== null && (
         <View style={styles.distanceBadge}>
           <Ionicons name="navigate-outline" size={20} color="#DC2626" />
           <Text style={styles.distanceText}>
-            Sınıfa uzaklığınız: <Text style={styles.distanceValue}>~{distanceFromClass}m</Text>
+            {t('flows.gps.distance', { meters: distanceFromClass })}
           </Text>
         </View>
       )}
@@ -249,13 +251,13 @@ export default function GPSVerifyScreen() {
       <View style={styles.warningBox}>
         <Ionicons name="warning-outline" size={18} color="#92400E" />
         <Text style={styles.warningText}>
-          Sınıfın daha yakınından tekrar deneyin. GPS sinyali binalarda zayıf olabilir.
+          {t('flows.gps.outsideWarning')}
         </Text>
       </View>
 
       <TouchableOpacity style={styles.retryButton} onPress={handleRetry} activeOpacity={0.85}>
         <Ionicons name="refresh" size={20} color="#2563EB" />
-        <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+        <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -265,13 +267,13 @@ export default function GPSVerifyScreen() {
       <View style={[styles.iconCircle, styles.iconCircleOrange]}>
         <Ionicons name="ban-outline" size={56} color="#fff" />
       </View>
-      <Text style={styles.statusTitle}>Konum İzni Gerekli</Text>
+      <Text style={styles.statusTitle}>{t('flows.gps.permissionRequired')}</Text>
       <Text style={styles.statusSubtitle}>
-        Yoklama alabilmek için konum iznini ayarlardan etkinleştirin
+        {t('flows.gps.permissionRequiredSub')}
       </Text>
       <TouchableOpacity style={styles.primaryButton} onPress={handleOpenSettings} activeOpacity={0.85}>
         <Ionicons name="settings-outline" size={20} color="#fff" />
-        <Text style={styles.primaryButtonText}>Ayarları Aç</Text>
+        <Text style={styles.primaryButtonText}>{t('flows.gps.openSettings')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -281,11 +283,11 @@ export default function GPSVerifyScreen() {
       <View style={[styles.iconCircle, styles.iconCircleOrange]}>
         <Ionicons name="alert-circle-outline" size={56} color="#fff" />
       </View>
-      <Text style={styles.statusTitle}>Konum Alınamadı</Text>
+      <Text style={styles.statusTitle}>{t('flows.gps.locationFailed')}</Text>
       <Text style={styles.statusSubtitle}>{errorMessage}</Text>
       <TouchableOpacity style={styles.retryButton} onPress={handleRetry} activeOpacity={0.85}>
         <Ionicons name="refresh" size={20} color="#2563EB" />
-        <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+        <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -326,8 +328,8 @@ export default function GPSVerifyScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>GPS Doğrulama</Text>
-            <Text style={styles.headerSubtitle}>Adım 3 / 3 — Konum Kontrolü</Text>
+            <Text style={styles.headerTitle}>{t('flows.gps.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('flows.gps.subtitle')}</Text>
           </View>
           {/* Step indicator */}
           <View style={styles.stepIndicator}>
@@ -346,17 +348,17 @@ export default function GPSVerifyScreen() {
         <View style={styles.footer}>
           <View style={styles.chainStep}>
             <Ionicons name="qr-code-outline" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.chainLabel}>QR Kod</Text>
+            <Text style={styles.chainLabel}>{t('flows.qr.chainLabel')}</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
             <Ionicons name="scan-outline" size={16} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.chainLabel}>Yüz</Text>
+            <Text style={styles.chainLabel}>{t('flows.face.chainLabel')}</Text>
           </View>
           <View style={styles.chainArrow} />
           <View style={styles.chainStep}>
             <Ionicons name="location" size={16} color="#fff" />
-            <Text style={[styles.chainLabel, styles.chainLabelActive]}>GPS</Text>
+            <Text style={[styles.chainLabel, styles.chainLabelActive]}>{t('flows.gps.chainLabel')}</Text>
           </View>
         </View>
       </LinearGradient>

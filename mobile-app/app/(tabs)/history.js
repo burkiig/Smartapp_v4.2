@@ -8,28 +8,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import InstructorHistory from '@/screens/InstructorHistory';
 import { attendance, disputes, courses as coursesApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import EmptyState from '@/components/EmptyState';
+import { getDateLocale, useCalendar, useAttendanceStatusLabel } from '@/i18n';
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 const { width } = Dimensions.get('window');
 
-// JS getDay() → 0=Paz,1=Pzt,...,6=Cmt
-const DAY_TR  = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+// JS getDay() → 0=Sun,1=Mon,...,6=Sat (backend schedule uses English day names)
 const DAY_EN  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DAY_FULL = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
-// Geçmiş filtre sabitleri
-const FILTERS  = ['Tümü', 'Mevcut', 'Devamsız', 'Geç'];
-const FILTER_K = { 'Tümü': null, 'Mevcut': 'present', 'Devamsız': 'absent', 'Geç': 'late' };
-const STATUS   = {
-  present: { label: 'Mevcut',    icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
-  absent:  { label: 'Devamsız',  icon: 'close-circle',     color: Colors.error,   bg: Colors.errorLight   },
-  excused: { label: 'Mazeretli', icon: 'document-text',    color: Colors.primary, bg: Colors.primaryLight },
-  late:    { label: 'Geç',       icon: 'time',              color: Colors.warning, bg: Colors.warningLight },
+const FILTER_OPTIONS = [
+  { id: 'all',     key: null,      labelKey: 'history.filterAll' },
+  { id: 'present', key: 'present', labelKey: 'history.filterPresent' },
+  { id: 'absent',  key: 'absent',  labelKey: 'history.filterAbsent' },
+  { id: 'late',    key: 'late',    labelKey: 'history.filterLate' },
+];
+
+const STATUS_META = {
+  present: { icon: 'checkmark-circle', color: Colors.success, bg: Colors.successLight },
+  absent:  { icon: 'close-circle',     color: Colors.error,   bg: Colors.errorLight   },
+  excused: { icon: 'document-text',    color: Colors.primary, bg: Colors.primaryLight },
+  late:    { icon: 'time',              color: Colors.warning, bg: Colors.warningLight },
 };
 
 
@@ -102,13 +106,16 @@ function findNextClass(allCourses) {
 // ── Öğrenci Ders Programı ekranı ─────────────────────────────────────────────
 function StudentSchedule() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const { daysShort, daysFull } = useCalendar();
+  const getStatusLabel = useAttendanceStatusLabel();
   const [tab,        setTab]        = useState('schedule');    // 'schedule' | 'history'
   const [courses,    setCourses]    = useState([]);
   const [history,    setHistory]    = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
-  const [filter,     setFilter]     = useState('Tümü');
+  const [filter,     setFilter]     = useState('all');
   // İtiraz modalı (Alert.prompt Android'de desteklenmiyor)
   const [disputeModal,  setDisputeModal]  = useState(false);
   const [disputeItem,   setDisputeItem]   = useState(null);
@@ -154,7 +161,8 @@ function StudentSchedule() {
 
   // Geçmiş filtrelemesi
   const histFiltered = useMemo(() => {
-    const key = FILTER_K[filter];
+    const opt = FILTER_OPTIONS.find(f => f.id === filter);
+    const key = opt?.key;
     return key ? history.filter(r => r.status === key) : history;
   }, [history, filter]);
 
@@ -165,7 +173,7 @@ function StudentSchedule() {
   const barColor = rate >= 80 ? Colors.success : rate >= 60 ? Colors.warning : Colors.error;
 
   const handleDispute = (item) => {
-    if (!item.session_id) { Alert.alert('Uyarı', 'Bu kayıt için oturum bilgisi bulunamadı.'); return; }
+    if (!item.session_id) { Alert.alert(t('common.warning'), t('history.noSessionInfo')); return; }
     setDisputeItem(item);
     setDisputeReason('');
     setDisputeModal(true);
@@ -173,7 +181,7 @@ function StudentSchedule() {
 
   const submitDispute = async () => {
     if (!disputeReason.trim()) {
-      Alert.alert('Uyarı', 'Lütfen itiraz nedeninizi yazın.');
+      Alert.alert(t('common.warning'), t('history.disputeReasonRequired'));
       return;
     }
     setDisputeLoading(true);
@@ -184,9 +192,9 @@ function StudentSchedule() {
         reason: disputeReason.trim(),
       });
       setDisputeModal(false);
-      Alert.alert('Başarılı', 'İtirazınız öğretmene iletildi.');
+      Alert.alert(t('common.success'), t('history.disputeSuccess'));
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'İtiraz gönderilemedi.');
+      Alert.alert(t('common.error'), err?.message || t('common.somethingWrong'));
     } finally {
       setDisputeLoading(false);
     }
@@ -217,29 +225,29 @@ function StudentSchedule() {
           )}
         </View>
         <View style={styles.enrollBadge}>
-          <Text style={styles.enrollCount}>{item.enrolled_count ?? 0}</Text>
-          <Text style={styles.enrollLabel}>öğrenci</Text>
+          <Text style={styles.enrollCount}>{t('common.studentCount', { count: item.enrolled_count ?? 0 })}</Text>
         </View>
       </View>
     );
   };
 
   const renderHistItem = ({ item }) => {
-    const s = (item.is_flagged ? null : STATUS[item.status]) || STATUS.absent;
+    const sMeta = (item.is_flagged ? null : STATUS_META[item.status]) || STATUS_META.absent;
     const flagged = item.is_flagged;
     const date = new Date(item.marked_at);
+    const dateLocale = getDateLocale();
     return (
       <View style={styles.histCard}>
         <View style={styles.datePill}>
           <Text style={styles.dateDay}>{date.getDate()}</Text>
-          <Text style={styles.dateMon}>{date.toLocaleDateString('tr-TR', { month: 'short' })}</Text>
+          <Text style={styles.dateMon}>{date.toLocaleDateString(dateLocale, { month: 'short' })}</Text>
         </View>
         <View style={styles.histBody}>
           <Text style={styles.histCourse} numberOfLines={1}>
-            {item.course_name || item.course_code || `Ders #${item.course_id}`}
+            {item.course_name || item.course_code || t('common.courseWithId', { id: item.course_id })}
           </Text>
           <Text style={styles.histTime}>
-            {date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+            {date.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
           </Text>
           {flagged && item.flag_reason && (
             <View style={styles.flagRow}>
@@ -262,19 +270,19 @@ function StudentSchedule() {
                 })}
               >
                 <Ionicons name="document-text-outline" size={12} color={Colors.primary} />
-                <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Mazeret</Text>
+                <Text style={[styles.actionBtnText, { color: Colors.primary }]}>{t('home.excuseLabel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger]} onPress={() => handleDispute(item)}>
                 <Ionicons name="alert-circle-outline" size={12} color={Colors.error} />
-                <Text style={[styles.actionBtnText, { color: Colors.error }]}>İtiraz</Text>
+                <Text style={[styles.actionBtnText, { color: Colors.error }]}>{t('history.submitDispute')}</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: flagged ? Colors.warningLight : s.bg }]}>
-          <Ionicons name={flagged ? 'flag' : s.icon} size={14} color={flagged ? Colors.warning : s.color} />
-          <Text style={[styles.statusText, { color: flagged ? Colors.warning : s.color }]}>
-            {flagged ? 'Bayraklı' : s.label}
+        <View style={[styles.statusBadge, { backgroundColor: flagged ? Colors.warningLight : sMeta.bg }]}>
+          <Ionicons name={flagged ? 'flag' : sMeta.icon} size={14} color={flagged ? Colors.warning : sMeta.color} />
+          <Text style={[styles.statusText, { color: flagged ? Colors.warning : sMeta.color }]}>
+            {flagged ? t('attendance.flagged') : getStatusLabel(item.status)}
           </Text>
         </View>
       </View>
@@ -286,8 +294,8 @@ function StudentSchedule() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>{tab === 'schedule' ? 'Ders Programım' : 'Yoklama Geçmişim'}</Text>
-          <Text style={styles.headerSub}>{tab === 'schedule' ? `${courses.length} derse kayıtlısın` : `${total} kayıt`}</Text>
+          <Text style={styles.headerTitle}>{tab === 'schedule' ? t('history.titleSchedule') : t('history.titleAttendance')}</Text>
+          <Text style={styles.headerSub}>{tab === 'schedule' ? t('history.subSchedule', { count: courses.length }) : t('history.subHistory', { count: total })}</Text>
         </View>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
           <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
@@ -301,14 +309,14 @@ function StudentSchedule() {
           onPress={() => setTab('schedule')}
         >
           <Ionicons name={tab === 'schedule' ? 'calendar' : 'calendar-outline'} size={15} color={tab === 'schedule' ? Colors.primary : Colors.textMuted} />
-          <Text style={[styles.subTabText, tab === 'schedule' && styles.subTabTextActive]}>Program</Text>
+          <Text style={[styles.subTabText, tab === 'schedule' && styles.subTabTextActive]}>{t('history.tabSchedule')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.subTab, tab === 'history' && styles.subTabActive]}
           onPress={() => setTab('history')}
         >
           <Ionicons name={tab === 'history' ? 'time' : 'time-outline'} size={15} color={tab === 'history' ? Colors.primary : Colors.textMuted} />
-          <Text style={[styles.subTabText, tab === 'history' && styles.subTabTextActive]}>Geçmiş</Text>
+          <Text style={[styles.subTabText, tab === 'history' && styles.subTabTextActive]}>{t('history.tabHistory')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -332,10 +340,10 @@ function StudentSchedule() {
                     <Ionicons name="alarm-outline" size={14} color="rgba(255,255,255,0.8)" />
                     <Text style={styles.nextLabel}>
                       {nextClass.daysAhead === 0
-                        ? 'Sıradaki Dersim — Bugün'
+                        ? t('history.nextClassToday')
                         : nextClass.daysAhead === 1
-                        ? 'Sıradaki Dersim — Yarın'
-                        : `Sıradaki Dersim — ${DAY_FULL[nextClass.dayIdx]}`}
+                        ? t('history.nextClassTomorrow')
+                        : t('history.nextClassOnDay', { day: daysFull[nextClass.dayIdx] })}
                     </Text>
                   </View>
                   <Text style={styles.nextCode}>{nextClass.course.code}</Text>
@@ -378,7 +386,7 @@ function StudentSchedule() {
                       onPress={() => setSelectedDay(idx)}
                     >
                       <Text style={[styles.dayName, isActive && styles.dayNameActive, isToday && !isActive && styles.dayNameToday]}>
-                        {DAY_TR[idx]}
+                        {daysShort[idx]}
                       </Text>
                       {count > 0 && (
                         <View style={[styles.dayDot, isActive && styles.dayDotActive]} />
@@ -390,16 +398,16 @@ function StudentSchedule() {
 
               {/* Gün başlığı */}
               <View style={styles.dayTitle}>
-                <Text style={styles.dayTitleText}>{DAY_FULL[selectedDay]} Dersleri</Text>
-                <Text style={styles.dayTitleCount}>{dayClasses.length} ders</Text>
+                <Text style={styles.dayTitleText}>{t('calendar.classesOnDay', { day: daysFull[selectedDay] })}</Text>
+                <Text style={styles.dayTitleCount}>{t('calendar.classCount', { count: dayClasses.length })}</Text>
               </View>
             </>
           }
           ListEmptyComponent={
             <EmptyState
               icon="calendar-outline"
-              title="Bu gün için kayıtlı ders yok"
-              subtitle="Başka bir güne geçmeyi deneyin"
+              title={t('history.emptySchedule')}
+              subtitle={t('calendar.byDay')}
             />
           }
         />
@@ -418,13 +426,13 @@ function StudentSchedule() {
               <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.rateCard}>
                 <View style={styles.rateRow}>
                   <View>
-                    <Text style={styles.rateLabel}>Devam Oranı</Text>
+                    <Text style={styles.rateLabel}>{t('home.attendanceRate')}</Text>
                     <Text style={styles.rateValue}>{rate}%</Text>
                   </View>
                   <View style={styles.rateStats}>
-                    <MiniStat label="Toplam"  value={total}   />
-                    <MiniStat label="Mevcut"  value={present} />
-                    <MiniStat label="Yok"     value={absent}  />
+                    <MiniStat label={t('home.statsTotal')}  value={total}   />
+                    <MiniStat label={t('home.statsPresent')}  value={present} />
+                    <MiniStat label={t('home.statsAbsent')}     value={absent}  />
                   </View>
                 </View>
                 <View style={styles.rateBg}>
@@ -434,22 +442,22 @@ function StudentSchedule() {
 
               {/* Filtreler */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
-                {FILTERS.map(f => (
-                  <TouchableOpacity key={f} style={[styles.filterTab, filter === f && styles.filterTabActive]} onPress={() => setFilter(f)}>
-                    <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+                {FILTER_OPTIONS.map(f => (
+                  <TouchableOpacity key={f.id} style={[styles.filterTab, filter === f.id && styles.filterTabActive]} onPress={() => setFilter(f.id)}>
+                    <Text style={[styles.filterText, filter === f.id && styles.filterTextActive]}>{t(f.labelKey)}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <View style={styles.countRow}>
-                <Text style={styles.countText}>{histFiltered.length} kayıt</Text>
+                <Text style={styles.countText}>{t('history.subHistory', { count: histFiltered.length })}</Text>
               </View>
             </>
           }
           ListEmptyComponent={
             <EmptyState
               icon="time-outline"
-              title="Yoklama geçmişi bulunamadı"
-              subtitle="Henüz katıldığınız bir ders kaydı yok"
+              title={t('history.emptyHistory')}
+              subtitle={t('instructor.emptyRecordsSub')}
             />
           }
         />
@@ -464,13 +472,13 @@ function StudentSchedule() {
       >
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.disputeOverlay}>
           <View style={styles.disputeBox}>
-            <Text style={styles.disputeTitle}>İtiraz Gönder</Text>
-            <Text style={styles.disputeSub}>İtiraz nedeninizi kısaca açıklayın:</Text>
+            <Text style={styles.disputeTitle}>{t('history.disputeTitle')}</Text>
+            <Text style={styles.disputeSub}>{t('history.disputePlaceholder')}</Text>
             <TextInput
               style={styles.disputeInput}
               value={disputeReason}
               onChangeText={setDisputeReason}
-              placeholder="Nedeninizi yazın..."
+              placeholder={t('history.disputePlaceholder')}
               placeholderTextColor={Colors.textMuted}
               multiline
               numberOfLines={3}
@@ -482,7 +490,7 @@ function StudentSchedule() {
                 onPress={() => setDisputeModal(false)}
                 disabled={disputeLoading}
               >
-                <Text style={styles.disputeBtnCancelText}>İptal</Text>
+                <Text style={styles.disputeBtnCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.disputeBtnSend, disputeLoading && { opacity: 0.6 }]}
@@ -491,7 +499,7 @@ function StudentSchedule() {
               >
                 {disputeLoading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.disputeBtnSendText}>Gönder</Text>
+                  : <Text style={styles.disputeBtnSendText}>{t('common.send')}</Text>
                 }
               </TouchableOpacity>
             </View>

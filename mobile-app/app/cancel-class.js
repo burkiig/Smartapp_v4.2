@@ -1,30 +1,45 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   FlatList, Modal, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { courses, sessions } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
+import { useCancelReasons } from '@/i18n/helpers';
 
-const REASONS = [
-  { id: 1, label: 'Hoca müsait değil',   icon: 'person-outline',     value: 'Hoca müsait değil' },
-  { id: 2, label: 'Teknik sorun',         icon: 'construct-outline',  value: 'Teknik sorun' },
-  { id: 3, label: 'Tatil / Etkinlik',     icon: 'calendar-outline',   value: 'Tatil / Etkinlik' },
-  { id: 4, label: 'Acil durum',           icon: 'alert-circle-outline', value: 'Acil durum' },
-];
+const REASON_ICONS = ['person-outline', 'construct-outline', 'calendar-outline', 'alert-circle-outline'];
 
 export default function CancelClassScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const cancelReasons = useCancelReasons();
+  const reasons = useMemo(
+    () => cancelReasons.map((label, i) => ({
+      id: i + 1,
+      label,
+      icon: REASON_ICONS[i] || 'alert-circle-outline',
+      value: label,
+    })),
+    [cancelReasons],
+  );
+
   const [classList,     setClassList]     = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [selectedClass, setSelectedClass] = useState(null);
   const [reasonModal,   setReasonModal]   = useState(false);
   const [confirmModal,  setConfirmModal]  = useState(false);
-  const [reason,        setReason]        = useState(REASONS[0].value);
+  const [reason,        setReason]        = useState(null);
   const [cancelling,    setCancelling]    = useState(false);
+
+  useEffect(() => {
+    if (reasons.length > 0 && !reason) {
+      setReason(reasons[0].value);
+    }
+  }, [reasons, reason]);
 
   useEffect(() => { loadCourses(); }, []);
 
@@ -32,7 +47,7 @@ export default function CancelClassScreen() {
     try {
       const data = await courses.list();
       const mapped = (Array.isArray(data) ? data : []).map(c => {
-        let timeStr = '—';
+        let timeStr = t('common.notAvailable');
         try {
           const sch = typeof c.schedule === 'string' ? JSON.parse(c.schedule) : c.schedule;
           if (sch?.start_time && sch?.end_time) timeStr = `${sch.start_time} – ${sch.end_time}`;
@@ -42,7 +57,7 @@ export default function CancelClassScreen() {
       });
       setClassList(mapped);
     } catch {
-      Alert.alert('Hata', 'Dersler yüklenemedi.');
+      Alert.alert(t('common.error'), t('cancel.coursesLoadFailed'));
     } finally {
       setLoading(false);
     }
@@ -55,9 +70,9 @@ export default function CancelClassScreen() {
       setConfirmModal(false);
       setClassList(prev => prev.filter(c => c.id !== selectedClass.id));
       setSelectedClass(null);
-      Alert.alert('İptal Edildi', 'Ders başarıyla iptal edildi. Öğrenciler bilgilendirildi.');
+      Alert.alert(t('cancel.cancelled'), t('cancel.cancelSuccess'));
     } catch (err) {
-      Alert.alert('Hata', err?.message || 'İptal işlemi başarısız.');
+      Alert.alert(t('common.error'), err?.message || t('cancel.cancelOperationFailed'));
     } finally {
       setCancelling(false);
     }
@@ -86,22 +101,20 @@ export default function CancelClassScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Ders İptal</Text>
-          <Text style={styles.headerSub}>Dersi seçin ve sebebi belirtin</Text>
+          <Text style={styles.headerTitle}>{t('cancel.cancelClassTitle')}</Text>
+          <Text style={styles.headerSub}>{t('cancel.title')}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Info banner */}
       <View style={styles.banner}>
         <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
-        <Text style={styles.bannerText}>İptal ettiğinizde öğrencilere bildirim gönderilir.</Text>
+        <Text style={styles.bannerText}>{t('cancel.title')}</Text>
       </View>
 
       {loading ? (
@@ -109,7 +122,7 @@ export default function CancelClassScreen() {
       ) : classList.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="calendar-outline" size={56} color={Colors.border} />
-          <Text style={styles.emptyText}>İptal edilecek ders bulunamadı</Text>
+          <Text style={styles.emptyText}>{t('cancel.coursesLoadFailed')}</Text>
         </View>
       ) : (
         <FlatList
@@ -121,14 +134,13 @@ export default function CancelClassScreen() {
         />
       )}
 
-      {/* Reason Modal */}
       <Modal visible={reasonModal} transparent animationType="slide" onRequestClose={() => setReasonModal(false)}>
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>İptal Sebebi</Text>
+            <Text style={styles.sheetTitle}>{t('cancel.title')}</Text>
             <Text style={styles.sheetSub}>{selectedClass?.code} — {selectedClass?.name}</Text>
-            {REASONS.map(r => (
+            {reasons.map(r => (
               <TouchableOpacity
                 key={r.id}
                 style={[styles.reasonRow, reason === r.value && styles.reasonRowActive]}
@@ -143,24 +155,23 @@ export default function CancelClassScreen() {
             ))}
             <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setReasonModal(false)}>
-                <Text style={styles.cancelBtnText}>Vazgeç</Text>
+                <Text style={styles.cancelBtnText}>{t('common.giveUp')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.nextBtn} onPress={() => { setReasonModal(false); setConfirmModal(true); }}>
-                <Text style={styles.nextBtnText}>İleri</Text>
+                <Text style={styles.nextBtnText}>{t('common.confirm')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Confirm Modal */}
       <Modal visible={confirmModal} transparent animationType="fade" onRequestClose={() => setConfirmModal(false)}>
         <View style={styles.overlay}>
           <View style={styles.confirmCard}>
             <View style={styles.confirmIconBox}>
               <Ionicons name="warning" size={40} color={Colors.error} />
             </View>
-            <Text style={styles.confirmTitle}>Dersi İptal Et?</Text>
+            <Text style={styles.confirmTitle}>{t('cancel.confirmTitle')}</Text>
             <Text style={styles.confirmSub}>{selectedClass?.code} — {selectedClass?.name}</Text>
             <View style={styles.confirmDetails}>
               <View style={styles.detailRow}>
@@ -168,15 +179,15 @@ export default function CancelClassScreen() {
                 <Text style={styles.detailText}>{reason}</Text>
               </View>
             </View>
-            <Text style={styles.confirmWarn}>Bu işlem geri alınamaz. Tüm kayıtlı öğrenciler bilgilendirilecek.</Text>
+            <Text style={styles.confirmWarn}>{t('cancel.cancelFailed')}</Text>
             <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModal(false)} disabled={cancelling}>
-                <Text style={styles.cancelBtnText}>Geri Dön</Text>
+                <Text style={styles.cancelBtnText}>{t('common.back')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.deleteBtn} onPress={handleConfirm} disabled={cancelling}>
                 {cancelling
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.deleteBtnText}>İptal Et</Text>
+                  : <Text style={styles.deleteBtnText}>{t('cancel.cancelAction')}</Text>
                 }
               </TouchableOpacity>
             </View>

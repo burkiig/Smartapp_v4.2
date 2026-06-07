@@ -7,11 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUser } from '@/context/UserContext';
+import { useTranslation } from 'react-i18next';
 import { dashboard } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import HistoryScreen from './history';
 
 function InstructorReports() {
+  const { t } = useTranslation();
   const [stats,      setStats]      = useState(null);
   const [coursePerf, setCoursePerf] = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -39,10 +41,10 @@ function InstructorReports() {
   const barColor = avgAttendance >= 80 ? Colors.success : avgAttendance >= 60 ? Colors.warning : Colors.error;
 
   const STATS = [
-    { icon: 'book-outline',        color: Colors.primary, value: stats?.total_courses   ?? '—', label: 'Toplam Ders' },
-    { icon: 'people-outline',      color: Colors.success, value: stats?.total_enrolled  ?? '—', label: 'Kayıtlı' },
-    { icon: 'play-circle-outline', color: Colors.warning, value: stats?.active_sessions ?? '—', label: 'Aktif Oturum' },
-    { icon: 'flag-outline',        color: Colors.error,   value: stats?.flagged_records ?? '—', label: 'Bayraklı' },
+    { icon: 'book-outline',        color: Colors.primary, value: stats?.total_courses   ?? '—', labelKey: 'instructor.myCourses' },
+    { icon: 'people-outline',      color: Colors.success, value: stats?.total_enrolled  ?? '—', labelKey: 'attendance.enrolled' },
+    { icon: 'play-circle-outline', color: Colors.warning, value: stats?.active_sessions ?? '—', labelKey: 'attendance.sessionActive' },
+    { icon: 'flag-outline',        color: Colors.error,   value: stats?.flagged_records ?? '—', labelKey: 'attendance.flagged' },
   ];
 
   return (
@@ -50,8 +52,8 @@ function InstructorReports() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Raporlar</Text>
-          <Text style={styles.headerSub}>İstatistikler ve analiz</Text>
+          <Text style={styles.headerTitle}>{t('instructor.reportsTitle')}</Text>
+          <Text style={styles.headerSub}>{t('more.reportsSub')}</Text>
         </View>
         <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
           <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
@@ -68,27 +70,27 @@ function InstructorReports() {
         >
           {/* Avg rate card */}
           <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.rateCard}>
-            <Text style={styles.rateLabel}>Ortalama Devam Oranı</Text>
+            <Text style={styles.rateLabel}>{t('instructor.avgAttendance')}</Text>
             <Text style={styles.rateValue}>{avgAttendance}%</Text>
             <View style={styles.rateBg}>
               <View style={[styles.rateFill, { width: `${avgAttendance}%`, backgroundColor: barColor }]} />
             </View>
             <Text style={styles.rateSub}>
-              {stats?.total_courses ?? 0} ders · {stats?.total_enrolled ?? 0} kayıtlı öğrenci
+              {t('calendar.classCount', { count: stats?.total_courses ?? 0 })} · {t('common.enrolledCount', { count: stats?.total_enrolled ?? 0 })}
             </Text>
           </LinearGradient>
 
           {/* Stats grid */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Özet İstatistikler</Text>
+            <Text style={styles.sectionTitle}>{t('instructor.reportsTitle')}</Text>
             <View style={styles.statsGrid}>
               {STATS.map(s => (
-                <View key={s.label} style={styles.statCard}>
+                <View key={s.labelKey} style={styles.statCard}>
                   <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
                     <Ionicons name={s.icon} size={20} color={s.color} />
                   </View>
                   <Text style={styles.statValue}>{s.value}</Text>
-                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={styles.statLabel}>{t(s.labelKey)}</Text>
                 </View>
               ))}
             </View>
@@ -97,7 +99,7 @@ function InstructorReports() {
           {/* Per-course rows */}
           {coursePerf.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Ders Bazında Devam</Text>
+              <Text style={styles.sectionTitle}>{t('instructor.perCourse')}</Text>
               {coursePerf.map(c => {
                 const rate = c.attendance ?? 0;
                 const rateColor = rate >= 75 ? Colors.success : rate >= 50 ? Colors.warning : Colors.error;
@@ -112,7 +114,7 @@ function InstructorReports() {
                     </View>
                     <View style={styles.courseRight}>
                       <Text style={[styles.courseRate, { color: rateColor }]}>{rate}%</Text>
-                      <Text style={styles.courseStudents}>{c.students ?? 0} öğrenci</Text>
+                      <Text style={styles.courseStudents}>{t('common.studentCount', { count: c.students ?? 0 })}</Text>
                     </View>
                   </View>
                 );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import i18n from '@/i18n';
 
 /**
  * Global hata yakalayıcı.
@@ -31,11 +32,11 @@ export default class ErrorBoundary extends React.Component {
     return (
       <View style={s.container}>
         <Ionicons name="cloud-offline-outline" size={72} color="#CBD5E1" />
-        <Text style={s.title}>Bir şeyler ters gitti</Text>
-        <Text style={s.subtitle}>Uygulama beklenmedik bir hatayla karşılaştı. Lütfen tekrar deneyin.</Text>
+        <Text style={s.title}>{i18n.t('errors.boundaryTitle')}</Text>
+        <Text style={s.subtitle}>{i18n.t('errors.boundarySubtitle')}</Text>
         <TouchableOpacity style={s.btn} onPress={this.handleRetry}>
           <Ionicons name="refresh" size={18} color="#fff" />
-          <Text style={s.btnText}>Bağlantıyı Yenile</Text>
+          <Text style={s.btnText}>{i18n.t('errors.reloadConnection')}</Text>
         </TouchableOpacity>
       </View>
     );
