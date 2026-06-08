@@ -2,7 +2,57 @@
 
 Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-**API Sürümü:** v4.2.0 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
+**API Sürümü:** v4.2.1 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
+
+---
+
+## Son Güncelleme — v4.2.1 (8 Haziran 2026)
+
+Mobil–web özellik eşitliği, çoklu dil desteği ve öğretmen paneli hata düzeltmeleri.
+
+### Mobil — Çoklu Dil (TR/EN)
+
+| Alan | Detay |
+|------|--------|
+| **Bileşen** | `mobile-app/src/components/LanguageToggle.js` — `compact` (TR/EN pill) ve `full` (etiketli) varyantlar |
+| **Giriş ekranı** | `app/index.js` — üst çubukta dil seçici |
+| **Öğrenci ana sayfa** | `app/components/home/Header.js` — bildirim ikonunun solunda |
+| **Öğretmen paneli** | `app/(tabs)/dashboard.js`, `src/screens/InstructorHome.js` — bildirim yanında |
+| **Ayarlar** | `app/settings.js` — aynı bileşen `full` modda |
+| **Teknoloji** | `react-i18next`; tercih `AsyncStorage` ile kalıcı |
+
+### Web & Mobil — Öğrenci Listesi (Derse Göre Filtre)
+
+| Platform | Dosya | Davranış |
+|----------|-------|----------|
+| **Web** | `useStudents.js`, `StudentsPage.jsx` | Öğretmenin dersleri yüklenir; dropdown ile `GET /courses/{id}/students` veya tüm öğrenciler |
+| **Mobil** | `app/students.js`, `app/(tabs)/more.js` | Ders chip'leri + arama; `more` sekmesinden "Öğrenciler" girişi |
+| **i18n** | `students.allCourses`, `students.noStudentsInCourse` (TR/EN) | |
+
+### Mobil — Yoklama & Bildirim Düzeltmeleri
+
+| # | Sorun | Düzeltme |
+|---|-------|----------|
+| M17 | **course-detail.js** — `page_size=1000` → API 422 (`le=200`); boş kayıt döngüsü terminal spam | Sayfalı `fetchAllCourseRecords()` (200/sayfa); `summaryStatus` state makinesi + yeniden dene UI |
+| M18 | **history.js** — `renderCourseCard` içinde `t` değişkeni i18n `t()` ile çakışıyordu | `courseTime` olarak yeniden adlandırıldı; sekme çökmesi giderildi |
+| M19 | **attendance.js** — `flag_reason` ham kod olarak görünüyordu; web ile uyumsuz bildirim | `useFlagReasonLabel()` + `attendance.flagReasons.*` çevirileri; odaklanınca yenileme + 30 sn poll |
+| M20 | Öğretmen bildirim rozeti yalnızca `stats.flagged_records` kullanıyordu | `useNotificationBadge` — `GET /notifications/count` (20 sn); artışta `REFRESH_FLAGGED` event |
+| M21 | Push yokken (Expo Go) şüpheli yoklama güncellenmiyordu | `_layout.js` push/banner'da `REFRESH_FLAGGED`; polling yedek mekanizma olarak çalışır |
+
+> **API notu:** `GET /attendance/records` için `page_size` üst sınırı **200**'dür (`backend/app/api/attendance.py`). İstemciler daha büyük değer göndermemelidir.
+
+### Paralel Ders Grupları (`shared_class_id`)
+
+Aynı fiziksel sınıfta paralel işlenen dersler (ör. İngilizce A / İngilizce B) tek yoklama havuzunda birleştirilir.
+
+| Katman | Açıklama |
+|--------|----------|
+| **Veritabanı** | `courses.shared_class_id` (nullable int); aynı ID = aynı grup |
+| **Migration** | `f2a3b4c5d6e7_course_shared_class_id.py` |
+| **Backend** | `student_can_attend_course`, `get_parallel_enrolled_student_ids`; oturum kapanışında tüm paralel gruba otomatik devamsızlık |
+| **Admin UI** | `AdminDashboardPage.jsx` — ders ekle/düzenle: **Paralel Ders Grubu ID** alanı |
+
+**Yapılandırma:** Paralel derslere aynı pozitif tam sayıyı verin (ör. her iki derste `shared_class_id: 101`). Bağımsız derslerde alanı boş bırakın.
 
 ---
 
@@ -114,6 +164,10 @@ Proje üç ana bileşenden oluşur:
 ---
 
 ## Son Güncellemeler
+
+### v4.2.1 — 8 Haziran 2026
+
+Özet: Mobil TR/EN dil anahtarı; web ve mobilde öğrenci listesi derse göre filtre; mobil genel yoklama özeti düzeltmesi; şüpheli yoklama bildirimleri web ile hizalandı; paralel ders grupları belgelendi. Ayrıntılar için yukarıdaki **Son Güncelleme — v4.2.1** bölümüne bakın.
 
 ### Burak Gedikli — 5/21/26
 
@@ -342,6 +396,7 @@ Smart_Attendance_System/
     │   ├── excuse-submit.js
     │   ├── class-details.js
     │   ├── course-detail.js
+    │   ├── students.js           # Öğretmen: derse göre öğrenci listesi (YENİ v4.2.1)
     │   ├── settings.js
     │   ├── (tabs)/               # Ana sekmeler
     │   │   ├── home.js
@@ -357,10 +412,15 @@ Smart_Attendance_System/
     └── src/
         ├── config/env.js         # EXPO_PUBLIC_API_URL vb.
         ├── context/UserContext.js
+        ├── hooks/
+        │   └── useNotificationBadge.js  # Okunmamış bildirim sayacı (YENİ v4.2.1)
+        ├── i18n/                 # react-i18next — tr/en JSON + helpers
+        │   └── helpers.js        # useFlagReasonLabel, tarih/yoklama etiketleri
         ├── services/             # api, auth, attendance, bildirim…
         ├── utils/apiAdapter.js   # SecureStore + istekler
         ├── screens/              # Öğretmen ekranları (Instructor*)
         └── components/
+            └── LanguageToggle.js # TR/EN dil anahtarı (YENİ v4.2.1)
 ```
 
 ---
@@ -916,9 +976,16 @@ Bu proje, eski Flask tabanlı monolitik `app.py` sisteminin yerine geçen tam ye
 | Test yok | Tam pytest suite + GPS hardening test sınıfı |
 | CI yok | GitHub Actions CI (GHA layer cache ile hızlı build) |
 
-### Çok dilli arayüz (Web panel)
+### Çok dilli arayüz (Web panel + Mobil)
 
-`react-i18next` ile **Türkçe** (varsayılan) ve **İngilizce**; dil tercihi `localStorage` (`i18nextLng`) ile saklanır. Üst menüde **LanguageSwitcher** bileşeni kullanılır.
+Her iki istemci **Türkçe** (varsayılan) ve **İngilizce** destekler (`react-i18next`).
+
+| Platform | Bileşen | Tercih saklama |
+|----------|---------|----------------|
+| **Web panel** | `shared/components/LanguageSwitcher/` | `localStorage` (`i18nextLng`); öğretmen üst çubukta bildirim solunda |
+| **Mobil** | `src/components/LanguageToggle.js` | `AsyncStorage`; giriş, ana sayfa, öğretmen paneli ve ayarlarda |
+
+Çeviri dosyaları: `web-panel/src/i18n/locales/{tr,en}/` ve `mobile-app/src/i18n/locales/{tr,en}/` (ekran, yoklama, auth vb. namespace'ler).
 
 ### Web Panel Proxy Yapılandırması
 
@@ -1219,6 +1286,17 @@ Bu bölüm, derin güvenlik ve kalite denetimi sonucu tespit edilen ve giderilen
 | M14 | `app/(tabs)/more.js` | "Yüz Kaydı" menüsü tüm roller için gösteriliyordu | `adminOnly: true` flag'i eklendi; yalnızca admin görüyor |
 | M15 | `app/course-detail.js` | `StyleSheet`'te `sumRow` duplicate key — ilk tanım siliniyordu | İkinci tanım `stuSumRow` olarak yeniden adlandırıldı |
 | M16 | `mobile-app/.env` | Supabase anahtarı — `.gitignore` kontrolü | `.gitignore`'da zaten vardı; `git ls-files` ile doğrulandı (tracked değil) |
+| M17 | `app/course-detail.js` | `page_size=1000` → 422; genel yoklama özeti sonsuz istek döngüsü | 200'lük sayfalama + `summaryStatus` guard |
+| M18 | `app/(tabs)/history.js` | `t` değişkeni i18n `t()` ile gölgeleme → `TypeError` | `courseTime` olarak yeniden adlandırıldı |
+| M19 | `app/(tabs)/attendance.js` | `flag_reason` çevrilmeden gösteriliyordu | `useFlagReasonLabel` + TR/EN `attendance.flagReasons` |
+| M20 | `dashboard.js`, `InstructorHome.js` | Bildirim rozeti eksik/yanlış kaynak | `useNotificationBadge` hook |
+| M21 | `app/_layout.js` | Expo Go'da push yokken şüpheli kayıt listesi güncellenmiyordu | `REFRESH_FLAGGED` event + poll yedeklemesi |
+
+#### v4.2.1 — Web Panel (Öğrenci Filtresi)
+
+| # | Dosya | Sorun | Düzeltme |
+|---|---|---|---|
+| W21 | `useStudents.js`, `StudentsPage.jsx` | Öğretmen tüm öğrencileri görüyordu; derse göre filtre yoktu | Ders dropdown + `GET /courses/{id}/students` |
 
 ##### DB / Test / CI
 
