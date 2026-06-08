@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { face, auth } from '@/services/api';
 import { Colors, Shadows, Radius, Spacing } from '@/config/theme';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -141,6 +142,9 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.langBar}>
+        <LanguageToggle variant="full" />
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -372,6 +376,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.bg },
+  langBar: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
 
   // Hero

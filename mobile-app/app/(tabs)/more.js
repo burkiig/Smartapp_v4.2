@@ -21,6 +21,7 @@ export default function MoreScreen() {
       title: t('more.management'),
       items: [
         { icon: 'checkmark-circle-outline', color: Colors.primary,  bg: Colors.primaryLight,  label: t('more.attendanceMgmt'), sub: t('more.attendanceMgmtSub'), route: '/(tabs)/attendance' },
+        { icon: 'people-outline',           color: '#0EA5E9',       bg: '#E0F2FE',            label: t('instructor.studentsTitle'), sub: t('more.studentsSub'), route: '/students' },
         { icon: 'calendar-outline',         color: '#7C3AED',       bg: '#EDE9FE',            label: t('instructor.scheduleTitle'), sub: t('more.scheduleSub'), route: '/(tabs)/schedule'   },
         { icon: 'bar-chart-outline',        color: Colors.success,  bg: Colors.successLight,  label: t('tabs.reports'),         sub: t('more.reportsSub'),        route: '/(tabs)/reports'    },
       ],

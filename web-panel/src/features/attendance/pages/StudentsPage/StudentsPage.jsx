@@ -7,7 +7,10 @@ import './StudentsPage.css';
 export const StudentsPage = ({ onManualAttendance }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { students, loading, error, loadStudents, deleteStudent } = useStudents();
+  const {
+    students, courses, courseFilter, setCourseFilter,
+    loading, error, loadStudents, deleteStudent,
+  } = useStudents();
   const canDelete = user?.role === 'admin';
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
@@ -60,7 +63,7 @@ export const StudentsPage = ({ onManualAttendance }) => {
       <div className="header-with-button">
         <div>
           <h2>{t('students.title')}</h2>
-          <p className="subtitle">{t('students.subtitle', { count: students.length })}</p>
+          <p className="subtitle">{t('students.subtitle', { count: filteredStudents.length })}</p>
         </div>
         <button className="btn btn-primary" onClick={loadStudents}>{t('common.refresh')}</button>
       </div>
@@ -74,6 +77,22 @@ export const StudentsPage = ({ onManualAttendance }) => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        {courses.length > 0 && (
+          <select
+            className="search-input"
+            style={{ minWidth: 200 }}
+            value={courseFilter}
+            onChange={e => setCourseFilter(e.target.value)}
+          >
+            <option value="">{t('students.allCourses')}</option>
+            {courses.map(c => (
+              <option key={c.id} value={String(c.id)}>
+                {c.code} — {c.name}
+                {c.enrolled_count != null ? ` (${c.enrolled_count})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
         {departments.length > 0 && (
           <select
             className="search-input"
@@ -91,7 +110,13 @@ export const StudentsPage = ({ onManualAttendance }) => {
 
       {filteredStudents.length === 0 ? (
         <div className="empty-state">
-          <p>{searchTerm ? t('students.noSearchResults') : t('students.noStudents')}</p>
+          <p>
+            {searchTerm || departmentFilter
+              ? t('students.noSearchResults')
+              : courseFilter
+                ? t('students.noStudentsInCourse')
+                : t('students.noStudents')}
+          </p>
         </div>
       ) : (
         <div className="table-wrapper">

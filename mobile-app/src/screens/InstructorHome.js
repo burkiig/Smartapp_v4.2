@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { dashboard, courses, sessions, attendance } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
+import LanguageToggle from '@/components/LanguageToggle';
+import { useNotificationBadge } from '@/hooks/useNotificationBadge';
 
 export default function InstructorHome() {
   const router = useRouter();
@@ -28,6 +30,7 @@ export default function InstructorHome() {
   const [loading,        setLoading]        = useState(true);
   const [refresh,        setRefresh]        = useState(false);
   const [starting,       setStarting]       = useState(null);
+  const { unreadCount } = useNotificationBadge(true);
 
   // Nabız animasyonu (CANLI banner)
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -123,17 +126,20 @@ export default function InstructorHome() {
             <Text style={styles.greeting}>{greeting},</Text>
             <Text style={styles.name}>{userName?.split(' ')[0] || t('common.instructorFallback')} 👋</Text>
           </View>
-          <TouchableOpacity
-            style={styles.notifBtn}
-            onPress={() => router.push('/(tabs)/attendance')}
-          >
-            <Ionicons name="notifications-outline" size={22} color={Colors.text} />
-            {flagged > 0 && (
-              <View style={styles.notifDot}>
-                <Text style={styles.notifCount}>{flagged > 9 ? '9+' : flagged}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <LanguageToggle variant="compact" />
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => router.push('/(tabs)/attendance')}
+            >
+              <Ionicons name="notifications-outline" size={22} color={Colors.text} />
+              {unreadCount > 0 && (
+                <View style={styles.notifDot}>
+                  <Text style={styles.notifCount}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
@@ -315,6 +321,7 @@ const styles = StyleSheet.create({
   header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   greeting:   { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
   name:       { fontSize: 22, fontWeight: '800', color: Colors.text, letterSpacing: -0.3 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notifBtn:   { width: 42, height: 42, borderRadius: 12, backgroundColor: Colors.bgAlt, alignItems: 'center', justifyContent: 'center' },
   notifDot:   { position: 'absolute', top: 6, right: 6, backgroundColor: Colors.error, borderRadius: 9, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: Colors.card },
   notifCount: { fontSize: 9, fontWeight: '800', color: '#fff' },

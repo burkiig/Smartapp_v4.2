@@ -20,6 +20,7 @@ import {
 } from '@/services/locationService';
 import { attendance } from '@/services/api';
 import { useUser } from '@/context/UserContext';
+import { useFlagReasonLabel } from '@/i18n';
 
 /**
  * GPS Dogrulama Ekrani — 3'lu guvenlik zincirinin 3. ve son adimi.
@@ -32,6 +33,7 @@ import { useUser } from '@/context/UserContext';
 export default function GPSVerifyScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const getFlagReasonLabel = useFlagReasonLabel();
   const { user } = useUser();
   const params = useLocalSearchParams();
   const session_id = Array.isArray(params.session_id) ? params.session_id[0] : params.session_id;
@@ -203,10 +205,7 @@ export default function GPSVerifyScreen() {
               <Ionicons name="flag-outline" size={18} color="#F59E0B" />
               <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>{t('flows.gps.note')}</Text>
               <Text style={[styles.infoValue, { color: '#F59E0B' }]}>
-                {result.flag_reason === 'location_skipped' ? t('flows.gps.flags.locationSkipped') :
-                 result.flag_reason === 'face_simulated' ? t('flows.gps.flags.faceSimulated') :
-                 result.flag_reason === 'fake_gps_detected' ? t('flows.gps.flags.fakeGps') :
-                 result.flag_reason}
+                {getFlagReasonLabel(result.flag_reason)}
               </Text>
             </View>
           )}

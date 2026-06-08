@@ -197,6 +197,7 @@ function NotificationManager() {
     }
 
     if (data?.type === 'flagged_attendance' && (role === 'instructor' || role === 'admin')) {
+      eventBus.emit('REFRESH_FLAGGED');
       if (mode === 'response') {
         router.push({
           pathname: '/(tabs)/attendance',

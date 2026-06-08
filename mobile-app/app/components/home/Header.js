@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function Header({ userName, hasNotification = false, onRefresh }) {
   const { t } = useTranslation();
@@ -21,6 +22,7 @@ export default function Header({ userName, hasNotification = false, onRefresh })
         <Text style={styles.name}>{firstName} 👋</Text>
       </View>
       <View style={styles.actions}>
+        <LanguageToggle variant="compact" />
         {onRefresh && (
           <TouchableOpacity style={styles.notifBtn} onPress={onRefresh} activeOpacity={0.7}>
             <Ionicons name="refresh-outline" size={20} color={Colors.primary} />

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert,
 } from 'react-native';
@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Shadows } from '@/config/theme';
 import { auth } from '@/services/api';
 import { setupPushNotifications, updateNotificationPreferences } from '@/services/notificationService';
-import { changeAppLanguage, normalizeLanguage } from '@/i18n';
+import LanguageToggle from '@/components/LanguageToggle';
 
 const SETTINGS_KEY = '@smart_attendance_settings';
 
@@ -23,20 +23,14 @@ const DEFAULT_SETTINGS = {
   notifyClassStart:  true,
 };
 
-const LANG_OPTIONS = [
-  { code: 'tr', labelKey: 'settings.languageTr' },
-  { code: 'en', labelKey: 'settings.languageEn' },
-];
-
 export default function SettingsScreen() {
   const router = useRouter();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useUser();
   const userName = user?.name || user?.username || '';
   const userEmail = user?.email || '';
   const userDepartment = user?.department || '';
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const activeLang = normalizeLanguage(i18n.language);
 
   useEffect(() => {
     AsyncStorage.getItem(SETTINGS_KEY).then(raw => {
@@ -63,10 +57,6 @@ export default function SettingsScreen() {
       }
     }
   };
-
-  const handleLanguage = useCallback(async (code) => {
-    await changeAppLanguage(code);
-  }, []);
 
   const handleReset = () => {
     Alert.alert(t('settings.resetTitle'), t('settings.resetMessage'), [
@@ -110,24 +100,7 @@ export default function SettingsScreen() {
         <Section icon="language" iconColor={Colors.primary} title={t('settings.language')}>
           <View style={styles.langRow}>
             <Text style={styles.rowDesc}>{t('settings.languageDesc')}</Text>
-            <View style={styles.langToggle}>
-              {LANG_OPTIONS.map(({ code, labelKey }) => {
-                const active = activeLang === code;
-                return (
-                  <TouchableOpacity
-                    key={code}
-                    style={[styles.langBtn, active && styles.langBtnActive]}
-                    onPress={() => handleLanguage(code)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text style={[styles.langBtnText, active && styles.langBtnTextActive]}>
-                      {t(labelKey)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <LanguageToggle variant="full" />
           </View>
         </Section>
 
@@ -236,22 +209,6 @@ const styles = StyleSheet.create({
   rowDesc:  { fontSize: 12, color: Colors.textMuted },
 
   langRow:    { paddingVertical: 14, gap: 12 },
-  langToggle: { flexDirection: 'row', gap: 8 },
-  langBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: Colors.bgAlt,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  langBtnActive: {
-    backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
-  },
-  langBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textMuted },
-  langBtnTextActive: { color: Colors.primary, fontWeight: '700' },
 
   resetBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 15, borderWidth: 1, borderColor: Colors.errorLight, ...Shadows.xs },
   resetBtnText: { fontSize: 14, fontWeight: '700', color: Colors.error },

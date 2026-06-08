@@ -25,9 +25,29 @@ const ATTEND_BTN_KEYS = [
   { status: 'absent',  labelKey: 'attendance.status.notAttended', icon: 'close-circle',     color: Colors.error,   bg: Colors.errorLight   },
 ];
 
+const RECORDS_PAGE_SIZE = 200;
+
 // ── Yardımcı ─────────────────────────────────────────────────────────────────
 function initials(name) {
   return (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+async function fetchAllCourseRecords(courseId) {
+  let page = 1;
+  let totalPages = 1;
+  const all = [];
+  while (page <= totalPages) {
+    const res = await attendanceApi.getRecords({
+      course_id: courseId,
+      page,
+      page_size: RECORDS_PAGE_SIZE,
+    });
+    const batch = Array.isArray(res) ? res : (res?.records || []);
+    all.push(...batch);
+    totalPages = res?.total_pages ?? 1;
+    page += 1;
+  }
+  return all;
 }
 
 export default function CourseDetailScreen() {
@@ -47,7 +67,8 @@ export default function CourseDetailScreen() {
 
   // Genel Devam sekmesi için tüm kurs kayıtları
   const [allCourseRecords, setAllCourseRecords] = useState([]);
-  const [summaryLoading,   setSummaryLoading]   = useState(false);
+  const [summaryStatus,    setSummaryStatus]    = useState('idle'); // idle | loading | loaded | error
+  const [summaryError,     setSummaryError]     = useState('');
 
   // Oturum detay modal
   const [modalVisible,  setModalVisible]  = useState(false);
@@ -78,6 +99,12 @@ export default function CourseDetailScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  }, [cId, t]);
+
+  useEffect(() => {
+    setSummaryStatus('idle');
+    setAllCourseRecords([]);
+    setSummaryError('');
   }, [cId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -129,18 +156,24 @@ export default function CourseDetailScreen() {
     }
   }, [saving, sessRecords, selSession, cId]);
 
-  // Genel Devam sekmesi açıldığında kurs kayıtlarını çek
+  const loadSummary = useCallback(async () => {
+    setSummaryStatus('loading');
+    setSummaryError('');
+    try {
+      const records = await fetchAllCourseRecords(cId);
+      setAllCourseRecords(records);
+      setSummaryStatus('loaded');
+    } catch (err) {
+      setSummaryStatus('error');
+      setSummaryError(err?.message || t('common.dataLoadFailed'));
+    }
+  }, [cId, t]);
+
   useEffect(() => {
-    if (tab !== 'summary' || allCourseRecords.length > 0 || summaryLoading) return;
-    setSummaryLoading(true);
-    attendanceApi.getRecords({ course_id: cId, page_size: 1000 })
-      .then(res => {
-        const raw = Array.isArray(res) ? res : (res?.records || []);
-        setAllCourseRecords(raw);
-      })
-      .catch(() => {})
-      .finally(() => setSummaryLoading(false));
-  }, [tab, cId, allCourseRecords.length, summaryLoading]);
+    if (tab !== 'summary' || summaryStatus !== 'idle') return undefined;
+    loadSummary();
+    return undefined;
+  }, [tab, summaryStatus, loadSummary]);
 
   // ── Genel Devam hesapla ──────────────────────────────────────────────────────
   const attendanceSummary = useMemo(() => {
@@ -303,8 +336,16 @@ export default function CourseDetailScreen() {
         />
       ) : (
         /* Genel Devam sekmesi */
-        summaryLoading ? (
+        summaryStatus === 'loading' ? (
           <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        ) : summaryStatus === 'error' ? (
+          <View style={styles.centered}>
+            <Ionicons name="cloud-offline-outline" size={48} color={Colors.border} />
+            <Text style={styles.errorText}>{summaryError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => setSummaryStatus('idle')}>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <FlatList
             data={attendanceSummary}

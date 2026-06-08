@@ -14,7 +14,7 @@ import InstructorHistory from '@/screens/InstructorHistory';
 import { attendance, disputes, courses as coursesApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import EmptyState from '@/components/EmptyState';
-import { getDateLocale, useCalendar, useAttendanceStatusLabel } from '@/i18n';
+import { getDateLocale, useCalendar, useAttendanceStatusLabel, useFlagReasonLabel } from '@/i18n';
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 const { width } = Dimensions.get('window');
@@ -109,6 +109,7 @@ function StudentSchedule() {
   const { t } = useTranslation();
   const { daysShort, daysFull } = useCalendar();
   const getStatusLabel = useAttendanceStatusLabel();
+  const getFlagReasonLabel = useFlagReasonLabel();
   const [tab,        setTab]        = useState('schedule');    // 'schedule' | 'history'
   const [courses,    setCourses]    = useState([]);
   const [history,    setHistory]    = useState([]);
@@ -201,7 +202,7 @@ function StudentSchedule() {
   };
 
   const renderCourseCard = ({ item }) => {
-    const t = getCourseTime(item);
+    const courseTime = getCourseTime(item);
     const names = item.instructor_names?.length ? item.instructor_names.join(' · ') : null;
     return (
       <View style={styles.courseCard}>
@@ -211,10 +212,10 @@ function StudentSchedule() {
         <View style={styles.courseBody}>
           <Text style={styles.courseCode}>{item.code}</Text>
           <Text style={styles.courseName} numberOfLines={1}>{item.name}</Text>
-          {t && (
+          {courseTime && (
             <View style={styles.metaRow}>
               <Ionicons name="time-outline" size={11} color={Colors.textMuted} />
-              <Text style={styles.metaText}>{t.start} – {t.end}</Text>
+              <Text style={styles.metaText}>{courseTime.start} – {courseTime.end}</Text>
             </View>
           )}
           {names && (
@@ -252,7 +253,7 @@ function StudentSchedule() {
           {flagged && item.flag_reason && (
             <View style={styles.flagRow}>
               <Ionicons name="flag" size={11} color={Colors.warning} />
-              <Text style={styles.flagText}>{item.flag_reason}</Text>
+              <Text style={styles.flagText}>{getFlagReasonLabel(item.flag_reason)}</Text>
             </View>
           )}
           {(item.status === 'absent' || item.status === 'pending_review') && (
@@ -349,10 +350,12 @@ function StudentSchedule() {
                   <Text style={styles.nextCode}>{nextClass.course.code}</Text>
                   <Text style={styles.nextName}>{nextClass.course.name}</Text>
                   <View style={styles.nextMeta}>
-                    {(() => { const t = getCourseTime(nextClass.course); return t ? (
+                    {(() => {
+                      const courseTime = getCourseTime(nextClass.course);
+                      return courseTime ? (
                       <>
                         <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.75)" />
-                        <Text style={styles.nextMetaText}>{t.start} – {t.end}</Text>
+                        <Text style={styles.nextMetaText}>{courseTime.start} – {courseTime.end}</Text>
                       </>
                     ) : null; })()}
                     {nextClass.course.instructor_names?.length > 0 && (

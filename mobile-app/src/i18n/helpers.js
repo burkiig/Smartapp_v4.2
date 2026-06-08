@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 /** @returns {{ daysShort: string[], daysFull: string[], months: string[] }} */
@@ -28,4 +28,21 @@ export function useAttendanceStatusLabel() {
     const translated = t(key);
     return translated === key ? t('attendance.status.unknown') : translated;
   };
+}
+
+/** Flag reason codes from backend → localized label (supports composite "a + b"). */
+export function useFlagReasonLabel() {
+  const { t } = useTranslation();
+  return useCallback((code) => {
+    if (!code) return '';
+    return String(code)
+      .split(/\s*\+\s*/)
+      .map((part) => {
+        const trimmed = part.trim();
+        const key = `attendance.flagReasons.${trimmed}`;
+        const translated = t(key);
+        return translated === key ? trimmed : translated;
+      })
+      .join(' + ');
+  }, [t]);
 }

@@ -69,7 +69,21 @@
     "notStartedYet": "Henüz yoklama başlatılmadı",
     "enrolled": "Kayıtlı",
     "flagged": "Bayraklı",
-    "registeredStudents": "Kayıtlı Öğrenci"
+    "registeredStudents": "Kayıtlı Öğrenci",
+    "flagReasons": {
+      "duplicate_attendance": "Çift yoklama girişimi",
+      "location_bypassed": "GPS doğrulaması atlandı",
+      "location_skipped": "GPS koordinatı tanımlı değil",
+      "face_simulated": "Yüz tanıma simüle edildi",
+      "location_and_face_bypass": "GPS ve yüz tanıma ikisi de atlandı",
+      "manual_no_face": "Manuel yoklama (yüzsüz)",
+      "manual_no_face_ref": "Yüz referansı bulunamadı",
+      "face_not_enrolled": "Yüz kaydı yok",
+      "fake_gps_detected": "Sahte GPS tespit edildi",
+      "suspicious_accuracy": "Şüpheli GPS hassasiyeti",
+      "low_accuracy": "GPS doğruluğu düşük",
+      "web_verification_failed": "Web doğrulaması başarısız"
+    }
   },
   "cancel": {
     "reasons": [

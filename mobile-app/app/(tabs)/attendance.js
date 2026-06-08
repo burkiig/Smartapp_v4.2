@@ -5,13 +5,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import { attendance, excuses as excusesApi, disputes as disputesApi } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 import EmptyState from '@/components/EmptyState';
-import { getDateLocale } from '@/i18n';
+import { getDateLocale, useFlagReasonLabel } from '@/i18n';
+import eventBus from '@/utils/eventBus';
+
+const FLAGGED_REFRESH_MS = 30_000;
 
 /* ─── Student placeholder ────────────────────────────────────────────────── */
 function StudentPlaceholder() {
@@ -49,6 +52,7 @@ const badgeStyle = (status) => BADGE_STYLE[status] || BADGE_STYLE.pending;
 /* ─── Main component ─────────────────────────────────────────────────────── */
 export default function AttendanceScreen() {
   const { t } = useTranslation();
+  const getFlagReasonLabel = useFlagReasonLabel();
   const { user } = useUser();
   const role = user?.role;
   const { filter, session_id } = useLocalSearchParams();
@@ -90,7 +94,19 @@ export default function AttendanceScreen() {
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useEffect(() => { if (role !== 'student') fetchAll(); }, [fetchAll, role]);
+  useFocusEffect(useCallback(() => {
+    if (role !== 'student') fetchAll();
+  }, [fetchAll, role]));
+
+  useEffect(() => {
+    if (role === 'student') return undefined;
+    const unsub = eventBus.on('REFRESH_FLAGGED', fetchAll);
+    const interval = setInterval(fetchAll, FLAGGED_REFRESH_MS);
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, [fetchAll, role]);
   useEffect(() => {
     if (hasAppliedInitialFilter.current) return;
     hasAppliedInitialFilter.current = true;
@@ -222,7 +238,7 @@ export default function AttendanceScreen() {
         {item.flag_reason && (
           <View style={styles.reasonRow}>
             <Ionicons name="flag" size={13} color={Colors.warning} />
-            <Text style={styles.reasonText}>{item.flag_reason}</Text>
+            <Text style={styles.reasonText}>{getFlagReasonLabel(item.flag_reason)}</Text>
           </View>
         )}
 

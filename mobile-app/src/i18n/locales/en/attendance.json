@@ -69,7 +69,21 @@
     "notStartedYet": "Attendance not started yet",
     "enrolled": "Enrolled",
     "flagged": "Flagged",
-    "registeredStudents": "Registered Students"
+    "registeredStudents": "Registered Students",
+    "flagReasons": {
+      "duplicate_attendance": "Duplicate attendance attempt",
+      "location_bypassed": "GPS verification bypassed",
+      "location_skipped": "GPS coordinates not configured",
+      "face_simulated": "Face recognition simulated",
+      "location_and_face_bypass": "GPS and face verification both bypassed",
+      "manual_no_face": "Manual attendance (no face)",
+      "manual_no_face_ref": "Face reference not found",
+      "face_not_enrolled": "Face not enrolled",
+      "fake_gps_detected": "Fake GPS detected",
+      "suspicious_accuracy": "Suspicious GPS accuracy",
+      "low_accuracy": "Low GPS accuracy",
+      "web_verification_failed": "Web verification failed"
+    }
   },
   "cancel": {
     "reasons": [
