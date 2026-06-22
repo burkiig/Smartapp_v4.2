@@ -20,7 +20,7 @@ import './LeadershipDashboardPage.css';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 function LeadershipDashboardPage({ user, onLogout }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [overview, setOverview] = useState(null);
   const [chartData, setChartData] = useState(null);
   const [atRisk, setAtRisk] = useState(null);
@@ -57,7 +57,7 @@ function LeadershipDashboardPage({ user, onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [handleForbidden]);
+  }, [handleForbidden, t]);
 
   useEffect(() => {
     loadDashboard();
@@ -103,7 +103,7 @@ function LeadershipDashboardPage({ user, onLogout }) {
         },
       },
     };
-  }, [chartData, t, i18n.language]);
+  }, [chartData, t]);
 
   const notifyAdvisor = (studentName) => {
     setToast(t('leadership.notifySent', { name: studentName }));

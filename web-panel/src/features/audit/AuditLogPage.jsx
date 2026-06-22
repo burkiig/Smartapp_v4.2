@@ -27,8 +27,8 @@ function FaceFailuresPanel() {
     }
   }, [days, minFail]);
 
-  // load, days/minFail'e bağlı useCallback — değiştiğinde effect yeniden çalışır
-  useEffect(() => { load(days, minFail); }, [load]);
+  // Explicitly track filter values here for hook dependency clarity.
+  useEffect(() => { load(days, minFail); }, [load, days, minFail]);
 
   const handleApply = () => load(days, minFail);
 

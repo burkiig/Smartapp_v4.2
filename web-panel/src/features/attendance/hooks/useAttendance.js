@@ -29,7 +29,7 @@ export const useAttendance = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadFlaggedRecords();

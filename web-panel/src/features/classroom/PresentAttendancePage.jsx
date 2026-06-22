@@ -48,7 +48,7 @@ export default function PresentAttendancePage() {
       cancelled = true;
       dismissQR();
     };
-  }, [sid, fetchQRPair, dismissQR]);
+  }, [sid, fetchQRPair, dismissQR, t]);
 
   if (isLoading) {
     return (

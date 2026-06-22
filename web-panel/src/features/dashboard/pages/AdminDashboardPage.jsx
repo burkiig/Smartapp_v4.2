@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MdPeople, MdPerson, MdSchool, MdPlayCircle, MdFlag,
-  MdCheckCircle, MdWarning, MdAccessTime,
+  MdAccessTime,
 } from 'react-icons/md';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loginUser, logoutUser, getMe } from '../services/authService';
 import { useAppStore } from '../../../shared/state/useAppStore';
 
@@ -11,13 +11,13 @@ export const AuthProvider = ({ children }) => {
   const setSessionStore = useAppStore((s) => s.setSession);
   const clearSessionStore = useAppStore((s) => s.clearSession);
 
-  const syncStore = (nextUser) => {
+  const syncStore = useCallback((nextUser) => {
     if (nextUser) {
       setSessionStore(nextUser);
     } else {
       clearSessionStore();
     }
-  };
+  }, [setSessionStore, clearSessionStore]);
 
   useEffect(() => {
     const init = async () => {
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(false);
     };
     init();
-  }, []);
+  }, [syncStore]);
 
   // Oturum sona erdiğinde (cookie expire) kullanıcı aktif olmasa bile UI temizlenir.
   // Her 5 dakikada bir /auth/me çağrısı yapılır; başarısız olursa logout.
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
       }
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, syncStore]);
 
   const login = async (loginIdentifier, password, rememberMe = false) => {
     setError('');

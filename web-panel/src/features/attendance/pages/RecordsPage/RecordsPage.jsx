@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MdSchool, MdPercent, MdListAlt, MdFlag, MdRefresh, MdExpandMore, MdExpandLess,
-  MdDownload, MdCheckCircle, MdCancel, MdAssignment,
+  MdDownload,
 } from 'react-icons/md';
 import apiClient from '../../../../shared/services/apiClient';
 import { getApiBaseUrl } from '../../../../shared/services/apiBaseUrl';
