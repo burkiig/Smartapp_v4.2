@@ -50,9 +50,12 @@ class AttendancePipelineService:
         accuracy: Optional[float],
         is_mocked: Optional[bool],
         include_face_simulated: bool = False,
-    ) -> tuple[list[str], list[str]]:
+    ) -> tuple[Optional[str], list[str]]:
         """
-        Build normalized risk reasons used by both mobile and web attendance flows.
+        Build normalized risk reason used by both mobile and web attendance flows.
+
+        Returns only the highest-priority reason to keep downstream behavior
+        deterministic across API clients and tests.
         """
         gps_issues = check_gps_plausibility(accuracy, is_mocked)
         fake_gps_detected = bool(is_mocked)
@@ -61,27 +64,24 @@ class AttendancePipelineService:
             accuracy is not None and 30 < accuracy <= settings.GPS_ACCURACY_THRESHOLD
         )
 
-        reasons: list[str] = []
-        if not face_ok:
-            reasons.append(face_reason or "face_failed")
+        if fake_gps_detected:
+            return "fake_gps_detected", gps_issues
+        if suspicious_accuracy:
+            return "suspicious_accuracy", gps_issues
+        if low_accuracy:
+            return "low_accuracy", gps_issues
 
         if not location_ok and not location_skipped:
-            reasons.append("location_failed")
-
-        if fake_gps_detected:
-            reasons.append("fake_gps_detected")
-        elif suspicious_accuracy:
-            reasons.append("suspicious_accuracy")
-        elif low_accuracy:
-            reasons.append("low_accuracy")
-
-        if include_face_simulated:
-            reasons.append("face_simulated")
+            return "location_failed", gps_issues
+        if not face_ok:
+            return face_reason or "face_failed", gps_issues
 
         if location_skipped:
-            reasons.append("location_skipped")
+            return "location_skipped", gps_issues
+        if include_face_simulated:
+            return "face_simulated", gps_issues
 
-        return reasons, gps_issues
+        return None, gps_issues
 
     def _enforce_fake_gps_retry_threshold(
         self,
@@ -368,7 +368,7 @@ class AttendancePipelineService:
                 allowed_radius_m=effective_radius,
             )
 
-        reasons, gps_issues = self._build_flag_reasons(
+        flag_reason, gps_issues = self._build_flag_reasons(
             face_ok=True,
             face_reason=None,
             location_ok=inside,
@@ -378,8 +378,7 @@ class AttendancePipelineService:
             is_mocked=is_mocked,
             include_face_simulated=not self.face_service.engine.is_available,
         )
-        is_flagged = bool(reasons)
-        flag_reason = " + ".join(reasons) if reasons else None
+        is_flagged = flag_reason is not None
 
         # Flagged records go to "pending_review" — instructor must explicitly approve
         record_status = "pending_review" if is_flagged else "present"
@@ -393,8 +392,8 @@ class AttendancePipelineService:
             "location_skipped": location_skipped,
             "gps_accuracy_m": accuracy,
             "is_mocked": bool(is_mocked),
-            "fake_gps_detected": "fake_gps_detected" in reasons,
-            "suspicious_accuracy": "suspicious_accuracy" in reasons,
+            "fake_gps_detected": flag_reason == "fake_gps_detected",
+            "suspicious_accuracy": flag_reason == "suspicious_accuracy",
             "gps_issues": gps_issues,
         }
 
@@ -616,7 +615,7 @@ class AttendancePipelineService:
                 allowed_radius_m=effective_radius,
             )
 
-        reasons, gps_issues = self._build_flag_reasons(
+        flag_reason, gps_issues = self._build_flag_reasons(
             face_ok=face_ok,
             face_reason=face_reason,
             location_ok=location_ok,
@@ -626,8 +625,7 @@ class AttendancePipelineService:
             is_mocked=is_mocked,
         )
 
-        is_flagged = bool(reasons)
-        flag_reason = " + ".join(reasons) if reasons else None
+        is_flagged = flag_reason is not None
 
         # Flagged → pending_review; clean → present
         record_status = "pending_review" if is_flagged else "present"
@@ -642,8 +640,8 @@ class AttendancePipelineService:
             "location_skipped": location_skipped,
             "gps_accuracy_m": accuracy,
             "is_mocked": bool(is_mocked),
-            "fake_gps_detected": "fake_gps_detected" in reasons,
-            "suspicious_accuracy": "suspicious_accuracy" in reasons,
+            "fake_gps_detected": flag_reason == "fake_gps_detected",
+            "suspicious_accuracy": flag_reason == "suspicious_accuracy",
             "gps_issues": gps_issues,
             "web": True,
         }
