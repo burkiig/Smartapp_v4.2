@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdRefresh, MdSearch, MdFace, MdList, MdWarning, MdCheckCircle } from 'react-icons/md';
 import apiClient from '../../shared/services/apiClient';
+import { formatLocaleDateTime } from '../../shared/utils/localeFormat';
 import './AuditLogPage.css';
 
 // ─── Face Failures Sub-Panel ────────────────────────────────────────────────
 
 function FaceFailuresPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays]       = useState(30);
@@ -139,7 +140,7 @@ function FaceFailuresPanel() {
                     <MdWarning size={13} style={{ color: '#f59e0b', marginRight: 3 }} />
                     {t('audit.lastFail')}:{' '}
                     {u.last_fail_at
-                      ? new Date(u.last_fail_at).toLocaleString('tr-TR')
+                      ? formatLocaleDateTime(u.last_fail_at, i18n.resolvedLanguage)
                       : '—'}
                   </span>
                   <span className="ff-action-hint">
@@ -158,7 +159,7 @@ function FaceFailuresPanel() {
 // ─── Main AuditLogPage ───────────────────────────────────────────────────────
 
 export const AuditLogPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' | 'face-failures'
 
   // ── Log list state ──────────────────────────────────────────────────────
@@ -270,7 +271,7 @@ export const AuditLogPage = () => {
                       <tr key={log.id}>
                         <td className="log-id">{log.id}</td>
                         <td className="log-date">
-                          {log.created_at ? new Date(log.created_at).toLocaleString('tr-TR') : '—'}
+                          {formatLocaleDateTime(log.created_at, i18n.resolvedLanguage)}
                         </td>
                         <td>
                           <span className={`action-badge ${log.action?.includes('fail') || log.action?.includes('error') ? 'action-error' : 'action-ok'}`}>

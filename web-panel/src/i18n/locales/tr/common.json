@@ -38,7 +38,8 @@
     "show": "Göster",
     "prev": "Önceki",
     "next": "Sonraki",
-    "processing": "İşleniyor..."
+    "processing": "İşleniyor...",
+    "loadError": "Veriler yüklenemedi"
   },
   "app": {
     "name": "Yoklama Sistemi",
@@ -194,6 +195,7 @@
     "users": {
       "title": "Kullanıcı Yönetimi",
       "addUser": "+ Kullanıcı Ekle",
+      "importCsv": "CSV İçe Aktar",
       "all": "Tümü",
       "students": "Öğrenciler",
       "instructors": "Öğretmenler",
@@ -224,6 +226,8 @@
       "addCourse": "+ Ders Ekle",
       "noCourses": "Henüz ders yok",
       "students_count": "{{count}} öğrenci",
+      "departmentLabel": "Bölüm",
+      "scheduleLabel": "Program",
       "teacher": "Öğretmen",
       "teachers": "Öğretmenler",
       "unassigned": "Atanmamış",
@@ -327,11 +331,30 @@
       "durationLabel": "Varsayılan Oturum Süresi (dk)",
       "parallelLabel": "Paralel Ders Grubu ID",
       "parallelHint": "Aynı ID'ye sahip dersler ortak yoklama grubu oluşturur.",
+      "parallelDeptAuto": "Dersin bölümü (otomatik)",
+      "parallelDeptAll": "Tüm bölümler",
+      "parallelNone": "Paralel bağlama yok",
+      "parallelSelectHint": "Bir ders seçerseniz sistem aynı paralel grup ID'sini otomatik atar.",
+      "advancedHide": "Gelişmiş alanı gizle",
+      "advancedShow": "Gelişmiş: Manuel grup ID gir",
       "cancelBtn": "İptal",
       "saveBtn": "Kaydet",
       "savingBtn": "Kaydediliyor...",
       "errorCreate": "Ders oluşturulamadı",
       "noInstructors": "Öğretmen bulunamadı"
+    },
+    "csvImport": {
+      "title": "CSV ile Toplu Kullanıcı Ekle",
+      "requiredColumnsIntro": "CSV dosyasında şu sütunlar bulunmalıdır:",
+      "optionalHint": "* isteğe bağlı",
+      "downloadTemplate": "Şablon İndir (.csv)",
+      "fileLabel": "CSV Dosyası",
+      "selectFileError": "Lütfen bir CSV dosyası seçin.",
+      "importFailed": "İçe aktarma başarısız",
+      "summary": "{{created}} kullanıcı eklendi, {{skipped}} atlandı.",
+      "skippedRow": "Satır {{row}}",
+      "importing": "İçe Aktarılıyor...",
+      "import": "İçe Aktar"
     },
     "editCourse": {
       "title": "Ders Düzenle — {{code}}",

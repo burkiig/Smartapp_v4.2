@@ -13,6 +13,7 @@ import { NotificationBell } from '../../../shared/components/NotificationBell/No
 import { SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
 import { useActiveSessionsQuery, activeSessionsQueryKey } from '../../../shared/query/hooks/useActiveSessionsQuery';
+import { formatLocaleDate } from '../../../shared/utils/localeFormat';
 import './StudentDashboardPage.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -51,7 +52,7 @@ const readCancellationContextFromUrl = () => {
 
 // ── Disputes Panel ───────────────────────────────────────────────────────────
 function DisputesPanel({ disputes, courses, onRefresh }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [form, setForm] = useState({ session_id: '', course_id: '', reason: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -146,7 +147,7 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
                 <td>{d.reason}</td>
                 <td><span className={statusCls[d.status] || 'status-badge'}>{t(`studentDashboard.disputes.statuses.${d.status}`, d.status)}</span></td>
                 <td>{d.instructor_notes || '—'}</td>
-                <td>{d.created_at ? new Date(d.created_at).toLocaleDateString('tr-TR') : '—'}</td>
+                <td>{formatLocaleDate(d.created_at, i18n.resolvedLanguage)}</td>
               </tr>
             ))}
           </tbody>
@@ -587,7 +588,7 @@ function WebAttendance() {
 
 // ── Main StudentDashboardPage ────────────────────────────────────────────────
 export const StudentDashboardPage = ({ user, onLogout }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const initialTab = useMemo(() => readStudentTabFromUrl() || 'dashboard', []);
   const cancelContext = useMemo(() => readCancellationContextFromUrl(), []);
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -927,7 +928,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     const chartData = {
       labels: statEntries.map(s => s.code),
       datasets: [{
-        label: 'Devam Oranı (%)',
+        label: t('studentDashboard.attendance.chartTitle'),
         data: statEntries.map(s => s.rate),
         backgroundColor: statEntries.map(s => s.rate >= 70 ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.75)'),
         borderColor: statEntries.map(s => s.rate >= 70 ? '#16a34a' : '#dc2626'),
@@ -1010,7 +1011,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                   ) : (
                     filtered.map(r => (
                       <tr key={r.id} className={r.is_flagged ? 'flagged-row' : ''}>
-                        <td>{r.marked_at ? new Date(r.marked_at).toLocaleDateString('tr-TR') : '—'}</td>
+                        <td>{formatLocaleDate(r.marked_at, i18n.resolvedLanguage)}</td>
                         <td>
                           <strong>{r.course_code || `#${r.course_id}`}</strong>
                           {r.course_name && <div className="sub-text">{r.course_name}</div>}
@@ -1116,7 +1117,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                         </span>
                       </td>
                       <td>{e.instructor_notes || e.description || '—'}</td>
-                      <td>{e.created_at ? new Date(e.created_at).toLocaleDateString('tr-TR') : '—'}</td>
+                      <td>{formatLocaleDate(e.created_at, i18n.resolvedLanguage)}</td>
                     </tr>
                   ))}
                 </tbody>

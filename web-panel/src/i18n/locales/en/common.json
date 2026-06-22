@@ -38,7 +38,8 @@
     "show": "Show",
     "prev": "Previous",
     "next": "Next",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "loadError": "Could not load data"
   },
   "app": {
     "name": "Attendance System",
@@ -194,6 +195,7 @@
     "users": {
       "title": "User Management",
       "addUser": "+ Add User",
+      "importCsv": "Import CSV",
       "all": "All",
       "students": "Students",
       "instructors": "Instructors",
@@ -224,6 +226,8 @@
       "addCourse": "+ Add Course",
       "noCourses": "No courses yet",
       "students_count": "{{count}} students",
+      "departmentLabel": "Department",
+      "scheduleLabel": "Schedule",
       "teacher": "Instructor",
       "teachers": "Instructors",
       "unassigned": "Unassigned",
@@ -327,11 +331,30 @@
       "durationLabel": "Default Session Duration (min)",
       "parallelLabel": "Parallel Course Group ID",
       "parallelHint": "Courses with the same ID share an attendance group.",
+      "parallelDeptAuto": "Course department (auto)",
+      "parallelDeptAll": "All departments",
+      "parallelNone": "No parallel link",
+      "parallelSelectHint": "If you select a course, the same parallel group ID is assigned automatically.",
+      "advancedHide": "Hide advanced field",
+      "advancedShow": "Advanced: Enter group ID manually",
       "cancelBtn": "Cancel",
       "saveBtn": "Save",
       "savingBtn": "Saving...",
       "errorCreate": "Could not create course",
       "noInstructors": "No instructors found"
+    },
+    "csvImport": {
+      "title": "Bulk Add Users via CSV",
+      "requiredColumnsIntro": "The CSV file must include these columns:",
+      "optionalHint": "* optional",
+      "downloadTemplate": "Download Template (.csv)",
+      "fileLabel": "CSV File",
+      "selectFileError": "Please select a CSV file.",
+      "importFailed": "Import failed",
+      "summary": "{{created}} users added, {{skipped}} skipped.",
+      "skippedRow": "Row {{row}}",
+      "importing": "Importing...",
+      "import": "Import"
     },
     "editCourse": {
       "title": "Edit Course — {{code}}",

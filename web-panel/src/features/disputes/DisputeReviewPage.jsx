@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdCheckCircle, MdCancel, MdRefresh, MdUndo } from 'react-icons/md';
 import apiClient from '../../shared/services/apiClient';
+import { formatLocaleDate } from '../../shared/utils/localeFormat';
 import './DisputeReviewPage.css';
 
 const STATUS_CLS = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' };
 
 export const DisputeReviewPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState({});
@@ -77,7 +78,7 @@ export const DisputeReviewPage = () => {
                     <span className="dispute-course">{d.course_code || `#${d.course_id}`}</span>
                     <span className="dispute-session">{t('disputes.sessionNo', { id: d.session_id })}</span>
                     <span className="dispute-student">{d.student_name || t('disputes.studentHash', { id: d.student_id })}</span>
-                    <span className="dispute-date">{d.created_at ? new Date(d.created_at).toLocaleDateString('tr-TR') : ''}</span>
+                    <span className="dispute-date">{formatLocaleDate(d.created_at, i18n.resolvedLanguage)}</span>
                   </div>
                   <p className="dispute-reason">{d.reason}</p>
                   <div className="dispute-actions">
@@ -133,7 +134,7 @@ export const DisputeReviewPage = () => {
                           onChange={e => setNotes(n => ({ ...n, [d.id]: e.target.value }))}
                         />
                       </td>
-                      <td>{d.created_at ? new Date(d.created_at).toLocaleDateString('tr-TR') : '—'}</td>
+                      <td>{formatLocaleDate(d.created_at, i18n.resolvedLanguage)}</td>
                       <td>
                         <div className="dispute-btns">
                           <button

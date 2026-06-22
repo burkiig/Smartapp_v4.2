@@ -3,6 +3,7 @@
  */
 
 import apiClient from '../../../shared/services/apiClient';
+import { formatLocaleDateTime } from '../../../shared/utils/localeFormat';
 
 const EXCUSE_TYPE_LABELS = {
   medical:          'Sağlık (Doktor Raporu)',
@@ -43,9 +44,7 @@ function normalizeExcuse(e) {
     documents: hasUploadedDocument
       ? [{ name: e.document_name || 'Belge', excuseId: e.id, storagePath: e.storage_path }]
       : [],
-    submittedAt: e.created_at
-      ? new Date(e.created_at).toLocaleString('tr-TR')
-      : '—',
+    submittedAt: formatLocaleDateTime(e.created_at),
     createdAt: e.created_at,
     status: e.status || 'pending',
     instructorNotes: e.instructor_notes || '',

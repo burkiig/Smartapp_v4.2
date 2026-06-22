@@ -6,11 +6,12 @@ import {
 } from 'react-icons/md';
 import apiClient from '../../../../shared/services/apiClient';
 import { getApiBaseUrl } from '../../../../shared/services/apiBaseUrl';
+import { formatLocaleDate, formatLocaleDateTime } from '../../../../shared/utils/localeFormat';
 import { SkeletonStatCard, SkeletonTable } from '../../../../shared/components/Skeleton';
 import './RecordsPage.css';
 
 export const RecordsPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [performance, setPerformance] = useState([]);
   const [records, setRecords] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -123,7 +124,7 @@ export const RecordsPage = () => {
         r.id === record.id ? { ...r, status: newStatus, is_flagged: false, flag_reason: null } : r
       ));
     } catch (err) {
-      alert(err?.message || t('records.overrideError'));
+      alert(err?.message || t('records.updateFailed'));
     } finally {
       setOverriding(prev => { const n = new Set(prev); n.delete(record.id); return n; });
     }
@@ -141,14 +142,14 @@ export const RecordsPage = () => {
           <h1 className="page-title">{t('records.title')}</h1>
           <p className="page-subtitle">{t('records.subtitle')}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="records-header-actions">
           <button className="refresh-btn" onClick={loadData} title={t('common.refresh')}>
             <MdRefresh size={18} style={{ marginRight: 6 }} />{t('common.refresh')}
           </button>
-          <button className="refresh-btn" onClick={() => handleExport('excel')} disabled={exporting} title={t('records.exportExcel')}>
+          <button className="refresh-btn" onClick={() => handleExport('excel')} disabled={exporting} title={t('records.excelTitle')}>
             <MdDownload size={18} style={{ marginRight: 6 }} />Excel
           </button>
-          <button className="refresh-btn" onClick={() => handleExport('pdf')} disabled={exporting} title={t('records.exportPdf')}>
+          <button className="refresh-btn" onClick={() => handleExport('pdf')} disabled={exporting} title={t('records.pdfTitle')}>
             <MdDownload size={18} style={{ marginRight: 6 }} />PDF
           </button>
         </div>
@@ -181,28 +182,28 @@ export const RecordsPage = () => {
               <div className="stat-icon"><MdSchool size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{performance.length}</div>
-                <div className="stat-label">{t('records.totalCourses')}</div>
+                <div className="stat-label">{t('records.statCards.totalCourses')}</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon"><MdPercent size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{avgAttendance}%</div>
-                <div className="stat-label">{t('records.avgAttendance')}</div>
+                <div className="stat-label">{t('records.statCards.avgAttendance')}</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon"><MdListAlt size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{records.length}</div>
-                <div className="stat-label">{t('records.totalRecords')}</div>
+                <div className="stat-label">{t('records.statCards.totalRecords')}</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon"><MdFlag size={22} /></div>
               <div className="stat-info">
                 <div className="stat-value">{flaggedCount}</div>
-                <div className="stat-label">{t('records.suspicious')}</div>
+                <div className="stat-label">{t('records.statCards.suspicious')}</div>
               </div>
             </div>
           </div>
@@ -215,33 +216,35 @@ export const RecordsPage = () => {
                   <p>{t('common.noData')}</p>
                 </div>
               ) : (
-                <table className="records-table">
-                  <thead>
-                    <tr>
-                      <th>{t('records.code')}</th>
-                      <th>{t('records.courseName')}</th>
-                      <th>{t('records.students')}</th>
-                      <th>{t('records.attendanceRate')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {performance.map(c => (
-                      <tr key={c.course_id}>
-                        <td><strong>{c.course}</strong></td>
-                        <td>{c.name}</td>
-                        <td>{c.students}</td>
-                        <td>
-                          <div className="attendance-cell">
-                            <div className="progress-bar">
-                              <div className="progress-fill" style={{ width: `${c.attendance}%` }}></div>
-                            </div>
-                            <span className="attendance-value">{c.attendance}%</span>
-                          </div>
-                        </td>
+                <div className="records-table-wrap">
+                  <table className="records-table">
+                    <thead>
+                      <tr>
+                        <th>{t('records.tableHeaders.code')}</th>
+                        <th>{t('records.tableHeaders.courseName')}</th>
+                        <th>{t('records.tableHeaders.students')}</th>
+                        <th>{t('records.tableHeaders.attendanceRate')}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {performance.map(c => (
+                        <tr key={c.course_id}>
+                          <td><strong>{c.course}</strong></td>
+                          <td>{c.name}</td>
+                          <td>{c.students}</td>
+                          <td>
+                            <div className="attendance-cell">
+                              <div className="progress-bar">
+                                <div className="progress-fill" style={{ width: `${c.attendance}%` }}></div>
+                              </div>
+                              <span className="attendance-value">{c.attendance}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
@@ -261,25 +264,25 @@ export const RecordsPage = () => {
               </div>
 
               {filteredRecords.length === 0 ? (
-                <div className="empty-state"><p>{t('records.notFound')}</p></div>
+                <div className="empty-state"><p>{t('records.noRecords')}</p></div>
               ) : sessionGroups ? (
                 /* Session-grouped view when a course is selected */
                 <div className="session-groups">
                   {sessionGroups.map(([sid, recs]) => {
                     const presentCount = recs.filter(r => r.status === 'present').length;
                     const flaggedCount = recs.filter(r => r.is_flagged).length;
-                    const firstDate = recs[0]?.marked_at ? new Date(recs[0].marked_at).toLocaleDateString('tr-TR') : '—';
+                    const firstDate = formatLocaleDate(recs[0]?.marked_at, i18n.resolvedLanguage);
                     const isExpanded = expandedSessions.has(sid);
                     return (
                       <div key={sid} className="session-group">
                         <div className="session-group-header" onClick={() => toggleSession(sid)}>
                           <div className="session-group-info">
-                            <span className="session-label">{t('records.sessionNo', { id: sid })}</span>
+                            <span className="session-label">{t('records.session', { id: sid })}</span>
                             <span className="session-date">{firstDate}</span>
                             <span className="session-stats">
-                              <span className="stat-present">{presentCount} mevcut</span>
-                              <span className="stat-total">/ {recs.length} toplam</span>
-                              {flaggedCount > 0 && <span className="stat-flagged">{flaggedCount} şüpheli</span>}
+                              <span className="stat-present">{t('records.presentCount', { count: presentCount })}</span>
+                              <span className="stat-total">{t('records.totalCount', { count: recs.length })}</span>
+                              {flaggedCount > 0 && <span className="stat-flagged">{t('records.suspiciousCount', { count: flaggedCount })}</span>}
                             </span>
                           </div>
                           <span className="session-toggle">
@@ -287,54 +290,56 @@ export const RecordsPage = () => {
                           </span>
                         </div>
                         {isExpanded && (
-                          <table className="records-table session-records-table">
-                            <thead>
-                              <tr>
-                              <th>{t('records.student')}</th>
-                              <th>{t('records.studentNo')}</th>
-                              <th>{t('records.dateTime')}</th>
-                              <th>{t('records.status')}</th>
-                              <th>{t('records.action')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {recs.map(r => {
-                                const isSaving = overriding.has(r.id);
-                                return (
-                                  <tr key={r.id}>
-                                    <td>{r.student_name || (t('records.studentHash', { id: r.student_id }))}</td>
-                                    <td>{r.student_number || '—'}</td>
-                                    <td>{r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}</td>
-                                    <td>
-                                      <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
-                                        {t(`records.statuses.${r.status || 'present'}`, r.status || t('records.statuses.present'))}
-                                        {r.is_flagged && ' ⚑'}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      <div className="override-btns">
-                                        {[
-                                          { status: 'present', label: t('records.statuses.present'), cls: 'override-btn-present' },
-                                          { status: 'excused', label: t('records.statuses.excused'), cls: 'override-btn-excused' },
-                                          { status: 'absent',  label: t('records.statuses.absent'),  cls: 'override-btn-absent'  },
-                                        ].map(btn => (
-                                          <button
-                                            key={btn.status}
-                                            className={`override-btn ${btn.cls} ${r.status === btn.status ? 'active' : ''}`}
-                                            onClick={() => handleOverride(r, btn.status)}
-                                            disabled={isSaving || r.status === btn.status}
-                                            title={btn.label}
-                                          >
-                                            {isSaving && r.status !== btn.status ? '…' : btn.label}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                          <div className="records-table-wrap">
+                            <table className="records-table session-records-table">
+                              <thead>
+                                <tr>
+                                <th>{t('records.tableHeaders.student')}</th>
+                                <th>{t('records.tableHeaders.studentNo')}</th>
+                                <th>{t('records.tableHeaders.datetime')}</th>
+                                <th>{t('records.tableHeaders.status')}</th>
+                                <th>{t('records.tableHeaders.actions')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {recs.map(r => {
+                                  const isSaving = overriding.has(r.id);
+                                  return (
+                                    <tr key={r.id}>
+                                      <td>{r.student_name || t('records.studentPrefix', { id: r.student_id })}</td>
+                                      <td>{r.student_number || '—'}</td>
+                                      <td>{formatLocaleDateTime(r.marked_at, i18n.resolvedLanguage)}</td>
+                                      <td>
+                                        <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
+                                          {t(`records.statuses.${r.status || 'present'}`, r.status || t('records.statuses.present'))}
+                                          {r.is_flagged && ' ⚑'}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <div className="override-btns">
+                                          {[
+                                            { status: 'present', label: t('records.overrideBtns.present'), cls: 'override-btn-present' },
+                                            { status: 'excused', label: t('records.overrideBtns.excused'), cls: 'override-btn-excused' },
+                                            { status: 'absent',  label: t('records.overrideBtns.absent'),  cls: 'override-btn-absent'  },
+                                          ].map(btn => (
+                                            <button
+                                              key={btn.status}
+                                              className={`override-btn ${btn.cls} ${r.status === btn.status ? 'active' : ''}`}
+                                              onClick={() => handleOverride(r, btn.status)}
+                                              disabled={isSaving || r.status === btn.status}
+                                              title={btn.label}
+                                            >
+                                              {isSaving && r.status !== btn.status ? '…' : btn.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
                         )}
                       </div>
                     );
@@ -342,40 +347,42 @@ export const RecordsPage = () => {
                 </div>
               ) : (
                 /* Flat view when no course selected */
-                <table className="records-table">
-                  <thead>
-                    <tr>
-                      <th>{t('records.student')}</th>
-                      <th>{t('records.studentNo')}</th>
-                      <th>{t('records.course')}</th>
-                      <th>{t('records.date')}</th>
-                      <th>{t('records.status')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRecords.slice(0, 50).map(r => {
-                      const course = courseMap[String(r.course_id)];
-                      return (
-                        <tr key={r.id}>
-                          <td>{r.student_name || t('records.studentHash', { id: r.student_id })}</td>
-                          <td>{r.student_number || '—'}</td>
-                          <td>
-                            {course ? (
-                              <span title={course.name}>{course.code}</span>
-                            ) : r.course_id}
-                          </td>
-                          <td>{r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}</td>
-                          <td>
-                            <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
-                              {t(`records.statuses.${r.status || 'present'}`, r.status || t('records.statuses.present'))}
-                              {r.is_flagged && ` [${t('records.suspicious')}]`}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="records-table-wrap">
+                  <table className="records-table">
+                    <thead>
+                      <tr>
+                        <th>{t('records.tableHeaders.student')}</th>
+                        <th>{t('records.tableHeaders.studentNo')}</th>
+                        <th>{t('records.tableHeaders.course')}</th>
+                        <th>{t('records.tableHeaders.datetime')}</th>
+                        <th>{t('records.tableHeaders.status')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRecords.slice(0, 50).map(r => {
+                        const course = courseMap[String(r.course_id)];
+                        return (
+                          <tr key={r.id}>
+                            <td>{r.student_name || t('records.studentPrefix', { id: r.student_id })}</td>
+                            <td>{r.student_number || '—'}</td>
+                            <td>
+                              {course ? (
+                                <span title={course.name}>{course.code}</span>
+                              ) : r.course_id}
+                            </td>
+                            <td>{formatLocaleDateTime(r.marked_at, i18n.resolvedLanguage)}</td>
+                            <td>
+                              <span className={`status-badge status-${r.status || 'present'} ${r.is_flagged ? 'flagged' : ''}`}>
+                                {t(`records.statuses.${r.status || 'present'}`, r.status || t('records.statuses.present'))}
+                                {r.is_flagged && ` [${t('records.statCards.suspicious')}]`}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

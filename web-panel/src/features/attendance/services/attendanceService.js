@@ -3,6 +3,7 @@
  */
 
 import apiClient from '../../../shared/services/apiClient';
+import { formatLocaleDateTime } from '../../../shared/utils/localeFormat';
 
 const FLAG_REASON_LABELS = {
   duplicate_attendance:     'Çift yoklama girişimi',
@@ -39,9 +40,7 @@ function normalizeRecord(r) {
     courseTitle: r.course_name || r.course_code || `Ders #${r.course_id}`,
     course: r.course_name || r.course_code || `Ders #${r.course_id}`,
     session_id: r.session_id,
-    timestamp: r.marked_at
-      ? new Date(r.marked_at).toLocaleString('tr-TR')
-      : '—',
+    timestamp: formatLocaleDateTime(r.marked_at),
     markedAt: r.marked_at,
     reason: FLAG_REASON_LABELS[r.flag_reason] || r.flag_reason || '—',
     reasonType: r.flag_reason === 'duplicate_attendance' ? 'error' : 'warning',

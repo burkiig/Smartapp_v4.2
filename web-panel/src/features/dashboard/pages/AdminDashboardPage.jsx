@@ -10,6 +10,7 @@ import { NotificationBell } from '../../../shared/components/NotificationBell/No
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
 import { getApiBaseUrl } from '../../../shared/services/apiBaseUrl';
+import { formatLocaleDateTime } from '../../../shared/utils/localeFormat';
 import { AuditLogPage } from '../../audit/AuditLogPage';
 import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
 import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
@@ -93,12 +94,13 @@ const readAdminTabFromUrl = () => {
 // ── CsvImportModal ─────────────────────────────────────────────────────────────
 
 function CsvImportModal({ onClose, onSuccess }) {
+  const { t } = useTranslation();
   const [file, setFile]       = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
   const [error, setError]     = useState('');
   const handleImport = async () => {
-    if (!file) { setError('Lütfen bir CSV dosyası seçin.'); return; }
+    if (!file) { setError(t('modals.csvImport.selectFileError')); return; }
     setLoading(true); setError(''); setResult(null);
     try {
       const form = new FormData();
@@ -110,7 +112,7 @@ function CsvImportModal({ onClose, onSuccess }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        let detail = data.detail || data.message || 'İçe aktarma başarısız';
+        let detail = data.detail || data.message || t('modals.csvImport.importFailed');
         if (Array.isArray(detail)) detail = detail.map(e => e.msg || JSON.stringify(e)).join(', ');
         throw new Error(detail);
       }
@@ -125,7 +127,7 @@ function CsvImportModal({ onClose, onSuccess }) {
     const csv = 'username,email,password,name,role,department,student_number\njohn_doe,john@example.com,Sifre123!,John Doe,student,Bilgisayar Müh.,2021001\n';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'kullanici_sablonu.csv';
+    const a = document.createElement('a'); a.href = url; a.download = 'user_template.csv';
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -133,17 +135,17 @@ function CsvImportModal({ onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>CSV ile Toplu Kullanıcı Ekle</h2>
+          <h2>{t('modals.csvImport.title')}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div style={{ padding: '0 0 16px' }}>
           <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
-            CSV dosyasında şu sütunlar bulunmalıdır:<br />
+            {t('modals.csvImport.requiredColumnsIntro')}<br />
             <code style={{ fontSize: 12, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
               username, email, password, name, role, department*, student_number*
             </code>
-            <br /><span style={{ fontSize: 11, color: '#94a3b8' }}>* isteğe bağlı</span>
+            <br /><span style={{ fontSize: 11, color: '#94a3b8' }}>{t('modals.csvImport.optionalHint')}</span>
           </p>
           <button
             type="button"
@@ -151,10 +153,10 @@ function CsvImportModal({ onClose, onSuccess }) {
             onClick={downloadTemplate}
             style={{ marginBottom: 16, fontSize: 13 }}
           >
-            Şablon İndir (.csv)
+            {t('modals.csvImport.downloadTemplate')}
           </button>
           <div className="form-group">
-            <label>CSV Dosyası</label>
+            <label>{t('modals.csvImport.fileLabel')}</label>
             <input
               type="file"
               accept=".csv"
@@ -165,12 +167,15 @@ function CsvImportModal({ onClose, onSuccess }) {
           {result && (
             <div style={{ marginTop: 12, padding: 12, background: '#f0fdf4', borderRadius: 8, border: '1px solid #86efac' }}>
               <p style={{ fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
-                {result.created_count} kullanıcı eklendi, {result.skipped_count} atlandı.
+                {t('modals.csvImport.summary', {
+                  created: result.created_count,
+                  skipped: result.skipped_count,
+                })}
               </p>
               {result.skipped.length > 0 && (
                 <ul style={{ fontSize: 12, color: '#dc2626', margin: 0, paddingLeft: 16 }}>
                   {result.skipped.map((s, i) => (
-                    <li key={i}>Satır {s.row} {s.username ? `(${s.username})` : ''}: {s.reason}</li>
+                    <li key={i}>{t('modals.csvImport.skippedRow', { row: s.row })} {s.username ? `(${s.username})` : ''}: {s.reason}</li>
                   ))}
                 </ul>
               )}
@@ -179,9 +184,9 @@ function CsvImportModal({ onClose, onSuccess }) {
         </div>
 
         <div className="modal-buttons">
-          <button type="button" className="btn-cancel" onClick={onClose}>Kapat</button>
+          <button type="button" className="btn-cancel" onClick={onClose}>{t('common.close')}</button>
           <button type="button" className="btn-save" onClick={handleImport} disabled={loading || !file}>
-            {loading ? 'İçe Aktarılıyor...' : 'İçe Aktar'}
+            {loading ? t('modals.csvImport.importing') : t('modals.csvImport.import')}
           </button>
         </div>
       </div>
@@ -762,7 +767,7 @@ function AddCourseModal({ instructors, courses, onClose, onSuccess }) {
                 style={{ marginTop: 8, fontSize: 12, padding: '6px 10px' }}
                 onClick={() => setShowAdvancedParallel(v => !v)}
               >
-                {showAdvancedParallel ? 'Gelişmiş alanı gizle' : 'Gelişmiş: Manuel grup ID gir'}
+                {showAdvancedParallel ? t('modals.addCourse.advancedHide') : t('modals.addCourse.advancedShow')}
               </button>
               {showAdvancedParallel && (
                 <>
@@ -964,7 +969,7 @@ function EditCourseModal({ course, instructors, courses, onClose, onSuccess }) {
                 style={{ marginTop: 8, fontSize: 12, padding: '6px 10px' }}
                 onClick={() => setShowAdvancedParallel(v => !v)}
               >
-                {showAdvancedParallel ? 'Gelişmiş alanı gizle' : 'Gelişmiş: Manuel grup ID gir'}
+                {showAdvancedParallel ? t('modals.addCourse.advancedHide') : t('modals.addCourse.advancedShow')}
               </button>
               {showAdvancedParallel && (
                 <>
@@ -1315,7 +1320,7 @@ function EditRoomModal({ room, onClose, onSuccess }) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export const AdminDashboardPage = ({ user, onLogout }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(() => readAdminTabFromUrl() || 'overview');
 
   const ADMIN_MENU_ITEMS = [
@@ -1374,7 +1379,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             apiClient.get('/dashboard/recent-activity'),
           ]);
           if (s.status === 'fulfilled') setStats(s.value);
-          else setFetchError(s.reason?.message || t('common.loadError', 'Veriler yüklenemedi'));
+          else setFetchError(s.reason?.message || t('common.loadError'));
           if (a.status === 'fulfilled') setRecentActivity(a.value?.activities || []);
           break;
         }
@@ -1389,7 +1394,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             apiClient.get('/users?role=instructor'),
           ]);
           if (c.status === 'fulfilled') setCourses(c.value || []);
-          else setFetchError(c.reason?.message || t('common.loadError', 'Dersler yüklenemedi'));
+          else setFetchError(c.reason?.message || t('common.loadError'));
           if (u.status === 'fulfilled') {
             const raw = u.value;
             const all = Array.isArray(raw) ? raw : (raw?.users || []);
@@ -1414,7 +1419,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
             const v = rec.value;
             setAttendanceRecords(Array.isArray(v) ? v : (v?.records || []));
           } else {
-            setFetchError(rec.reason?.message || t('common.loadError', 'Kayıtlar yüklenemedi'));
+            setFetchError(rec.reason?.message || t('common.loadError'));
           }
           if (crs.status === 'fulfilled') setCourses(crs.value || []);
           break;
@@ -1423,7 +1428,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       }
     } catch (err) {
       console.error('fetchData error:', err);
-      setFetchError(err?.message || t('common.loadError', 'Veriler yüklenemedi'));
+      setFetchError(err?.message || t('common.loadError'));
     } finally { setLoading(false); }
   }, [t]);
 
@@ -1562,7 +1567,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                         </div>
                         <div className="activity-meta">
                           <MdAccessTime size={12} style={{marginRight:4}}/>
-                          {a.timestamp ? new Date(a.timestamp).toLocaleString('tr-TR') : '—'}
+                          {formatLocaleDateTime(a.timestamp, i18n.resolvedLanguage)}
                         </div>
                       </div>
                     </div>
@@ -1598,7 +1603,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
         <div className="page-header">
           <h1>{t('admin.users.title')}</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-secondary" onClick={() => setShowCsvImport(true)}>CSV İçe Aktar</button>
+            <button className="btn-secondary" onClick={() => setShowCsvImport(true)}>{t('admin.users.importCsv')}</button>
             <button className="btn-primary" onClick={() => setShowAddUser(true)}>{t('admin.users.addUser')}</button>
           </div>
         </div>
@@ -1687,7 +1692,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                   <div className="course-body">
                     <p className="course-name">{c.name}</p>
                     {c.department && (
-                      <p className="course-meta">Bölüm: <strong>{c.department}</strong></p>
+                      <p className="course-meta">{t('admin.courses.departmentLabel')}: <strong>{c.department}</strong></p>
                     )}
                     <p className="course-meta">
                       {courseInstructors.length === 0
@@ -1703,7 +1708,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                       </p>
                     )}
                     {c.schedule && typeof c.schedule === 'object' && c.schedule.days?.length > 0 && (
-                      <p className="course-meta">Program: {c.schedule.days.map(d => d.slice(0,3)).join(', ')} {c.schedule.start_time}–{c.schedule.end_time}</p>
+                      <p className="course-meta">{t('admin.courses.scheduleLabel')}: {c.schedule.days.map(d => d.slice(0,3)).join(', ')} {c.schedule.start_time}–{c.schedule.end_time}</p>
                     )}
                   </div>
                   <div className="course-actions">
@@ -1821,7 +1826,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                         </td>
                         <td>{instructor ? instructor.name : '—'}</td>
                         <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                          {r.marked_at ? new Date(r.marked_at).toLocaleString('tr-TR') : '—'}
+                          {formatLocaleDateTime(r.marked_at, i18n.resolvedLanguage)}
                         </td>
                         <td>
                           <span className={`status-badge ${statusCls[r.status] || 'inactive'}`}>
@@ -1837,7 +1842,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                         <td style={{ fontSize: '0.78rem', color: '#64748b' }}>
                           {[
                             steps.qr_ok      !== false ? 'QR'   : null,
-                            steps.face_ok    !== false ? 'Yuz'  : null,
+                            steps.face_ok    !== false ? t('attendancePage.recordDetail.methodParts.face') : null,
                             steps.location_ok !== false ? 'GPS' : null,
                           ].filter(Boolean).join(' + ') || '—'}
                         </td>

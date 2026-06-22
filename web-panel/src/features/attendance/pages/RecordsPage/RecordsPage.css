@@ -10,6 +10,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .page-title {
@@ -324,6 +326,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  min-width: 560px;
 }
 
 .records-table th {
@@ -343,6 +346,18 @@
 
 .filter-row {
   margin-bottom: 12px;
+}
+
+.records-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.records-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .filter-select {
@@ -373,6 +388,36 @@
 }
 
 @media (max-width: 768px) {
+  .records-page-container {
+    padding: 16px;
+  }
+
+  .records-header {
+    margin-bottom: 20px;
+  }
+
+  .records-header-actions {
+    width: 100%;
+  }
+
+  .records-header-actions .refresh-btn {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 132px;
+    justify-content: center;
+  }
+
+  .records-header-actions .refresh-btn:first-child {
+    flex-basis: 100%;
+  }
+
+  .content-section {
+    padding: 16px;
+  }
+
+  .section-title {
+    margin-bottom: 12px;
+  }
+
   .filters-section {
     flex-direction: column;
     gap: 16px;
@@ -393,6 +438,14 @@
 
   .page-title {
     font-size: 24px;
+  }
+
+  .override-btns {
+    flex-wrap: wrap;
+  }
+
+  .session-group-header {
+    align-items: flex-start;
   }
 }
 
