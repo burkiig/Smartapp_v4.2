@@ -41,6 +41,8 @@ reportlab>=4.1.0
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 pytest==8.2.2
+pytest-cov>=4.1.0
+coverage>=7.4.0
 numpy>=1.26.0
 
 # NOT included (too heavy for CI, gracefully skipped by face engine):

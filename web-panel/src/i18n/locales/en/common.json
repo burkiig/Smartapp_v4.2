@@ -109,6 +109,7 @@
       "dashboard": "Home",
       "schedule": "Course Schedule",
       "attendance": "Attendance History",
+      "excuses": "My Excuses",
       "take": "Take Attendance",
       "takeAttendance": "Take Attendance",
       "disputes": "My Disputes"
@@ -153,7 +154,25 @@
     "attendancePct": "Attendance (%)",
     "studentNumber": "Student #{{id}}",
     "courseNumber": "Course #{{id}}",
-    "suspiciousRecord": "Suspicious record"
+    "suspiciousRecord": "Suspicious record",
+    "cancelClassPlanning": "Class Cancellation Planning",
+    "scopeToday": "Today",
+    "scopeUpcoming": "Upcoming Classes",
+    "noTodayCourses": "No scheduled class for today.",
+    "noUpcomingCourses": "No upcoming class found.",
+    "cancelClass": "Cancel Class",
+    "cancelClassTitle": "Cancel Class",
+    "cancelReason": "Cancellation reason",
+    "cancelTopic": "Topic (optional)",
+    "cancelTopicPlaceholder": "e.g. Midterm week / Make-up class",
+    "cancelClassConfirm": "Cancel",
+    "cancelClassDefaultReason": "Class cancelled",
+    "cancelReasons": {
+      "teacherUnavailable": "Instructor unavailable",
+      "holiday": "Holiday",
+      "campusClosed": "Campus closed",
+      "other": "Other"
+    }
   },
   "admin": {
     "overview": {
@@ -387,7 +406,21 @@
     "confirmDeleteUser": "Are you sure you want to delete this user?",
     "confirmDeleteCourse": "Are you sure you want to delete this course?",
     "confirmDeleteRoom": "Are you sure you want to delete this building?",
-    "errorDelete": "Could not delete"
+    "errorDelete": "Could not delete",
+    "deleteCourse": {
+      "impactLoadError": "Could not validate related data before delete.",
+      "confirmNoData": "Course {{code}} will be deleted. This action cannot be undone. Continue?",
+      "confirmWithData": "Course {{code}} has related data. Impact summary before delete attempt:",
+      "confirmQuestion": "Are you sure you still want to try deleting it?",
+      "blockedError": "This course cannot be deleted right now. Clean up related data first or archive the course.",
+      "dependencyLabels": {
+        "attendance_sessions": "Sessions",
+        "final_attendance_records": "Attendance records",
+        "class_cancellations": "Class cancellation records",
+        "disputes": "Disputes",
+        "excuses": "Excuses"
+      }
+    }
   },
   "classroom": {
     "title": "Presentation & notes",
@@ -593,6 +626,15 @@
     "schedule": {
       "title": "Course Schedule",
       "noSchedule": "Course schedule not yet defined",
+      "cancelNoticeTitle": "Cancellation notice",
+      "cancelNoticeTopic": "Topic",
+      "cancelNoticeReason": "Reason",
+      "courseDetailTitle": "Course Details",
+      "courseCode": "Course Code",
+      "courseName": "Course Name",
+      "daysLabel": "Days",
+      "timeLabel": "Time",
+      "instructor": "Instructor",
       "daysShort": {
         "Monday": "Mon",
         "Tuesday": "Tue",
@@ -653,7 +695,10 @@
       "gpsVerifiedBody": "Your position matched the class geofence; you are recorded as being in the safe zone.",
       "gpsDistanceHint": "About {{m}} m from the class location.",
       "gpsAccuracyHint": "GPS accuracy about ±{{m}} m.",
-      "gpsSkippedHint": "No class GPS was set for this session, so distance was not checked."
+      "locationRetryHint": "Location verification failed. Move closer to class and try again ({{current}}/{{total}}).",
+      "gpsSkippedHint": "No class GPS was set for this session, so distance was not checked.",
+      "alreadyTaken": "Attendance already submitted for this session.",
+      "taken": "Done"
     },
     "attendance": {
       "flaggedLoadError": "Could not load flagged records",
@@ -680,6 +725,27 @@
         "absent": "Absent",
         "excused": "Excused",
         "pending_review": "Under Review"
+      }
+    },
+    "excusesHistory": {
+      "title": "My Excuse History",
+      "empty": "No excuse record yet.",
+      "openDocument": "Open Document",
+      "openingDocument": "Opening...",
+      "documentOpenFailed": "Could not open document.",
+      "headers": {
+        "course": "Course",
+        "sessionDate": "Class Date",
+        "type": "Type",
+        "document": "Document",
+        "status": "Status",
+        "note": "Note",
+        "created": "Request Date"
+      },
+      "documentStates": {
+        "none": "No document",
+        "pending": "Uploading",
+        "failed": "Upload failed"
       }
     },
     "disputes": {
@@ -731,6 +797,44 @@
     "label": "Language",
     "tr": "Türkçe",
     "en": "English"
+  },
+  "notificationBell": {
+    "title": "Notifications",
+    "empty": "No new notifications",
+    "newNotificationTitle": "{{count}} new notifications",
+    "newNotificationBody": "Click the bell to view your notifications.",
+    "defaultTitle": "Notification",
+    "defaultBody": "You have a new notification.",
+    "types": {
+      "session_started": {
+        "title": "📋 Attendance Started",
+        "body": "Attendance is now open for course {{course}}."
+      },
+      "class_cancelled": {
+        "title": "Class Cancelled",
+        "body": "Course {{course}} has been cancelled."
+      },
+      "flagged_attendance": {
+        "title": "⚠️ Suspicious Attendance",
+        "body": "Suspicious record for student {{student}} (session {{session}})."
+      },
+      "dispute_submitted": {
+        "title": "New Dispute",
+        "body": "A new dispute was submitted for course {{course}}."
+      },
+      "dispute_approved": {
+        "title": "Dispute Approved",
+        "body": "The dispute for course {{course}} has been approved."
+      },
+      "dispute_rejected": {
+        "title": "Dispute Reviewed",
+        "body": "The dispute for course {{course}} has been rejected."
+      },
+      "system": {
+        "title": "System Notification",
+        "body": "A new announcement was posted by the system."
+      }
+    }
   },
   "settings": {
     "title": "Settings",
@@ -982,23 +1086,23 @@
   },
   "excuses": {
     "title": "Excuse Management",
-    "subtitle": "Approve or reject student excuses",
+    "subtitle": "Mark student excuses as excused or absent",
     "notFound": "No excuses found",
     "allCourses": "All Courses",
     "allStatuses": "All Statuses",
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
     "selectedCount": "{{count}} selected",
-    "bulkApprove": "Bulk Approve",
-    "bulkReject": "Bulk Reject",
+    "bulkApprove": "Bulk Mark Excused",
+    "bulkReject": "Bulk Mark Absent",
     "bulkApproveMsg": "{{count}} excuses approved.",
     "bulkRejectMsg": "{{count}} excuses rejected.",
     "bulkSkipped": " {{count}} skipped.",
     "hasDocument": "Has Document",
     "viewDocument": "View document",
     "detail": "Detail",
-    "approve": "Approve",
-    "reject": "Reject",
+    "approve": "Excused",
+    "reject": "Absent",
     "selectFirst": "Please select an excuse first",
     "actionError": "Operation failed",
     "tableHeaders": {
@@ -1013,8 +1117,8 @@
     },
     "statuses": {
       "pending": "Pending",
-      "approved": "Approved",
-      "rejected": "Rejected"
+      "approved": "Excused",
+      "rejected": "Absent"
     },
     "types": {
       "medical": "Medical",
@@ -1035,7 +1139,32 @@
       "status": "Status",
       "flagReason": "Flag Reason",
       "method": "Verification Method",
-      "location": "Location"
+      "location": "Location",
+      "methodParts": {
+        "gps": "GPS",
+        "face": "Face",
+        "qr": "QR"
+      },
+      "locationStates": {
+        "fakeGps": "Fake GPS detected",
+        "suspiciousGps": "Suspicious GPS accuracy",
+        "notAvailable": "No location"
+      },
+      "reasonCodes": {
+        "duplicate_attendance": "Duplicate attendance attempt",
+        "location_bypassed": "GPS verification bypassed",
+        "location_skipped": "GPS coordinates not set",
+        "face_simulated": "Face verification simulated",
+        "location_and_face_bypass": "GPS and face both bypassed",
+        "manual_no_face": "Manual attendance (no face)",
+        "manual_no_face_ref": "Face reference not found",
+        "face_not_enrolled": "No face enrollment",
+        "face_failed": "Face verification failed",
+        "fake_gps_detected": "Fake GPS detected",
+        "suspicious_accuracy": "Suspicious GPS accuracy",
+        "low_accuracy": "Low GPS accuracy",
+        "location_failed": "Location verification failed"
+      }
     },
     "pendingReview": "Pending Review",
     "triageBanner": "Opened from notification: Session {{sessionId}} — reviewing suspicious records",
@@ -1133,6 +1262,10 @@
     "cancel": "Cancel",
     "confirmReject": "Confirm Rejection",
     "viewDoc": "🔍 View",
+    "downloadDocument": "Download document",
+    "docPendingUpload": "Document is uploading, please try again shortly.",
+    "docUploadFailed": "Document upload failed. Student should upload again.",
+    "docNotUploaded": "No document uploaded for this excuse.",
     "download": "⬇ Download",
     "approved": "✓ Approved",
     "rejected": "✗ Rejected",

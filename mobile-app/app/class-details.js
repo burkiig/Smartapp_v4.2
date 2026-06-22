@@ -156,7 +156,11 @@ export default function ClassDetailsScreen() {
       { text: t('common.giveUp'), style: 'cancel' },
       { text: t('cancel.cancelAction'), style: 'destructive', onPress: async () => {
         try {
-          await sessions.cancel(courseId, cancelReason, activeSession?.id);
+          await sessions.cancel(courseId, cancelReason, activeSession?.id, {
+            date: activeSession?.date || null,
+            start_time: activeSession?.start_time || null,
+            end_time: activeSession?.end_time || null,
+          });
           setActiveSession(null);
           setCancelModal(false);
           Alert.alert(t('cancel.cancelled'), t('cancel.classCancelled'), [{ text: t('common.ok'), onPress: () => router.back() }]);

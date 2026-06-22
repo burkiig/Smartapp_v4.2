@@ -9,6 +9,7 @@
  */
 
 import { getApiBaseUrl } from './apiBaseUrl';
+import i18n from '../../i18n';
 
 const TIMEOUT_MS = 10000;
 
@@ -27,11 +28,17 @@ async function request(method, path, { body, params } = {}) {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
+    const currentLang = i18n.resolvedLanguage || i18n.language || 'tr';
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      'Accept-Language': currentLang,
+    };
+
     const response = await fetch(url, {
       method,
       credentials: 'include',   // browser sends httpOnly auth cookie automatically
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
+      headers: requestHeaders,
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
 
@@ -44,7 +51,7 @@ async function request(method, path, { body, params } = {}) {
         const retryResponse = await fetch(url, {
           method,
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: requestHeaders,
           ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         });
         if (!retryResponse.ok) {
@@ -68,8 +75,20 @@ async function request(method, path, { body, params } = {}) {
       if (Array.isArray(detail)) {
         detail = detail.map(e => e.msg || JSON.stringify(e)).join(', ');
       }
-      const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      let errorMessage = typeof detail === 'string' ? detail : JSON.stringify(detail);
+      if (detail && typeof detail === 'object') {
+        if (typeof detail.message === 'string' && detail.message.trim()) {
+          errorMessage = detail.message;
+        } else if (typeof data.message === 'string' && data.message.trim()) {
+          errorMessage = data.message;
+        }
+      }
+      const err = new Error(errorMessage);
       err.status = response.status;
+      if (detail && typeof detail === 'object') {
+        err.code = detail.code;
+        err.details = detail;
+      }
       throw err;
     }
 

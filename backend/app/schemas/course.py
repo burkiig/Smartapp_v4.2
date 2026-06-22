@@ -6,6 +6,7 @@ from datetime import datetime
 class CourseCreate(BaseModel):
     code: str
     name: str
+    department: Optional[str] = None
     instructor_id: Optional[int] = None
     schedule: Optional[Any] = None
     default_duration_minutes: Optional[int] = None
@@ -14,6 +15,7 @@ class CourseCreate(BaseModel):
 
 class CourseUpdate(BaseModel):
     name: Optional[str] = None
+    department: Optional[str] = None
     instructor_id: Optional[int] = None
     schedule: Optional[Any] = None
     default_duration_minutes: Optional[int] = None
@@ -24,6 +26,7 @@ class CourseResponse(BaseModel):
     id: int
     code: str
     name: str
+    department: Optional[str] = None
     instructor_id: Optional[int] = None
     instructor_ids: Optional[List[int]] = None      # tüm atanmış öğretmen ID'leri
     instructor_names: Optional[List[str]] = None    # tüm atanmış öğretmen adları

@@ -6,6 +6,7 @@ import {
 } from 'react-icons/md';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
+import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
 import { getApiBaseUrl } from '../../../shared/services/apiBaseUrl';
@@ -80,6 +81,14 @@ function useDistinctDepartments(enabled) {
 
   return departments;
 }
+
+const readAdminTabFromUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const validTabs = ['overview', 'users', 'courses', 'rooms', 'reports', 'excuses', 'disputes', 'audit-logs'];
+  return validTabs.includes(tab) ? tab : null;
+};
 
 // ── CsvImportModal ─────────────────────────────────────────────────────────────
 
@@ -602,18 +611,37 @@ function InstructorMultiSelect({ instructors, selectedIds, onChange }) {
 
 // ── AddCourseModal ─────────────────────────────────────────────────────────────
 
-function AddCourseModal({ instructors, onClose, onSuccess }) {
+function AddCourseModal({ instructors, courses, onClose, onSuccess }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     code: '', name: '',
+    department: '',
     schedule: { days: [], start_time: '09:00', end_time: '10:00' },
     default_duration_minutes: '',
     shared_class_id: '',
   });
   const [selectedInstructorIds, setSelectedInstructorIds] = useState([]);
+  const [parallelWithCourseId, setParallelWithCourseId] = useState('');
+  const [parallelDepartmentFilter, setParallelDepartmentFilter] = useState('');
+  const [showAdvancedParallel, setShowAdvancedParallel] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const courseDepartments = Array.from(
+    new Set(
+      (courses || [])
+        .map((c) => (c.department || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'tr'));
+  const effectiveParallelDepartment = parallelDepartmentFilter === '__all__'
+    ? ''
+    : ((parallelDepartmentFilter || form.department || '').trim());
+  const normalizedDepartment = effectiveParallelDepartment.toLocaleLowerCase('tr-TR');
+  const parallelCourseOptions = (courses || []).filter((c) => {
+    if (!normalizedDepartment) return true;
+    return ((c.department || '').trim().toLocaleLowerCase('tr-TR') === normalizedDepartment);
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -622,10 +650,17 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
       const primaryId = selectedInstructorIds[0] ?? null;
       const created = await apiClient.post('/courses', {
         ...form,
+        department: form.department?.trim() || null,
         instructor_id: primaryId,
         default_duration_minutes: form.default_duration_minutes ? Number(form.default_duration_minutes) : null,
         shared_class_id: form.shared_class_id ? Number(form.shared_class_id) : null,
       });
+      if (parallelWithCourseId) {
+        await apiClient.post('/courses/parallel/link', {
+          course_id: created.id,
+          with_course_id: Number(parallelWithCourseId),
+        });
+      }
       // Ek hocaları ekle (2. ve sonrası)
       for (const id of selectedInstructorIds.slice(1)) {
         await apiClient.post(`/courses/${created.id}/instructors`, { instructor_id: id }).catch(() => {});
@@ -653,6 +688,14 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
             <div className="form-group">
               <label>{t('modals.addCourse.nameLabel')}</label>
               <input value={form.name} onChange={e => set('name', e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label>{t('modals.addUser.departmentLabel', 'Bölüm')}</label>
+              <input
+                value={form.department}
+                onChange={e => set('department', e.target.value)}
+                placeholder={t('modals.addUser.departmentPlaceholder', 'Bilgisayar Mühendisliği')}
+              />
             </div>
           </div>
           <div className="form-row">
@@ -687,13 +730,52 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
               />
             </div>
             <div className="form-group">
-              <label>{t('modals.addCourse.parallelLabel')}</label>
-              <input
-                type="number" min="1"
-                value={form.shared_class_id}
-                onChange={e => set('shared_class_id', e.target.value)}
-              />
-              <span className="form-hint">{t('modals.addCourse.parallelHint')}</span>
+              <label>{t('modals.addCourse.parallelLabel', 'Paralel Ders (Opsiyonel)')}</label>
+              <select
+                value={parallelDepartmentFilter}
+                onChange={e => setParallelDepartmentFilter(e.target.value)}
+                style={{ marginBottom: 8 }}
+              >
+                <option value="">{t('modals.addCourse.parallelDeptAuto', 'Dersin bölümü (otomatik)')}</option>
+                <option value="__all__">{t('modals.addCourse.parallelDeptAll', 'Tüm bölümler')}</option>
+                {courseDepartments.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+              <select
+                value={parallelWithCourseId}
+                onChange={e => setParallelWithCourseId(e.target.value)}
+              >
+                <option value="">{t('modals.addCourse.parallelNone', 'Paralel bağlama yok')}</option>
+                {parallelCourseOptions.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}{c.department ? ` (${c.department})` : ''}
+                  </option>
+                ))}
+              </select>
+              <span className="form-hint">
+                {t('modals.addCourse.parallelSelectHint', 'Bir ders seçerseniz sistem aynı paralel grup IDsini otomatik atar.')}
+              </span>
+              <button
+                type="button"
+                className="btn-cancel"
+                style={{ marginTop: 8, fontSize: 12, padding: '6px 10px' }}
+                onClick={() => setShowAdvancedParallel(v => !v)}
+              >
+                {showAdvancedParallel ? 'Gelişmiş alanı gizle' : 'Gelişmiş: Manuel grup ID gir'}
+              </button>
+              {showAdvancedParallel && (
+                <>
+                  <input
+                    type="number" min="1"
+                    value={form.shared_class_id}
+                    onChange={e => set('shared_class_id', e.target.value)}
+                    style={{ marginTop: 8 }}
+                    placeholder="shared_class_id"
+                  />
+                  <span className="form-hint">{t('modals.addCourse.parallelHint')}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="modal-buttons">
@@ -708,7 +790,7 @@ function AddCourseModal({ instructors, onClose, onSuccess }) {
 
 // ── EditCourseModal ────────────────────────────────────────────────────────────
 
-function EditCourseModal({ course, instructors, onClose, onSuccess }) {
+function EditCourseModal({ course, instructors, courses, onClose, onSuccess }) {
   const { t } = useTranslation();
   const defaultSchedule = course.schedule && typeof course.schedule === 'object'
     ? course.schedule
@@ -716,14 +798,34 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
   const [form, setForm] = useState({
     code: course.code || '',
     name: course.name || '',
+    department: course.department || '',
     schedule: defaultSchedule,
     default_duration_minutes: course.default_duration_minutes || '',
     shared_class_id: course.shared_class_id || '',
   });
   const [selectedInstructorIds, setSelectedInstructorIds] = useState(course.instructor_ids || (course.instructor_id ? [course.instructor_id] : []));
+  const [parallelWithCourseId, setParallelWithCourseId] = useState('');
+  const [parallelDepartmentFilter, setParallelDepartmentFilter] = useState('');
+  const [showAdvancedParallel, setShowAdvancedParallel] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const courseDepartments = Array.from(
+    new Set(
+      (courses || [])
+        .map((c) => (c.department || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'tr'));
+  const effectiveParallelDepartment = parallelDepartmentFilter === '__all__'
+    ? ''
+    : ((parallelDepartmentFilter || form.department || '').trim());
+  const normalizedDepartment = effectiveParallelDepartment.toLocaleLowerCase('tr-TR');
+  const parallelCourseOptions = (courses || []).filter((c) => {
+    if (c.id === course.id) return false;
+    if (!normalizedDepartment) return true;
+    return ((c.department || '').trim().toLocaleLowerCase('tr-TR') === normalizedDepartment);
+  });
 
   useEffect(() => {
     apiClient.get(`/courses/${course.id}/instructors`)
@@ -741,10 +843,17 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
       const primaryId = selectedInstructorIds[0] ?? null;
       await apiClient.patch(`/courses/${course.id}`, {
         ...form,
+        department: form.department?.trim() || null,
         instructor_id: primaryId,
         default_duration_minutes: form.default_duration_minutes ? Number(form.default_duration_minutes) : null,
         shared_class_id: form.shared_class_id ? Number(form.shared_class_id) : null,
       });
+      if (parallelWithCourseId) {
+        await apiClient.post('/courses/parallel/link', {
+          course_id: course.id,
+          with_course_id: Number(parallelWithCourseId),
+        });
+      }
       // Hoca listesini senkronize et
       const currentRes = await apiClient.get(`/courses/${course.id}/instructors`).catch(() => []);
       const currentIds = (currentRes || []).map(i => i.id);
@@ -782,6 +891,14 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
               <label>{t('modals.editCourse.nameLabel')}</label>
               <input value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
+            <div className="form-group">
+              <label>{t('modals.addUser.departmentLabel', 'Bölüm')}</label>
+              <input
+                value={form.department}
+                onChange={e => set('department', e.target.value)}
+                placeholder={t('modals.addUser.departmentPlaceholder', 'Bilgisayar Mühendisliği')}
+              />
+            </div>
           </div>
           <div className="form-row">
             <div className="form-group">
@@ -815,13 +932,51 @@ function EditCourseModal({ course, instructors, onClose, onSuccess }) {
               />
             </div>
             <div className="form-group">
-              <label>{t('modals.addCourse.parallelLabel')}</label>
-              <input
-                type="number" min="1" placeholder={t('modals.editCourse.parallelPlaceholder')}
-                value={form.shared_class_id}
-                onChange={e => set('shared_class_id', e.target.value)}
-              />
-              <span className="form-hint">{t('modals.editCourse.parallelHint')}</span>
+              <label>{t('modals.addCourse.parallelLabel', 'Paralel Ders (Opsiyonel)')}</label>
+              <select
+                value={parallelDepartmentFilter}
+                onChange={e => setParallelDepartmentFilter(e.target.value)}
+                style={{ marginBottom: 8 }}
+              >
+                <option value="">{t('modals.addCourse.parallelDeptAuto', 'Dersin bölümü (otomatik)')}</option>
+                <option value="__all__">{t('modals.addCourse.parallelDeptAll', 'Tüm bölümler')}</option>
+                {courseDepartments.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+              <select
+                value={parallelWithCourseId}
+                onChange={e => setParallelWithCourseId(e.target.value)}
+              >
+                <option value="">{t('modals.addCourse.parallelNone', 'Paralel bağlama yok')}</option>
+                {parallelCourseOptions.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}{c.department ? ` (${c.department})` : ''}
+                  </option>
+                ))}
+              </select>
+              <span className="form-hint">
+                {t('modals.addCourse.parallelSelectHint', 'Bir ders seçerseniz sistem aynı paralel grup IDsini otomatik atar.')}
+              </span>
+              <button
+                type="button"
+                className="btn-cancel"
+                style={{ marginTop: 8, fontSize: 12, padding: '6px 10px' }}
+                onClick={() => setShowAdvancedParallel(v => !v)}
+              >
+                {showAdvancedParallel ? 'Gelişmiş alanı gizle' : 'Gelişmiş: Manuel grup ID gir'}
+              </button>
+              {showAdvancedParallel && (
+                <>
+                  <input
+                    type="number" min="1" placeholder={t('modals.editCourse.parallelPlaceholder')}
+                    value={form.shared_class_id}
+                    onChange={e => set('shared_class_id', e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                  <span className="form-hint">{t('modals.editCourse.parallelHint')}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="modal-buttons">
@@ -1161,7 +1316,7 @@ function EditRoomModal({ room, onClose, onSuccess }) {
 
 export const AdminDashboardPage = ({ user, onLogout }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => readAdminTabFromUrl() || 'overview');
 
   const ADMIN_MENU_ITEMS = [
     { id: 'overview',   label: t('nav.admin.overview')   },
@@ -1282,12 +1437,57 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
     } catch (err) { alert(err.message || t('modals.errorDelete')); }
   };
 
-  const handleDeleteCourse = async (courseId) => {
-    if (!window.confirm(t('modals.confirmDeleteCourse'))) return;
+  const buildDependencySummary = (dependencies = {}) => {
+    const keys = [
+      'attendance_sessions',
+      'final_attendance_records',
+      'class_cancellations',
+      'disputes',
+      'excuses',
+    ];
+    return keys
+      .map((key) => ({ key, count: Number(dependencies[key] || 0) }))
+      .filter((item) => item.count > 0)
+      .map((item) => `- ${t(`modals.deleteCourse.dependencyLabels.${item.key}`)}: ${item.count}`)
+      .join('\n');
+  };
+
+  const handleDeleteCourse = async (course) => {
+    let impact = null;
     try {
-      await apiClient.delete(`/courses/${courseId}`);
-      setCourses(prev => prev.filter(c => c.id !== courseId));
-    } catch (err) { alert(err.message || t('modals.errorDelete')); }
+      impact = await apiClient.get(`/courses/${course.id}/delete-impact`);
+    } catch (err) {
+      alert(err.message || t('modals.deleteCourse.impactLoadError'));
+      return;
+    }
+
+    const dependencySummary = buildDependencySummary(impact?.dependencies);
+    const confirmMessage = dependencySummary
+      ? `${t('modals.deleteCourse.confirmWithData', { code: course.code })}\n\n${dependencySummary}\n\n${t('modals.deleteCourse.confirmQuestion')}`
+      : t('modals.deleteCourse.confirmNoData', { code: course.code });
+
+    if (!window.confirm(confirmMessage)) return;
+
+    if (!impact?.can_delete) {
+      alert(
+        dependencySummary
+          ? `${t('modals.deleteCourse.blockedError')}\n\n${dependencySummary}`
+          : t('modals.deleteCourse.blockedError')
+      );
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/courses/${course.id}`);
+      setCourses(prev => prev.filter(c => c.id !== course.id));
+    } catch (err) {
+      if (err.code === 'course_delete_blocked' && err.details?.dependencies) {
+        const blockedSummary = buildDependencySummary(err.details.dependencies);
+        alert(`${t('modals.deleteCourse.blockedError')}\n\n${blockedSummary}`);
+        return;
+      }
+      alert(err.message || t('modals.errorDelete'));
+    }
   };
 
   const handleDeleteRoom = async (roomId) => {
@@ -1486,6 +1686,9 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                   </div>
                   <div className="course-body">
                     <p className="course-name">{c.name}</p>
+                    {c.department && (
+                      <p className="course-meta">Bölüm: <strong>{c.department}</strong></p>
+                    )}
                     <p className="course-meta">
                       {courseInstructors.length === 0
                         ? <><span>{t('admin.courses.teacher')}: </span><em style={{ color: '#94a3b8' }}>{t('admin.courses.unassigned')}</em></>
@@ -1506,7 +1709,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                   <div className="course-actions">
                     <button className="btn-action edit"      onClick={() => setEditingCourse(c)}>{t('admin.courses.editBtn')}</button>
                     <button className="btn-action secondary" onClick={() => setCourseStudents(c)}>{t('admin.courses.studentsBtn')}</button>
-                    <button className="btn-action delete"    onClick={() => handleDeleteCourse(c.id)}>{t('admin.courses.deleteBtn')}</button>
+                    <button className="btn-action delete"    onClick={() => handleDeleteCourse(c)}>{t('admin.courses.deleteBtn')}</button>
                   </div>
                 </div>
               );
@@ -1669,8 +1872,8 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       {showCsvImport  && <CsvImportModal onClose={() => setShowCsvImport(false)} onSuccess={() => fetchData('users')} />}
       {showAddUser    && <AddUserModal onClose={() => setShowAddUser(false)} onSuccess={() => fetchData('users')} />}
       {editingUser    && <EditUserModal userData={editingUser} onClose={() => setEditingUser(null)} onSuccess={() => fetchData('users')} />}
-      {showAddCourse  && <AddCourseModal instructors={instructors} onClose={() => setShowAddCourse(false)} onSuccess={() => fetchData('courses')} />}
-      {editingCourse  && <EditCourseModal course={editingCourse} instructors={instructors} onClose={() => setEditingCourse(null)} onSuccess={() => fetchData('courses')} />}
+      {showAddCourse  && <AddCourseModal instructors={instructors} courses={courses} onClose={() => setShowAddCourse(false)} onSuccess={() => fetchData('courses')} />}
+      {editingCourse  && <EditCourseModal course={editingCourse} instructors={instructors} courses={courses} onClose={() => setEditingCourse(null)} onSuccess={() => fetchData('courses')} />}
       {courseStudents && <CourseStudentsModal course={courseStudents} onClose={() => setCourseStudents(null)} />}
       {showAddRoom    && <AddRoomModal onClose={() => setShowAddRoom(false)} onSuccess={() => fetchData('rooms')} />}
       {editingRoom    && <EditRoomModal room={editingRoom} onClose={() => setEditingRoom(null)} onSuccess={() => fetchData('rooms')} />}
@@ -1688,6 +1891,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
         <div className="admin-top-bar">
           <div className="top-bar-spacer" />
           <LanguageSwitcher compact />
+          <NotificationBell />
         </div>
         {fetchError && (
           <div className="error-banner" role="alert" style={{ margin: '0 0 16px' }}>

@@ -42,6 +42,11 @@ const BADGE_KEYS = {
   rejected: 'attendance.review.rejected',
   pending:  'attendance.review.pending',
 };
+const EXCUSE_BADGE_KEYS = {
+  approved: 'attendance.excusedLabel',
+  rejected: 'attendance.absentLabel',
+  pending: 'attendance.review.pending',
+};
 const BADGE_STYLE = {
   approved: { color: Colors.success, bg: Colors.successLight },
   rejected: { color: Colors.error,   bg: Colors.errorLight  },
@@ -169,7 +174,7 @@ export default function AttendanceScreen() {
 
   const listData = activeTab === 'excuses' ? excuseList
     : activeTab === 'disputes' ? disputeList
-    : activeTab === 'pending'  ? flagged.filter(r => r.is_flagged)
+    : activeTab === 'pending'  ? flagged
     : flagged;
 
   useEffect(() => {
@@ -278,7 +283,7 @@ export default function AttendanceScreen() {
 
   const renderExcuse = ({ item }) => {
     const bStyle = badgeStyle(item.status);
-    const bLabel = t(BADGE_KEYS[item.status] || BADGE_KEYS.pending);
+    const bLabel = t(EXCUSE_BADGE_KEYS[item.status] || EXCUSE_BADGE_KEYS.pending);
     const busy = processingId === `e-${item.id}`;
     const docBusy = docLoadingId === item.id;
     const nameLabel = item.student_name || t('common.studentWithId', { id: item.student_id });
@@ -328,12 +333,34 @@ export default function AttendanceScreen() {
           </TouchableOpacity>
         )}
 
-        {busy ? <ActivityIndicator color="#7C3AED" style={{ marginTop: 12 }} /> : item.status === 'pending' ? (
-          <View style={styles.actions}>
-            <ActionBtn label={t('attendance.review.approved')} icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleExcuse(item, 'approved')} />
-            <ActionBtn label={t('attendance.review.rejected')} icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleExcuse(item, 'rejected')} />
-          </View>
-        ) : null}
+        {busy ? <ActivityIndicator color="#7C3AED" style={{ marginTop: 12 }} /> : (
+          <>
+            <View style={styles.actions}>
+              <ActionBtn
+                label={t('attendance.excusedLabel')}
+                icon="checkmark-circle"
+                color={Colors.success}
+                bg={Colors.successLight}
+                disabled={item.status === 'approved'}
+                onPress={() => handleExcuse(item, 'approved')}
+              />
+              <ActionBtn
+                label={t('attendance.absentLabel')}
+                icon="close-circle"
+                color={Colors.error}
+                bg={Colors.errorLight}
+                disabled={item.status === 'rejected'}
+                onPress={() => handleExcuse(item, 'rejected')}
+              />
+            </View>
+            {item.status !== 'pending' && (
+              <TouchableOpacity style={styles.undoBtn} onPress={() => handleExcuse(item, 'pending')}>
+                <Ionicons name="arrow-undo-outline" size={15} color={Colors.primary} />
+                <Text style={styles.undoText}>{t('attendance.review.undo')}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
     );
   };
@@ -373,12 +400,34 @@ export default function AttendanceScreen() {
           </View>
         )}
 
-        {busy ? <ActivityIndicator color={Colors.error} style={{ marginTop: 12 }} /> : item.status === 'pending' ? (
-          <View style={styles.actions}>
-            <ActionBtn label={t('attendance.review.approved')} icon="checkmark-circle" color={Colors.success} bg={Colors.successLight} onPress={() => handleDispute(item, 'approved')} />
-            <ActionBtn label={t('attendance.review.rejected')} icon="close-circle"     color={Colors.error}   bg={Colors.errorLight}   onPress={() => handleDispute(item, 'rejected')} />
-          </View>
-        ) : null}
+        {busy ? <ActivityIndicator color={Colors.error} style={{ marginTop: 12 }} /> : (
+          <>
+            <View style={styles.actions}>
+              <ActionBtn
+                label={t('attendance.review.approved')}
+                icon="checkmark-circle"
+                color={Colors.success}
+                bg={Colors.successLight}
+                disabled={item.status === 'approved'}
+                onPress={() => handleDispute(item, 'approved')}
+              />
+              <ActionBtn
+                label={t('attendance.review.rejected')}
+                icon="close-circle"
+                color={Colors.error}
+                bg={Colors.errorLight}
+                disabled={item.status === 'rejected'}
+                onPress={() => handleDispute(item, 'rejected')}
+              />
+            </View>
+            {item.status !== 'pending' && (
+              <TouchableOpacity style={styles.undoBtn} onPress={() => handleDispute(item, 'pending')}>
+                <Ionicons name="arrow-undo-outline" size={15} color={Colors.primary} />
+                <Text style={styles.undoText}>{t('attendance.review.undo')}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
     );
   };
@@ -421,9 +470,11 @@ export default function AttendanceScreen() {
         <View style={styles.centered}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
         <FlatList
+          key={activeTab}
           ref={listRef}
           data={listData}
           renderItem={renderItem}
+          extraData={`${activeTab}-${processingId ?? ''}-${docLoadingId ?? ''}`}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -452,9 +503,13 @@ export default function AttendanceScreen() {
   );
 }
 
-function ActionBtn({ label, icon, color, bg, onPress }) {
+function ActionBtn({ label, icon, color, bg, onPress, disabled = false }) {
   return (
-    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: bg }]} onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.actionBtn, { backgroundColor: bg }, disabled && styles.actionBtnDisabled]}
+      onPress={onPress}
+      disabled={disabled}
+    >
       <Ionicons name={icon} size={16} color={color} />
       <Text style={[styles.actionBtnText, { color }]}>{label}</Text>
     </TouchableOpacity>
@@ -480,14 +535,14 @@ const styles = StyleSheet.create({
 
   // Tabs
   tabsScroll:   { maxHeight: 52, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  tabsContent:  { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 8 },
+  tabsContent:  { paddingHorizontal: 16, paddingRight: 24, gap: 8, alignItems: 'center', paddingVertical: 8 },
   tab:          { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border },
   tabLabel:     { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
   tabCount:     { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, minWidth: 22, alignItems: 'center' },
   tabCountText: { fontSize: 11, fontWeight: '700' },
 
   // Cards
-  listContent: { paddingHorizontal: 20, paddingVertical: 16 },
+  listContent: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32 },
   card:        { backgroundColor: Colors.card, borderRadius: 16, padding: 16, marginBottom: 12, ...Shadows.sm },
   highlightCard: { borderWidth: 2, borderColor: Colors.warning },
 
@@ -512,8 +567,9 @@ const styles = StyleSheet.create({
   docBtn:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#EDE9FE', borderWidth: 1, borderColor: '#C4B5FD' },
   docBtnText:    { fontSize: 13, fontWeight: '600', color: '#7C3AED' },
 
-  actions:       { flexDirection: 'row', gap: 10, marginTop: 12 },
-  actionBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  actions:       { flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' },
+  actionBtn:     { flexGrow: 1, minWidth: 130, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  actionBtnDisabled: { opacity: 0.5 },
   actionBtnText: { fontSize: 13, fontWeight: '700' },
   undoBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.primaryMuted },
   undoText:      { fontSize: 13, fontWeight: '600', color: Colors.primary },

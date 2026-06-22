@@ -22,6 +22,10 @@ class Excuse(Base):
     excuse_type = Column(String, default="other")   # medical | family | other
     description = Column(Text, nullable=True)
     storage_path = Column(String, nullable=True)
+    upload_status = Column(String, default="none", nullable=False)  # none|pending_upload|uploaded|upload_failed
+    upload_error = Column(Text, nullable=True)
+    document_mime = Column(String, nullable=True)
+    document_name = Column(String, nullable=True)
     # status: pending | approved | rejected
     status = Column(String, default="pending")
     instructor_notes = Column(Text, nullable=True)

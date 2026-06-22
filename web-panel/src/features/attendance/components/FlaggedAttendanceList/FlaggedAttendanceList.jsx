@@ -108,16 +108,23 @@ export const FlaggedAttendanceList = ({
       label: t('flaggedList.columns.actions'),
       render: (value, record) => (
         <div className="action-buttons">
-          {record.isFlagged ? (
-            <>
-              <button className="action-btn approve-btn" onClick={() => onApprove(record.id)} title={t('common.approve')}>
-                {t('common.approve')}
-              </button>
-              <button className="action-btn reject-btn" onClick={() => onReject(record.id)} title={t('common.reject')}>
-                {t('common.reject')}
-              </button>
-            </>
-          ) : (
+          <button
+            className="action-btn approve-btn"
+            onClick={() => onApprove(record.id)}
+            title={t('common.approve')}
+            disabled={record.status === 'present' && !record.isFlagged}
+          >
+            {t('common.approve')}
+          </button>
+          <button
+            className="action-btn reject-btn"
+            onClick={() => onReject(record.id)}
+            title={t('common.reject')}
+            disabled={record.status === 'absent' && !record.isFlagged}
+          >
+            {t('common.reject')}
+          </button>
+          {!record.isFlagged && (
             <button className="action-btn undo-btn" onClick={() => onUndo(record.id)} title={t('common.undo', 'Geri Al')}>
               {t('common.undo', 'Geri Al')}
             </button>

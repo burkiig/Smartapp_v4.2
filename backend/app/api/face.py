@@ -105,10 +105,13 @@ def enroll_student(
     # Instructor can only enroll faces of students in their own courses
     if current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository, EnrollmentRepository
-        my_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_course_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         enroll_repo = EnrollmentRepository(db)
         student_course_ids = {e.course_id for e in enroll_repo.get_by_student(data.student_id)}
-        if not my_course_ids.intersection(student_course_ids):
+        # Allow onboarding for students with no enrollments yet; otherwise enforce scope.
+        if student_course_ids and not my_course_ids.intersection(student_course_ids):
             raise HTTPException(status_code=403, detail="Bu öğrenci derslerinizden birine kayıtlı değil")
     service = FaceService(db)
     return service.enroll(data.student_id, data.image_base64, accessed_by="/api/v1/face/enroll/student", ip_address=request.client.host if request.client else None)

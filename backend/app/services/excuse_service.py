@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
+import logging
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from app.services.audit_service import log_action
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
 BUCKET_NAME = "excuse-documents"
+logger = logging.getLogger(__name__)
 
 
 async def upload_excuse_document(
@@ -46,6 +48,11 @@ async def upload_excuse_document(
             detail="Unsupported file type. Allowed: PDF, JPG, PNG.",
         )
 
+    repo = ExcuseRepository(db)
+    excuse = repo.get_by_id(excuse_id)
+    if not excuse:
+        raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
+
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Empty file upload is not allowed.")
@@ -57,6 +64,16 @@ async def upload_excuse_document(
         ext = "pdf" if file.content_type == "application/pdf" else "jpg"
 
     storage_path = f"{user_id}/{excuse_id}/{uuid4()}.{ext}"
+    upload_file_name = file.filename or f"excuse.{ext}"
+
+    # Saga step 1 — mark pending before storage I/O.
+    repo.update(
+        excuse,
+        upload_status="pending_upload",
+        upload_error=None,
+        document_mime=file.content_type,
+        document_name=upload_file_name,
+    )
 
     # ── Audit: record intent before any I/O ──────────────────────────────────
     # If the process crashes after upload but before DB commit, this log entry
@@ -73,7 +90,14 @@ async def upload_excuse_document(
 
     try:
         storage.upload(BUCKET_NAME, storage_path, file_bytes, file.content_type)
-        ExcuseRepository(db).update_storage_path(excuse_id, storage_path)
+        repo.update(
+            excuse,
+            storage_path=storage_path,
+            upload_status="uploaded",
+            upload_error=None,
+            document_mime=file.content_type,
+            document_name=upload_file_name,
+        )
         log_action(
             db,
             action="excuse_upload",
@@ -85,7 +109,11 @@ async def upload_excuse_document(
         return storage_path
 
     except StorageUploadError as exc:
-        # Upload failed — nothing was written to storage, no cleanup needed.
+        repo.update(
+            excuse,
+            upload_status="upload_failed",
+            upload_error=str(exc)[:500],
+        )
         raise HTTPException(
             status_code=500, detail=f"Excuse document upload failed: {exc}"
         ) from exc
@@ -103,6 +131,17 @@ async def upload_excuse_document(
                 resource_id=excuse_id,
                 detail={"storage_path": storage_path, "error": "cleanup_failed"},
             )
+            logger.warning(
+                "cleanup_failed for excuse upload orphan file path=%s", storage_path
+            )
+        try:
+            repo.update(
+                excuse,
+                upload_status="upload_failed",
+                upload_error=str(exc)[:500],
+            )
+        except Exception:
+            logger.warning("failed to persist upload_failed status for excuse_id=%s", excuse_id)
         raise HTTPException(
             status_code=500, detail=f"Excuse document upload failed: {exc}"
         ) from exc

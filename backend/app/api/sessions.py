@@ -21,6 +21,7 @@ router = APIRouter()
 def _session_to_response(session, qr_image: Optional[str] = None) -> dict:
     data = SessionResponse.model_validate(session).model_dump()
     data["qr_image"] = qr_image
+    data["ttl_seconds"] = settings.QR_TOKEN_TTL_SECONDS
     return data
 
 
@@ -239,7 +240,11 @@ def get_session_qr(
             raise HTTPException(status_code=403, detail="Bu oturum üzerinde yetkiniz yok")
     service = SessionService(db)
     qr_image = service.get_qr_image(session_id)
-    return {"success": True, "qr_image": qr_image}
+    return {
+        "success": True,
+        "qr_image": qr_image,
+        "ttl_seconds": settings.QR_TOKEN_TTL_SECONDS,
+    }
 
 
 @router.get("/{session_id}/public-stats")
@@ -329,8 +334,12 @@ def cancel_class(
     session_repo = SessionRepository(db)
     cancel_repo = CancellationRepository(db)
 
-    date = data.date or datetime.now().strftime("%Y-%m-%d")
+    requested_date = data.date.strip() if isinstance(data.date, str) and data.date.strip() else None
+    normalized_topic = data.topic.strip() if isinstance(data.topic, str) and data.topic.strip() else None
+    date = requested_date or datetime.now().strftime("%Y-%m-%d")
     session_id = data.session_id
+    event_start_time = data.start_time
+    event_end_time = data.end_time
 
     # Close active session if exists
     if not session_id:
@@ -339,12 +348,24 @@ def cancel_class(
             session = active[0]
             session_repo.update(session, status="cancelled")
             session_id = session.id
+            event_start_time = event_start_time or session.start_time
+            event_end_time = event_end_time or session.end_time
+            if not requested_date and session.date:
+                date = session.date
+    elif session_id:
+        linked_session = session_repo.get_by_id(session_id)
+        if linked_session:
+            event_start_time = event_start_time or linked_session.start_time
+            event_end_time = event_end_time or linked_session.end_time
+            if not requested_date and linked_session.date:
+                date = linked_session.date
 
     cancellation = cancel_repo.create(
         course_id=data.course_id,
         instructor_id=current_user.id,
         date=date,
         reason=data.reason,
+        topic=normalized_topic,
         session_id=session_id,
     )
 
@@ -359,8 +380,26 @@ def cancel_class(
         students = {u.id: u for u in user_repo.get_by_ids(student_ids)}
         push_tokens = []
         notif_title = "Ders İptal Edildi 📢"
-        notif_body = f"{course.code} dersi iptal edildi. Sebep: {data.reason}"
-        notif_data = {"type": "class_cancelled", "course_id": data.course_id, "date": date}
+        details = [f"Tarih: {date}"]
+        if event_start_time and event_end_time:
+            details.append(f"Saat: {event_start_time}-{event_end_time}")
+        if normalized_topic:
+            details.append(f"Konu: {normalized_topic}")
+        details_text = " | ".join(details)
+        notif_body = f"{course.code} dersi iptal edildi. Sebep: {data.reason}. {details_text}"
+        notif_data = {
+            "type": "class_cancelled",
+            "course_id": data.course_id,
+            "course_code": course.code,
+            "course_name": course.name,
+            "date": date,
+            "start_time": event_start_time,
+            "end_time": event_end_time,
+            "reason": data.reason,
+            "topic": normalized_topic,
+            "session_id": session_id,
+            "cancellation_id": cancellation.id,
+        }
         for e in enrollments:
             student = students.get(e.student_id)
             if not student:

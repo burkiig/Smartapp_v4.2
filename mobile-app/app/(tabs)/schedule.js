@@ -43,6 +43,13 @@ function getCourseTime(course) {
   return null;
 }
 
+function toIsoDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 
 // ── Öğretmen Ders Programı ────────────────────────────────────────────────────
 function InstructorSchedule() {
@@ -176,8 +183,17 @@ function InstructorSchedule() {
   const handleCancelClass = async () => {
     if (!cancelCourse) return;
     const activeSes = getActiveSession(cancelCourse.id);
+    const dayDelta = (selectedDay - new Date().getDay() + 7) % 7;
+    const targetDateObj = new Date();
+    targetDateObj.setDate(targetDateObj.getDate() + dayDelta);
+    const courseTime = getCourseTime(cancelCourse);
+    const [startTime, endTime] = courseTime ? courseTime.split(' – ') : [null, null];
     try {
-      await sessions.cancel(cancelCourse.id, cancelReason, activeSes?.id);
+      await sessions.cancel(cancelCourse.id, cancelReason, activeSes?.id, {
+        date: toIsoDate(targetDateObj),
+        start_time: startTime,
+        end_time: endTime,
+      });
       setCancelModal(false);
       Alert.alert(t('cancel.cancelled'), t('cancel.courseCancelled', { code: cancelCourse.code }));
       fetchData();

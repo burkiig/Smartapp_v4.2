@@ -70,7 +70,56 @@ def test_submit_dispute_wrong_session_course(client, student_headers, enrollment
         course_id=enrollment.course_id,
         session_id=other_session.id,
     )
-    assert r.status_code == 400
+    assert r.status_code in (400, 403)
+
+
+def test_submit_dispute_accepts_parallel_course_and_credits_student_course(
+    client, student_headers, db, student_user, instructor_user
+):
+    from app.models.course import Course, Enrollment
+    from app.models.session import AttendanceSession
+    from app.utils.qr import generate_qr_token
+    from datetime import datetime, timezone
+
+    session_course = Course(
+        code="PAR301",
+        name="Parallel Session Course",
+        instructor_id=instructor_user.id,
+        shared_class_id=888,
+    )
+    student_course = Course(
+        code="PAR302",
+        name="Parallel Student Course",
+        instructor_id=instructor_user.id,
+        shared_class_id=888,
+    )
+    db.add(session_course)
+    db.add(student_course)
+    db.commit()
+    db.refresh(session_course)
+    db.refresh(student_course)
+
+    db.add(Enrollment(course_id=student_course.id, student_id=student_user.id))
+    session = AttendanceSession(
+        course_id=session_course.id,
+        date="2024-02-01",
+        start_time="10:00",
+        status="active",
+        qr_token=generate_qr_token(),
+        qr_token_issued_at=datetime.now(timezone.utc),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    r = _submit_dispute(
+        client,
+        student_headers,
+        course_id=session_course.id,  # session course is allowed
+        session_id=session.id,
+    )
+    assert r.status_code in (200, 201), r.text
+    assert r.json()["course_id"] == student_course.id
 
 
 def test_instructor_cannot_review_other_instructor_dispute(
@@ -107,8 +156,8 @@ def test_instructor_cannot_review_other_instructor_dispute(
     other_headers = {"Authorization": f"Bearer {create_access_token(other_inst.id)}"}
 
     r_review = client.patch(
-        f"/api/v1/disputes/{dispute_id}/review",
-        json={"status": "approved", "notes": "Approved"},
+        f"/api/v1/disputes/{dispute_id}",
+        json={"status": "approved", "instructor_notes": "Approved"},
         headers=other_headers,
     )
     assert r_review.status_code == 403

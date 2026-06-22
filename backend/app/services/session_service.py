@@ -127,10 +127,20 @@ class SessionService:
 
         created = 0
         for student_id in absent_ids:
+            try:
+                attendance_course_id = self.enrollment_repo.resolve_attendance_course_id(
+                    student_id,
+                    session.course_id,
+                    strict_ambiguous=False,
+                )
+            except ValueError:
+                attendance_course_id = None
+            if attendance_course_id is None:
+                continue
             self.final_repo.create(
                 student_id=student_id,
                 session_id=session_id,
-                course_id=session.course_id,
+                course_id=attendance_course_id,
                 status="absent",
                 is_flagged=False,
                 flag_reason=None,

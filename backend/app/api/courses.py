@@ -1,20 +1,111 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from sqlalchemy import func
 
 from app.database.connection import get_db
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse, EnrollmentCreate, EnrollmentResponse
 from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 from app.security.dependencies import get_current_user, require_admin, require_instructor
 from app.models.user import User
+from app.models.course import Course
 
 router = APIRouter()
+
+
+def _next_shared_class_id(db: Session) -> int:
+    max_shared = (
+        db.query(func.max(Course.shared_class_id))
+        .filter(Course.shared_class_id.isnot(None))
+        .scalar()
+    )
+    return int(max_shared or 0) + 1
+
+
+def _is_english_request(request: Request) -> bool:
+    language = (request.headers.get("accept-language") or "").lower()
+    return language.startswith("en")
+
+
+def _build_delete_blocked_message(deps: dict[str, int], english: bool) -> str:
+    labels = {
+        "attendance_sessions": ("oturum", "session"),
+        "final_attendance_records": ("yoklama kaydı", "attendance record"),
+        "class_cancellations": ("ders iptali kaydı", "class cancellation"),
+        "disputes": ("itiraz", "dispute"),
+        "excuses": ("mazeret", "excuse"),
+    }
+    active = [(labels[key], count) for key, count in deps.items() if count > 0]
+    summary = ", ".join(
+        f"{count} {label[1] if english else label[0]}" for label, count in active
+    )
+    if english:
+        return (
+            "This course cannot be deleted because it has related data: "
+            f"{summary}. Archive (soft delete) or clean related data first."
+        )
+    return (
+        "Bu ders silinemiyor çünkü bağlı veriler var: "
+        f"{summary}. Önce arşivleyin (soft delete) veya bağlı verileri temizleyin."
+    )
+
+
+class ParallelLinkRequest(BaseModel):
+    course_id: int
+    with_course_id: int
+
+
+@router.post("/parallel/link")
+def link_parallel_courses(
+    data: ParallelLinkRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Link two courses into the same parallel group without manual ID entry.
+    If both courses already belong to different groups, groups are merged.
+    """
+    if data.course_id == data.with_course_id:
+        raise HTTPException(status_code=400, detail="Aynı ders kendiyle paralel bağlanamaz")
+
+    repo = CourseRepository(db)
+    course_a = repo.get_by_id(data.course_id)
+    course_b = repo.get_by_id(data.with_course_id)
+    if not course_a or not course_b:
+        raise HTTPException(status_code=404, detail="Ders bulunamadı")
+
+    target_group_id = course_a.shared_class_id or course_b.shared_class_id or _next_shared_class_id(db)
+    old_group_ids = {
+        gid for gid in [course_a.shared_class_id, course_b.shared_class_id]
+        if gid is not None and gid != target_group_id
+    }
+
+    # Merge existing parallel groups into one target group.
+    if old_group_ids:
+        db.query(Course).filter(Course.shared_class_id.in_(old_group_ids)).update(
+            {Course.shared_class_id: target_group_id},
+            synchronize_session=False,
+        )
+
+    course_a.shared_class_id = target_group_id
+    course_b.shared_class_id = target_group_id
+    db.commit()
+    db.refresh(course_a)
+    db.refresh(course_b)
+
+    return {
+        "success": True,
+        "shared_class_id": target_group_id,
+        "course_ids": sorted({course_a.id, course_b.id}),
+        "message": "Dersler paralel gruba bağlandı",
+    }
 
 
 @router.get("/", response_model=List[CourseResponse])
 def get_courses(
     instructor_id: Optional[int] = None,
+    department: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -24,13 +115,22 @@ def get_courses(
     # Instructor only sees their own courses
     if current_user.role == "instructor":
         instructor_id = current_user.id
-    # Student only sees enrolled courses
+    # Student sees enrolled courses + same parallel group courses
     if current_user.role == "student":
         enrollments = enroll_repo.get_by_student(current_user.id)
-        course_ids = [e.course_id for e in enrollments]
-        courses = [c for cid in course_ids if (c := repo.get_by_id(cid)) is not None]
+        courses_by_id: dict[int, Course] = {}
+        for enrollment in enrollments:
+            course = repo.get_by_id(enrollment.course_id)
+            if course is None:
+                continue
+            courses_by_id[course.id] = course
+            if course.shared_class_id is None:
+                continue
+            for parallel_course in repo.get_parallel_courses(course.shared_class_id):
+                courses_by_id[parallel_course.id] = parallel_course
+        courses = list(courses_by_id.values())
     else:
-        courses = repo.get_all(instructor_id=instructor_id)
+        courses = repo.get_all(instructor_id=instructor_id, department=department)
 
     result = []
     for c in courses:
@@ -63,6 +163,7 @@ def create_course(
     return repo.create(
         code=data.code,
         name=data.name,
+        department=data.department.strip() if data.department else None,
         instructor_id=assigned_instructor_id,
         schedule=data.schedule,
         default_duration_minutes=data.default_duration_minutes,
@@ -101,7 +202,10 @@ def update_course(
         raise HTTPException(status_code=404, detail="Ders bulunamadı")
     if current_user.role != "admin" and not repo.is_instructor_of_course(current_user.id, course_id):
         raise HTTPException(status_code=403, detail="Bu dersi güncelleme yetkiniz yok")
-    return repo.update(course, **data.model_dump(exclude_none=True))
+    payload = data.model_dump(exclude_none=True)
+    if "department" in payload:
+        payload["department"] = payload["department"].strip() or None
+    return repo.update(course, **payload)
 
 
 @router.get("/{course_id}/parallel", response_model=List[CourseResponse])
@@ -132,6 +236,7 @@ def get_parallel_courses(
 @router.delete("/{course_id}")
 def delete_course(
     course_id: int,
+    request: Request,
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -139,8 +244,47 @@ def delete_course(
     course = repo.get_by_id(course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Ders bulunamadı")
+    deps = repo.get_delete_dependency_counts(course_id)
+    has_dependencies = any(count > 0 for count in deps.values())
+    if has_dependencies:
+        english = _is_english_request(request)
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_delete_blocked",
+                "message": _build_delete_blocked_message(deps, english=english),
+                "dependencies": deps,
+            },
+        )
     repo.delete(course)
     return {"success": True, "message": "Ders silindi"}
+
+
+@router.get("/{course_id}/delete-impact")
+def get_course_delete_impact(
+    course_id: int,
+    request: Request,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    repo = CourseRepository(db)
+    course = repo.get_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Ders bulunamadı")
+    deps = repo.get_delete_dependency_counts(course_id)
+    can_delete = not any(count > 0 for count in deps.values())
+    english = _is_english_request(request)
+    return {
+        "can_delete": can_delete,
+        "dependencies": deps,
+        "message": (
+            "Course can be deleted safely."
+            if can_delete and english
+            else "Ders güvenle silinebilir."
+            if can_delete
+            else _build_delete_blocked_message(deps, english=english)
+        ),
+    }
 
 
 # ── Enrollment endpoints ──────────────────────────────────────────────────────
@@ -196,15 +340,28 @@ def get_course_students(
     if current_user.role not in ("admin", "instructor"):
         raise HTTPException(status_code=403, detail="Yetki gerekli")
     course_repo = CourseRepository(db)
-    if not course_repo.get_by_id(course_id):
+    course = course_repo.get_by_id(course_id)
+    if not course:
         raise HTTPException(status_code=404, detail="Ders bulunamadı")
-    if current_user.role == "instructor" and not course_repo.is_instructor_of_course(current_user.id, course_id):
-        raise HTTPException(status_code=403, detail="Bu dersin öğrenci listesine erişim yetkiniz yok")
+    if current_user.role == "instructor":
+        allowed_ids = course_repo.get_instructor_course_ids_with_parallel(current_user.id)
+        if course_id not in allowed_ids:
+            raise HTTPException(status_code=403, detail="Bu dersin öğrenci listesine erişim yetkiniz yok")
+
+    target_course_ids = {course_id}
+    if course.shared_class_id is not None:
+        target_course_ids.update(
+            c.id for c in course_repo.get_parallel_courses(course.shared_class_id)
+        )
+
     enroll_repo = EnrollmentRepository(db)
-    enrollments = enroll_repo.get_by_course(course_id)
+    enrollments = [
+        e for cid in target_course_ids for e in enroll_repo.get_by_course(cid)
+    ]
     from app.repositories.user_repo import UserRepository
     user_repo = UserRepository(db)
-    students = [user_repo.get_by_id(e.student_id) for e in enrollments]
+    student_ids = sorted({e.student_id for e in enrollments})
+    students = [user_repo.get_by_id(student_id) for student_id in student_ids]
     from app.schemas.user import UserResponse
     return [UserResponse.model_validate(s) for s in students if s]
 

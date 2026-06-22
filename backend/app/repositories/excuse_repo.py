@@ -33,7 +33,9 @@ class ExcuseRepository:
 
     def create(self, student_id: int, course_id: int, session_date: str,
                excuse_type: str = "other", description: Optional[str] = None,
-               storage_path: Optional[str] = None, session_id: Optional[int] = None) -> Excuse:
+               storage_path: Optional[str] = None, session_id: Optional[int] = None,
+               upload_status: str = "none", upload_error: Optional[str] = None,
+               document_mime: Optional[str] = None, document_name: Optional[str] = None) -> Excuse:
         excuse = Excuse(
             student_id=student_id,
             course_id=course_id,
@@ -42,6 +44,10 @@ class ExcuseRepository:
             excuse_type=excuse_type,
             description=description,
             storage_path=storage_path,
+            upload_status=upload_status,
+            upload_error=upload_error,
+            document_mime=document_mime,
+            document_name=document_name,
         )
         self.db.add(excuse)
         self.db.commit()

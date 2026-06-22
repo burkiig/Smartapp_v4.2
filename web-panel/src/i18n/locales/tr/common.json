@@ -109,6 +109,7 @@
       "dashboard": "Ana Sayfa",
       "schedule": "Ders Programı",
       "attendance": "Yoklama Geçmişi",
+      "excuses": "Mazeretlerim",
       "take": "Yoklama Al",
       "takeAttendance": "Yoklama Al",
       "disputes": "İtirazlarım"
@@ -153,7 +154,25 @@
     "attendancePct": "Devam (%)",
     "studentNumber": "Öğrenci #{{id}}",
     "courseNumber": "Ders #{{id}}",
-    "suspiciousRecord": "Şüpheli kayıt"
+    "suspiciousRecord": "Şüpheli kayıt",
+    "cancelClassPlanning": "Ders İptal Planlama",
+    "scopeToday": "Bugün",
+    "scopeUpcoming": "Gelecek Dersler",
+    "noTodayCourses": "Bugün planlı ders yok.",
+    "noUpcomingCourses": "Yaklaşan ders bulunamadı.",
+    "cancelClass": "Dersi İptal Et",
+    "cancelClassTitle": "Dersi İptal Et",
+    "cancelReason": "İptal nedeni",
+    "cancelTopic": "Konu (opsiyonel)",
+    "cancelTopicPlaceholder": "Örn: Vize haftası / Telafi dersi",
+    "cancelClassConfirm": "İptal Et",
+    "cancelClassDefaultReason": "Ders iptal edildi",
+    "cancelReasons": {
+      "teacherUnavailable": "Öğretmen müsait değil",
+      "holiday": "Tatil",
+      "campusClosed": "Kampüs kapalı",
+      "other": "Diğer"
+    }
   },
   "admin": {
     "overview": {
@@ -387,7 +406,21 @@
     "confirmDeleteUser": "Bu kullanıcıyı silmek istediğinizden emin misiniz?",
     "confirmDeleteCourse": "Bu dersi silmek istediğinizden emin misiniz?",
     "confirmDeleteRoom": "Bu fakülteyi silmek istediğinizden emin misiniz?",
-    "errorDelete": "Silinemedi"
+    "errorDelete": "Silinemedi",
+    "deleteCourse": {
+      "impactLoadError": "Silme öncesi bağlı veriler kontrol edilemedi.",
+      "confirmNoData": "{{code}} dersi silinecek. Bu işlem geri alınamaz. Devam edilsin mi?",
+      "confirmWithData": "{{code}} dersi bağlı veriler içeriyor. Silmeye çalışmadan önce etki özeti:",
+      "confirmQuestion": "Yine de silmeyi denemek istediğinize emin misiniz?",
+      "blockedError": "Bu ders şu an silinemiyor. Önce bağlı verileri temizleyin veya dersi arşivleyin.",
+      "dependencyLabels": {
+        "attendance_sessions": "Oturumlar",
+        "final_attendance_records": "Yoklama kayıtları",
+        "class_cancellations": "Ders iptal kayıtları",
+        "disputes": "İtirazlar",
+        "excuses": "Mazeretler"
+      }
+    }
   },
   "classroom": {
     "title": "Sunum ve notlar",
@@ -593,6 +626,15 @@
     "schedule": {
       "title": "Ders Programı",
       "noSchedule": "Ders programı henüz tanımlanmamış",
+      "cancelNoticeTitle": "İptal bildirimi",
+      "cancelNoticeTopic": "Konu",
+      "cancelNoticeReason": "Sebep",
+      "courseDetailTitle": "Ders Detayı",
+      "courseCode": "Ders Kodu",
+      "courseName": "Ders Adı",
+      "daysLabel": "Günler",
+      "timeLabel": "Saat",
+      "instructor": "Öğretmen",
       "daysShort": {
         "Monday": "Pzt",
         "Tuesday": "Sal",
@@ -653,7 +695,10 @@
       "gpsVerifiedBody": "Konumunuz sınıf alanıyla eşleşti; güvenli bölgede olduğunuz kaydedildi.",
       "gpsDistanceHint": "Ders konumuna yaklaşık {{m}} m mesafedesiniz.",
       "gpsAccuracyHint": "GPS doğruluğu yaklaşık ±{{m}} m.",
-      "gpsSkippedHint": "Bu oturumda sınıf GPS’i tanımlı olmadığı için konum mesafesi kontrol edilmedi."
+      "locationRetryHint": "Konum doğrulaması başarısız. Sınıfa yaklaşın ve tekrar deneyin ({{current}}/{{total}}).",
+      "gpsSkippedHint": "Bu oturumda sınıf GPS’i tanımlı olmadığı için konum mesafesi kontrol edilmedi.",
+      "alreadyTaken": "Bu oturum için yoklaman zaten alınmış.",
+      "taken": "Alındı"
     },
     "attendance": {
       "flaggedLoadError": "Bayraklı kayıtlar yüklenemedi",
@@ -680,6 +725,27 @@
         "absent": "Katılmadı",
         "excused": "Mazeretli",
         "pending_review": "İncelemede"
+      }
+    },
+    "excusesHistory": {
+      "title": "Mazeret Geçmişim",
+      "empty": "Henüz mazeret kaydı yok.",
+      "openDocument": "Belgeyi Aç",
+      "openingDocument": "Açılıyor...",
+      "documentOpenFailed": "Belge açılamadı.",
+      "headers": {
+        "course": "Ders",
+        "sessionDate": "Ders Tarihi",
+        "type": "Tür",
+        "document": "Belge",
+        "status": "Durum",
+        "note": "Not",
+        "created": "Talep Tarihi"
+      },
+      "documentStates": {
+        "none": "Belge yok",
+        "pending": "Yükleniyor",
+        "failed": "Yükleme hatası"
       }
     },
     "disputes": {
@@ -731,6 +797,44 @@
     "label": "Dil",
     "tr": "Türkçe",
     "en": "English"
+  },
+  "notificationBell": {
+    "title": "Bildirimler",
+    "empty": "Yeni bildirim yok",
+    "newNotificationTitle": "{{count}} yeni bildirim",
+    "newNotificationBody": "Bildirimlerinizi görmek için zile tıklayın.",
+    "defaultTitle": "Bildirim",
+    "defaultBody": "Yeni bir bildiriminiz var.",
+    "types": {
+      "session_started": {
+        "title": "📋 Yoklama Başladı",
+        "body": "{{course}} dersi için yoklama açıldı."
+      },
+      "class_cancelled": {
+        "title": "Ders İptal Edildi",
+        "body": "{{course}} dersi iptal edildi."
+      },
+      "flagged_attendance": {
+        "title": "⚠️ Şüpheli Yoklama",
+        "body": "Öğrenci {{student}} için şüpheli kayıt (oturum {{session}})."
+      },
+      "dispute_submitted": {
+        "title": "Yeni İtiraz",
+        "body": "{{course}} dersi için yeni itiraz gönderildi."
+      },
+      "dispute_approved": {
+        "title": "İtiraz Onaylandı",
+        "body": "{{course}} dersi itirazı onaylandı."
+      },
+      "dispute_rejected": {
+        "title": "İtiraz Sonuçlandı",
+        "body": "{{course}} dersi itirazı reddedildi."
+      },
+      "system": {
+        "title": "Sistem Bildirimi",
+        "body": "Sistem tarafından yeni bir duyuru gönderildi."
+      }
+    }
   },
   "settings": {
     "title": "Ayarlar",
@@ -982,23 +1086,23 @@
   },
   "excuses": {
     "title": "Mazeret Yönetimi",
-    "subtitle": "Öğrenci mazeretlerini onaylayın veya reddedin",
+    "subtitle": "Öğrenci mazeretlerini mazeretli veya katılmadı olarak işaretleyin",
     "notFound": "Mazeret bulunamadı",
     "allCourses": "Tüm Dersler",
     "allStatuses": "Tüm Durumlar",
     "selectAll": "Tümünü Seç",
     "deselectAll": "Tümünü Kaldır",
     "selectedCount": "{{count}} seçili",
-    "bulkApprove": "Toplu Onayla",
-    "bulkReject": "Toplu Reddet",
+    "bulkApprove": "Toplu Mazeretli İşaretle",
+    "bulkReject": "Toplu Katılmadı İşaretle",
     "bulkApproveMsg": "{{count}} mazeret onaylandı.",
     "bulkRejectMsg": "{{count}} mazeret reddedildi.",
     "bulkSkipped": " {{count}} atlandı.",
     "hasDocument": "Belge Var",
     "viewDocument": "Belgeyi görüntüle",
     "detail": "Detay",
-    "approve": "Onayla",
-    "reject": "Reddet",
+    "approve": "Mazeretli",
+    "reject": "Katılmadı",
     "selectFirst": "Önce mazeret seçin",
     "actionError": "İşlem başarısız",
     "tableHeaders": {
@@ -1013,8 +1117,8 @@
     },
     "statuses": {
       "pending": "Bekliyor",
-      "approved": "Onaylandı",
-      "rejected": "Reddedildi"
+      "approved": "Mazeretli",
+      "rejected": "Katılmadı"
     },
     "types": {
       "medical": "Sağlık",
@@ -1035,7 +1139,32 @@
       "status": "Durum",
       "flagReason": "İşaretlenme Sebebi",
       "method": "Doğrulama Yöntemi",
-      "location": "Konum"
+      "location": "Konum",
+      "methodParts": {
+        "gps": "GPS",
+        "face": "Yüz",
+        "qr": "QR"
+      },
+      "locationStates": {
+        "fakeGps": "Sahte GPS",
+        "suspiciousGps": "Şüpheli GPS hassasiyeti",
+        "notAvailable": "Konum yok"
+      },
+      "reasonCodes": {
+        "duplicate_attendance": "Çift yoklama girişimi",
+        "location_bypassed": "GPS doğrulaması atlandı",
+        "location_skipped": "GPS koordinatı tanımlı değil",
+        "face_simulated": "Yüz tanıma simüle edildi",
+        "location_and_face_bypass": "GPS ve yüz tanıma ikisi de atlandı",
+        "manual_no_face": "Manuel yoklama (yüzsüz)",
+        "manual_no_face_ref": "Yüz referansı bulunamadı",
+        "face_not_enrolled": "Yüz kaydı yok",
+        "face_failed": "Yüz doğrulaması başarısız",
+        "fake_gps_detected": "Sahte GPS tespit edildi",
+        "suspicious_accuracy": "Şüpheli GPS hassasiyeti",
+        "low_accuracy": "GPS doğruluğu düşük",
+        "location_failed": "Konum doğrulaması başarısız"
+      }
     },
     "pendingReview": "Bekleyen İnceleme",
     "triageBanner": "Bildirimden geldiniz: Oturum {{sessionId}} — Şüpheli kayıtlar inceleniyor",
@@ -1133,6 +1262,10 @@
     "cancel": "İptal",
     "confirmReject": "Reddi Onayla",
     "viewDoc": "🔍 Görüntüle",
+    "downloadDocument": "Belgeyi indir",
+    "docPendingUpload": "Belge yükleniyor, lütfen biraz sonra tekrar deneyin.",
+    "docUploadFailed": "Belge yüklenememiş. Öğrenci tekrar yükleme yapmalıdır.",
+    "docNotUploaded": "Bu mazeret için belge yüklenmemiş.",
     "download": "⬇ İndir",
     "approved": "✓ Onaylandı",
     "rejected": "✗ Reddedildi",

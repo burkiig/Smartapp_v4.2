@@ -14,6 +14,9 @@ const EXCUSE_TYPE_LABELS = {
 };
 
 function normalizeExcuse(e) {
+  const hasUploadedDocument =
+    !!e.storage_path && (e.upload_status || 'uploaded') === 'uploaded';
+
   return {
     id: e.id,
     student_id: e.student_id,
@@ -30,11 +33,15 @@ function normalizeExcuse(e) {
     excuseTypeLabel: EXCUSE_TYPE_LABELS[e.excuse_type] || e.excuse_type || 'Diğer',
     excuseDescription: e.description || '',
     description: e.description || '',
+    uploadStatus: e.upload_status || 'none',
+    uploadError: e.upload_error || null,
+    documentMime: e.document_mime || null,
+    documentName: e.document_name || null,
     // storage_path is a private storage key; the actual download URL is obtained
     // on demand via GET /excuses/{id}/document (returns a time-limited signed URL).
-    hasDocument: !!e.storage_path,
-    documents: e.storage_path
-      ? [{ name: 'Belge', excuseId: e.id, storagePath: e.storage_path }]
+    hasDocument: hasUploadedDocument,
+    documents: hasUploadedDocument
+      ? [{ name: e.document_name || 'Belge', excuseId: e.id, storagePath: e.storage_path }]
       : [],
     submittedAt: e.created_at
       ? new Date(e.created_at).toLocaleString('tr-TR')

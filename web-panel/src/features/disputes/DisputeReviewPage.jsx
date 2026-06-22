@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdCheckCircle, MdCancel, MdRefresh } from 'react-icons/md';
+import { MdCheckCircle, MdCancel, MdRefresh, MdUndo } from 'react-icons/md';
 import apiClient from '../../shared/services/apiClient';
 import './DisputeReviewPage.css';
 
@@ -25,13 +25,18 @@ export const DisputeReviewPage = () => {
 
   useEffect(() => { loadDisputes(); }, [loadDisputes]);
 
-  const review = async (id, status) => {
+  const review = async (id, status, noteOverride) => {
     try {
       await apiClient.patch(`/disputes/${id}`, {
         status,
-        instructor_notes: notes[id] || null,
+        instructor_notes: noteOverride ?? notes[id] ?? null,
       });
-      setMessage(t(status === 'approved' ? 'disputes.approved' : 'disputes.rejected'));
+      const statusMessageKey = status === 'approved'
+        ? 'disputes.approved'
+        : status === 'rejected'
+          ? 'disputes.rejected'
+          : 'common.saved';
+      setMessage(t(statusMessageKey));
       loadDisputes();
     } catch (err) {
       setMessage(err.message || t('common.actionFailed'));
@@ -109,6 +114,7 @@ export const DisputeReviewPage = () => {
                     <th>{t('disputes.status')}</th>
                     <th>{t('disputes.note')}</th>
                     <th>{t('disputes.date')}</th>
+                    <th>{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -118,8 +124,44 @@ export const DisputeReviewPage = () => {
                       <td>{d.course_code || `#${d.course_id}`}</td>
                       <td>#{d.session_id}</td>
                       <td><span className={`dr-badge ${STATUS_CLS[d.status] || ''}`}>{t(`disputes.statusLabels.${d.status}`, d.status)}</span></td>
-                      <td>{d.instructor_notes || '—'}</td>
+                      <td>
+                        <textarea
+                          className="dispute-notes dispute-notes-compact"
+                          placeholder={t('disputes.instructorNotePlaceholder')}
+                          rows={2}
+                          value={notes[d.id] ?? d.instructor_notes ?? ''}
+                          onChange={e => setNotes(n => ({ ...n, [d.id]: e.target.value }))}
+                        />
+                      </td>
                       <td>{d.created_at ? new Date(d.created_at).toLocaleDateString('tr-TR') : '—'}</td>
+                      <td>
+                        <div className="dispute-btns">
+                          <button
+                            className="dr-btn approve"
+                            onClick={() => review(d.id, 'approved', notes[d.id] ?? d.instructor_notes ?? null)}
+                            disabled={d.status === 'approved'}
+                            title={t('common.approve')}
+                          >
+                            <MdCheckCircle size={15} style={{ marginRight: 4 }} />{t('common.approve')}
+                          </button>
+                          <button
+                            className="dr-btn reject"
+                            onClick={() => review(d.id, 'rejected', notes[d.id] ?? d.instructor_notes ?? null)}
+                            disabled={d.status === 'rejected'}
+                            title={t('common.reject')}
+                          >
+                            <MdCancel size={15} style={{ marginRight: 4 }} />{t('common.reject')}
+                          </button>
+                          <button
+                            className="dr-btn undo"
+                            onClick={() => review(d.id, 'pending', notes[d.id] ?? d.instructor_notes ?? null)}
+                            disabled={d.status === 'pending'}
+                            title={t('common.undo')}
+                          >
+                            <MdUndo size={15} style={{ marginRight: 4 }} />{t('common.undo')}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

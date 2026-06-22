@@ -27,7 +27,9 @@ def get_excuses(
         return repo.get_all(course_id=course_id)
     from app.repositories.course_repo import CourseRepository
     course_repo = CourseRepository(db)
-    my_course_ids = [c.id for c in course_repo.get_by_instructor(current_user.id)]
+    my_course_ids = list(
+        course_repo.get_instructor_course_ids_with_parallel(current_user.id)
+    )
     if course_id and course_id not in my_course_ids:
         raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
     return repo.get_all(course_id=course_id, course_ids=my_course_ids if not course_id else None)
@@ -39,8 +41,40 @@ def submit_excuse(
     current_user: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
+    from app.repositories.course_repo import CourseRepository, EnrollmentRepository
+    from app.models.session import AttendanceSession
+
+    course_repo = CourseRepository(db)
+    enroll_repo = EnrollmentRepository(db)
+    resolved_course_id = data.course_id
+
     # Öğrenci bu oturum için zaten yoklama atmışsa mazeret kabul etme
     if data.session_id is not None:
+        session_obj = db.query(AttendanceSession).filter(
+            AttendanceSession.id == data.session_id
+        ).first()
+        if not session_obj:
+            raise HTTPException(status_code=404, detail="Oturum bulunamadı")
+        if not course_repo.is_same_or_parallel_course(session_obj.course_id, data.course_id):
+            raise HTTPException(status_code=400, detail="Oturum bu ders/paralel grup ile eşleşmiyor")
+        try:
+            resolved = enroll_repo.resolve_attendance_course_id(
+                current_user.id,
+                session_obj.course_id,
+                strict_ambiguous=True,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Aynı paralel grupta birden fazla ders kaydı tespit edildi. "
+                    "Lütfen öğrenci ders atamalarını kontrol edin."
+                ),
+            ) from exc
+        if resolved is None:
+            raise HTTPException(status_code=403, detail="Bu oturum için mazeret gönderemezsiniz")
+        resolved_course_id = resolved
+
         existing_attendance = db.query(FinalAttendanceRecord).filter(
             FinalAttendanceRecord.student_id == current_user.id,
             FinalAttendanceRecord.session_id == data.session_id,
@@ -51,11 +85,14 @@ def submit_excuse(
                 status_code=409,
                 detail="Bu oturum için zaten yoklama kaydınız mevcut, mazeret eklenemez",
             )
+    else:
+        if not enroll_repo.student_can_attend_course(current_user.id, data.course_id):
+            raise HTTPException(status_code=403, detail="Bu ders için mazeret gönderemezsiniz")
 
     repo = ExcuseRepository(db)
     return repo.create(
         student_id=current_user.id,
-        course_id=data.course_id,
+        course_id=resolved_course_id,
         session_id=data.session_id,
         session_date=data.session_date,
         excuse_type=data.excuse_type,
@@ -95,7 +132,9 @@ def get_excuse(
         raise HTTPException(status_code=403, detail="Yetki gerekli")
     if current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository
-        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         if excuse.course_id not in my_ids:
             raise HTTPException(status_code=403, detail="Bu mazerete erişim yetkiniz yok")
     return excuse
@@ -105,10 +144,10 @@ def _sync_attendance_for_excuse(db: Session, excuse, new_status: str) -> None:
     """Mazeret kararını ilgili FinalAttendanceRecord'a yansıt.
 
     approved  → attendance status = 'excused'
-    rejected  → attendance status = 'absent'   (zaten yoksa dokunma)
-    pending   → hiç değiştirme
+    rejected  → attendance status = 'absent'
+    pending   → attendance status = 'pending_review'
     """
-    if new_status not in ("approved", "rejected"):
+    if new_status not in ("approved", "rejected", "pending"):
         return
     if not excuse.session_id:
         return
@@ -117,7 +156,18 @@ def _sync_attendance_for_excuse(db: Session, excuse, new_status: str) -> None:
         FinalAttendanceRecord.session_id == excuse.session_id,
     ).first()
     if record:
-        record.status = "excused" if new_status == "approved" else "absent"
+        if new_status == "approved":
+            record.status = "excused"
+            record.is_flagged = False
+            record.flag_reason = "Mazeret onaylandı"
+        elif new_status == "rejected":
+            record.status = "absent"
+            record.is_flagged = False
+            record.flag_reason = "Mazeret reddedildi"
+        else:
+            record.status = "pending_review"
+            record.is_flagged = True
+            record.flag_reason = "Mazeret incelemede"
         db.commit()
 
 
@@ -136,7 +186,9 @@ def review_excuse(
         raise HTTPException(status_code=404, detail="Mazeret bulunamadı")
     if current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository
-        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         if excuse.course_id not in my_ids:
             raise HTTPException(status_code=403, detail="Bu mazereti inceleme yetkiniz yok")
     updated = repo.update(excuse, **data.model_dump(exclude_none=True))
@@ -159,9 +211,16 @@ def get_excuse_document(
         raise HTTPException(status_code=403, detail="Bu belgeye erişim yetkiniz yok")
     if current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository
-        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         if excuse.course_id not in my_ids:
             raise HTTPException(status_code=403, detail="Bu belgeye erişim yetkiniz yok")
+    if excuse.upload_status != "uploaded":
+        raise HTTPException(
+            status_code=409,
+            detail="Belge henüz hazır değil. Yükleme başarısız olduysa tekrar deneyin.",
+        )
     if not excuse.storage_path:
         raise HTTPException(status_code=404, detail="Bu mazeret icin belge yuklenmemis")
     signed_url = get_excuse_signed_url(
@@ -201,7 +260,9 @@ def bulk_review_excuses(
     allowed_course_ids = None
     if current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository
-        allowed_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        allowed_course_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
 
     try:
         for excuse_id in data.ids:

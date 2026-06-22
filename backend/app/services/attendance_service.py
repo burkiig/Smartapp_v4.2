@@ -19,7 +19,12 @@ from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 from app.repositories.session_repo import SessionRepository
 from app.services.audit_service import log_action
 from app.services.face_service import FaceService
-from app.utils.gps_retry import increment_fake_gps_counter, reset_fake_gps_counter
+from app.utils.gps_retry import (
+    increment_fake_gps_counter,
+    increment_location_retry_counter,
+    reset_fake_gps_counter,
+    reset_location_retry_counter,
+)
 from app.utils.location import check_gps_plausibility, verify_location
 from app.utils.push import send_expo_push
 
@@ -32,6 +37,151 @@ class AttendancePipelineService:
         self.attempt_repo = AttendanceAttemptRepository(db)
         self.final_repo = FinalAttendanceRepository(db)
         self.face_service = FaceService(db)
+        self._default_location_retry_max_attempts = 2
+
+    def _build_flag_reasons(
+        self,
+        *,
+        face_ok: bool,
+        face_reason: Optional[str],
+        location_ok: bool,
+        location_skipped: bool,
+        distance_m: Optional[float],
+        accuracy: Optional[float],
+        is_mocked: Optional[bool],
+        include_face_simulated: bool = False,
+    ) -> tuple[list[str], list[str]]:
+        """
+        Build normalized risk reasons used by both mobile and web attendance flows.
+        """
+        gps_issues = check_gps_plausibility(accuracy, is_mocked)
+        fake_gps_detected = bool(is_mocked)
+        suspicious_accuracy = "suspicious_accuracy" in gps_issues
+        low_accuracy = (
+            accuracy is not None and 30 < accuracy <= settings.GPS_ACCURACY_THRESHOLD
+        )
+
+        reasons: list[str] = []
+        if not face_ok:
+            reasons.append(face_reason or "face_failed")
+
+        if not location_ok and not location_skipped:
+            reasons.append("location_failed")
+
+        if fake_gps_detected:
+            reasons.append("fake_gps_detected")
+        elif suspicious_accuracy:
+            reasons.append("suspicious_accuracy")
+        elif low_accuracy:
+            reasons.append("low_accuracy")
+
+        if include_face_simulated:
+            reasons.append("face_simulated")
+
+        if location_skipped:
+            reasons.append("location_skipped")
+
+        return reasons, gps_issues
+
+    def _enforce_fake_gps_retry_threshold(
+        self,
+        *,
+        student_id: int,
+        session_id: int,
+        attempt: AttendanceAttempt,
+        is_mocked: Optional[bool],
+    ) -> None:
+        """
+        Enforce fake GPS retry policy before creating a final flagged record.
+        """
+        if not bool(is_mocked):
+            return
+
+        max_attempts = 3
+        try:
+            from app.api.admin_settings import get_setting_value
+            val = get_setting_value(self.db, "fake_gps_max_attempts")
+            if val:
+                max_attempts = int(val)
+        except Exception:
+            pass
+
+        attempt_count = increment_fake_gps_counter(student_id, session_id)
+        if attempt_count < max_attempts:
+            # Keep step open so student can retry after disabling mock location.
+            self.attempt_repo.update(attempt, location_status="pending")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Konum doğrulaması için lütfen cihazınızın gerçek konumunu kullanın. "
+                    "Konum simülasyonu ve VPN/proxy kapalı olmalıdır. "
+                    f"({attempt_count}/{max_attempts})"
+                ),
+            )
+
+    def _location_retry_limit(self) -> int:
+        max_attempts = self._default_location_retry_max_attempts
+        try:
+            from app.api.admin_settings import get_setting_value
+            val = get_setting_value(
+                self.db, "location_verify_max_attempts", str(max_attempts)
+            )
+            if val:
+                max_attempts = int(val)
+        except Exception:
+            pass
+        return max(1, max_attempts)
+
+    def _enforce_location_retry_threshold(
+        self,
+        *,
+        student_id: int,
+        session_id: int,
+        distance_m: Optional[float],
+        allowed_radius_m: Optional[float],
+    ) -> None:
+        """
+        Allow a limited retry budget for geofence mismatches before finalizing flagged.
+        """
+        max_attempts = self._location_retry_limit()
+        attempt_count = increment_location_retry_counter(student_id, session_id)
+        if attempt_count < max_attempts:
+            distance_text = (
+                f"{distance_m:.0f}m" if distance_m is not None and distance_m >= 0 else "belirsiz"
+            )
+            radius_text = (
+                f"{allowed_radius_m:.0f}m" if allowed_radius_m is not None else "belirsiz"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Konum doğrulaması başarısız. Sınıfa yaklaşın ve tekrar deneyin. "
+                    f"Mevcut mesafe: {distance_text} (izin verilen: {radius_text}). "
+                    f"({attempt_count}/{max_attempts})"
+                ),
+            )
+
+    def _resolve_attendance_course_id(self, student_id: int, session_course_id: int) -> int:
+        """
+        Resolve the credited course for attendance in parallel-class scenarios.
+        """
+        try:
+            resolved = self.enrollment_repo.resolve_attendance_course_id(
+                student_id,
+                session_course_id,
+                strict_ambiguous=True,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Aynı paralel grupta birden fazla ders kaydı tespit edildi. "
+                    "Lütfen yöneticinizle iletişime geçin."
+                ),
+            ) from exc
+        if resolved is None:
+            raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
+        return resolved
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 1 — QR Scan
@@ -170,6 +320,7 @@ class AttendancePipelineService:
         inside = True
         distance_m = None
         location_skipped = False
+        effective_radius: Optional[float] = None
 
         if session.latitude is not None and session.longitude is not None:
             if accuracy is not None and accuracy > settings.GPS_ACCURACY_THRESHOLD:
@@ -201,66 +352,34 @@ class AttendancePipelineService:
             location_distance_m=distance_m,
         )
 
-        if not inside and not location_skipped:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Konum doğrulaması başarısız. Mesafe: {distance_m:.0f}m (izin verilen: {effective_radius}m)",
+        self._enforce_fake_gps_retry_threshold(
+            student_id=student.id,
+            session_id=session_id,
+            attempt=attempt,
+            is_mocked=is_mocked,
+        )
+
+        # Geofence mismatch: give student limited retries before final flagged review.
+        if not inside and not location_skipped and not bool(is_mocked):
+            self._enforce_location_retry_threshold(
+                student_id=student.id,
+                session_id=session_id,
+                distance_m=distance_m,
+                allowed_radius_m=effective_radius,
             )
 
-        # ── GPS plausibility checks ───────────────────────────────────────────
-        # Öncelik sırası: fake_gps > suspicious_accuracy > low_accuracy > location_skipped
-        gps_issues = check_gps_plausibility(accuracy, is_mocked)
-
-        low_accuracy = (
-            accuracy is not None and 30 < accuracy <= settings.GPS_ACCURACY_THRESHOLD
+        reasons, gps_issues = self._build_flag_reasons(
+            face_ok=True,
+            face_reason=None,
+            location_ok=inside,
+            location_skipped=location_skipped,
+            distance_m=distance_m,
+            accuracy=accuracy,
+            is_mocked=is_mocked,
+            include_face_simulated=not self.face_service.engine.is_available,
         )
-        # fake_gps: yalnızca cihazın is_mocked bildirimi (accuracy eşik aşımı zaten 400 ile reddedildi)
-        fake_gps_detected = bool(is_mocked)
-        suspicious_accuracy = "suspicious_accuracy" in gps_issues
-
-        flag_reason = None
-        is_flagged = False
-
-        if fake_gps_detected:
-            # ── Retry counter: eşiğe ulaşmadan kayıt oluşturma ──────────────
-            max_attempts = 3
-            try:
-                from app.api.admin_settings import get_setting_value
-                val = get_setting_value(self.db, "fake_gps_max_attempts")
-                if val:
-                    max_attempts = int(val)
-            except Exception:
-                pass
-
-            attempt_count = increment_fake_gps_counter(student.id, session_id)
-
-            if attempt_count < max_attempts:
-                # Henüz eşiğe ulaşmadı — location_status'u pending'e çek
-                # böylece öğrenci gerçek GPS ile tekrar deneyebilir
-                self.attempt_repo.update(attempt, location_status="pending")
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Sahte GPS tespit edildi. Lütfen konum simülatörünü kapatıp "
-                        f"tekrar deneyin. ({attempt_count}/{max_attempts})"
-                    ),
-                )
-
-            # Eşiğe ulaşıldı — kayıt oluştur + öğretmeni bildir
-            flag_reason = "fake_gps_detected"
-            is_flagged = True
-        elif suspicious_accuracy:
-            flag_reason = "suspicious_accuracy"
-            is_flagged = True
-        elif low_accuracy:
-            flag_reason = "low_accuracy"
-            is_flagged = True
-        elif not self.face_service.engine.is_available:
-            flag_reason = "face_simulated"
-            is_flagged = True
-        elif location_skipped:
-            flag_reason = "location_skipped"
-            is_flagged = True
+        is_flagged = bool(reasons)
+        flag_reason = " + ".join(reasons) if reasons else None
 
         # Flagged records go to "pending_review" — instructor must explicitly approve
         record_status = "pending_review" if is_flagged else "present"
@@ -274,8 +393,8 @@ class AttendancePipelineService:
             "location_skipped": location_skipped,
             "gps_accuracy_m": accuracy,
             "is_mocked": bool(is_mocked),
-            "fake_gps_detected": fake_gps_detected,
-            "suspicious_accuracy": suspicious_accuracy,
+            "fake_gps_detected": "fake_gps_detected" in reasons,
+            "suspicious_accuracy": "suspicious_accuracy" in reasons,
             "gps_issues": gps_issues,
         }
 
@@ -284,18 +403,20 @@ class AttendancePipelineService:
             attempt, completed_at=datetime.now(timezone.utc)
         )
 
+        attendance_course_id = self._resolve_attendance_course_id(student.id, session.course_id)
         final_record = self.final_repo.create(
             student_id=student.id,
             session_id=session_id,
-            course_id=session.course_id,
+            course_id=attendance_course_id,
             is_flagged=is_flagged,
             flag_reason=flag_reason,
             verification_steps=verification_steps,
             status=record_status,
         )
 
-        # Başarılı kayıt → retry sayacını sıfırla
+        # Başarılı/finalized kayıt → retry sayaçlarını sıfırla
         reset_fake_gps_counter(student.id, session_id)
+        reset_location_retry_counter(student.id, session_id)
 
         log_action(
             self.db,
@@ -387,10 +508,11 @@ class AttendancePipelineService:
                     raise
 
         record_status = "pending_review" if is_flagged else "present"
+        attendance_course_id = self._resolve_attendance_course_id(student_id, session.course_id)
         record = self.final_repo.create(
             student_id=student_id,
             session_id=session_id,
-            course_id=session.course_id,
+            course_id=attendance_course_id,
             is_flagged=is_flagged,
             flag_reason=flag_reason,
             verification_steps={
@@ -463,6 +585,7 @@ class AttendancePipelineService:
         location_ok = True
         distance_m = None
         location_skipped = False
+        effective_radius: Optional[float] = None
         if session.latitude is not None and session.longitude is not None:
             # Use session-level geofence radius (set from room) with settings fallback
             effective_radius = session.geofence_radius or settings.DEFAULT_GEOFENCE_RADIUS_M
@@ -478,11 +601,6 @@ class AttendancePipelineService:
         else:
             location_skipped = True
 
-        # ── GPS plausibility checks ───────────────────────────────────────────
-        gps_issues = check_gps_plausibility(accuracy, is_mocked)
-        gps_fake = bool(is_mocked)
-        gps_suspicious = "suspicious_accuracy" in gps_issues
-
         # ── If BOTH face and location fail, reject entirely ──────────────────
         if not face_ok and not (location_ok or location_skipped):
             raise HTTPException(
@@ -490,20 +608,23 @@ class AttendancePipelineService:
                 detail="Hem yüz doğrulaması hem de konum doğrulaması başarısız. Yoklama kaydedilmedi.",
             )
 
-        # ── Determine flagging ───────────────────────────────────────────────
-        reasons = []
-        if not face_ok:
-            reasons.append(face_reason or "face_failed")
-        if not location_ok and not location_skipped:
-            reasons.append(
-                f"location_failed ({distance_m:.0f}m)"
-                if distance_m
-                else "location_failed"
+        if not location_ok and not location_skipped and not bool(is_mocked):
+            self._enforce_location_retry_threshold(
+                student_id=student.id,
+                session_id=session_id,
+                distance_m=distance_m,
+                allowed_radius_m=effective_radius,
             )
-        if gps_fake:
-            reasons.append("fake_gps_detected")
-        elif gps_suspicious:
-            reasons.append("suspicious_accuracy")
+
+        reasons, gps_issues = self._build_flag_reasons(
+            face_ok=face_ok,
+            face_reason=face_reason,
+            location_ok=location_ok,
+            location_skipped=location_skipped,
+            distance_m=distance_m,
+            accuracy=accuracy,
+            is_mocked=is_mocked,
+        )
 
         is_flagged = bool(reasons)
         flag_reason = " + ".join(reasons) if reasons else None
@@ -521,16 +642,17 @@ class AttendancePipelineService:
             "location_skipped": location_skipped,
             "gps_accuracy_m": accuracy,
             "is_mocked": bool(is_mocked),
-            "fake_gps_detected": gps_fake,
-            "suspicious_accuracy": gps_suspicious,
+            "fake_gps_detected": "fake_gps_detected" in reasons,
+            "suspicious_accuracy": "suspicious_accuracy" in reasons,
             "gps_issues": gps_issues,
             "web": True,
         }
 
+        attendance_course_id = self._resolve_attendance_course_id(student.id, session.course_id)
         final_record = self.final_repo.create(
             student_id=student.id,
             session_id=session_id,
-            course_id=session.course_id,
+            course_id=attendance_course_id,
             is_flagged=is_flagged,
             flag_reason=flag_reason,
             verification_steps=verification_steps,
@@ -541,6 +663,7 @@ class AttendancePipelineService:
             self._notify_instructor_flagged(
                 session, student, flag_reason or "web_verification_failed"
             )
+        reset_location_retry_counter(student.id, session_id)
 
         return {
             "success": True,
@@ -576,6 +699,8 @@ class AttendancePipelineService:
                 "fake_gps_detected": "Sahte GPS tespit edildi",
                 "suspicious_accuracy": "Şüpheli GPS hassasiyeti (sub-metre değer)",
                 "low_accuracy": "GPS doğruluğu düşük (inceleme gerekli)",
+                "location_failed": "Konum doğrulaması başarısız",
+                "face_failed": "Yüz doğrulaması başarısız",
             }
             label = REASON_LABELS.get(flag_reason, flag_reason)
             # course_code: detached session.course lazy load yerine doğrudan sorgu

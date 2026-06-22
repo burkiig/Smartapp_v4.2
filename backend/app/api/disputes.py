@@ -22,7 +22,7 @@ class DisputeCreate(BaseModel):
 
 
 class DisputeReview(BaseModel):
-    status: str   # approved | rejected
+    status: str   # pending | approved | rejected
     instructor_notes: Optional[str] = None
 
 
@@ -180,18 +180,36 @@ def submit_dispute(
     current_user: User = Depends(require_student),
     db: Session = Depends(get_db),
 ):
-    # Validate the student is enrolled in the course
-    from app.repositories.course_repo import EnrollmentRepository
-    if not EnrollmentRepository(db).student_can_attend_course(current_user.id, data.course_id):
-        raise HTTPException(status_code=403, detail="Bu derse kayıtlı değilsiniz")
+    from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 
-    # Validate session belongs to the claimed course
+    # Validate session exists
     from app.models.session import AttendanceSession
     session_obj = db.query(AttendanceSession).filter(AttendanceSession.id == data.session_id).first()
     if not session_obj:
         raise HTTPException(status_code=404, detail="Oturum bulunamadı")
-    if session_obj.course_id != data.course_id:
-        raise HTTPException(status_code=400, detail="Oturum bu derse ait değil")
+
+    enroll_repo = EnrollmentRepository(db)
+    try:
+        resolved_course_id = enroll_repo.resolve_attendance_course_id(
+            current_user.id,
+            session_obj.course_id,
+            strict_ambiguous=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Aynı paralel grupta birden fazla ders kaydı tespit edildi. "
+                "Lütfen öğrenci ders atamalarını kontrol edin."
+            ),
+        ) from exc
+    if resolved_course_id is None:
+        raise HTTPException(status_code=403, detail="Bu oturuma itiraz gönderemezsiniz")
+
+    course_repo = CourseRepository(db)
+    # Client-provided course_id can be same course or same parallel group only.
+    if not course_repo.is_same_or_parallel_course(session_obj.course_id, data.course_id):
+        raise HTTPException(status_code=400, detail="Oturum bu ders/paralel grup ile eşleşmiyor")
 
     # Prevent duplicate disputes for same session
     existing = db.query(AttendanceDispute).filter(
@@ -211,7 +229,7 @@ def submit_dispute(
     dispute = AttendanceDispute(
         student_id=current_user.id,
         session_id=data.session_id,
-        course_id=data.course_id,
+        course_id=resolved_course_id,
         reason=data.reason,
         attendance_record_id=existing_record.id if existing_record else None,
     )
@@ -220,7 +238,11 @@ def submit_dispute(
     db.refresh(dispute)
     log_action(db, "dispute_submitted", actor_id=current_user.id, actor_role="student",
                resource="attendance_dispute", resource_id=dispute.id,
-               detail={"session_id": data.session_id, "course_id": data.course_id})
+               detail={
+                   "session_id": data.session_id,
+                   "resolved_course_id": resolved_course_id,
+                   "requested_course_id": data.course_id,
+               })
 
     # Hocaya yeni itiraz bildirimi (fail-safe)
     _notify_instructor_dispute_submitted(db, dispute, current_user.name)
@@ -241,7 +263,9 @@ def get_disputes(
         q = q.filter(AttendanceDispute.student_id == current_user.id)
     elif current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository
-        my_ids = [c.id for c in CourseRepository(db).get_by_instructor(current_user.id)]
+        my_ids = list(
+            CourseRepository(db).get_instructor_course_ids_with_parallel(current_user.id)
+        )
         q = q.filter(AttendanceDispute.course_id.in_(my_ids))
     disputes = q.order_by(AttendanceDispute.created_at.desc()).all()
     return [_serialize(d) for d in disputes]
@@ -254,8 +278,8 @@ def review_dispute(
     current_user: User = Depends(require_instructor),
     db: Session = Depends(get_db),
 ):
-    if data.status not in ("approved", "rejected"):
-        raise HTTPException(status_code=400, detail="Geçersiz durum: approved veya rejected olmalı")
+    if data.status not in ("pending", "approved", "rejected"):
+        raise HTTPException(status_code=400, detail="Geçersiz durum: pending, approved veya rejected olmalı")
 
     dispute = (
         db.query(AttendanceDispute)
@@ -272,7 +296,9 @@ def review_dispute(
 
     if current_user.role == "instructor":
         from app.repositories.course_repo import CourseRepository
-        my_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         if dispute.course_id not in my_ids:
             raise HTTPException(status_code=403, detail="Bu itiraz üzerinde yetkiniz yok")
 
@@ -283,23 +309,34 @@ def review_dispute(
     db.commit()
     db.refresh(dispute)
 
-    # If approved, update the attendance record to present.
+    # Keep attendance record synchronized with dispute decision, even on re-review.
     # Önce direkt FK'dan al (hız + veri tutarlılığı); yoksa student+session ile bul (eski kayıtlar).
-    if data.status == "approved":
-        record = dispute.attendance_record
-        if not record:
-            from app.models.attendance import FinalAttendanceRecord
-            record = db.query(FinalAttendanceRecord).filter(
-                FinalAttendanceRecord.student_id == dispute.student_id,
-                FinalAttendanceRecord.session_id == dispute.session_id,
-            ).first()
-        if record:
+    record = dispute.attendance_record
+    if not record:
+        from app.models.attendance import FinalAttendanceRecord
+        record = db.query(FinalAttendanceRecord).filter(
+            FinalAttendanceRecord.student_id == dispute.student_id,
+            FinalAttendanceRecord.session_id == dispute.session_id,
+        ).first()
+
+    if record:
+        if data.status == "approved":
             record.status = "present"
+            record.is_flagged = False
             record.flag_reason = "İtiraz onaylandı"
-            db.commit()
+        elif data.status == "rejected":
+            record.status = "absent"
+            record.is_flagged = False
+            record.flag_reason = "İtiraz reddedildi"
+        else:
+            record.status = "pending_review"
+            record.is_flagged = True
+            record.flag_reason = "İtiraz tekrar incelemede"
+        db.commit()
 
     # Öğrenciye bildirim (DB + Push, fail-safe)
-    _notify_student_dispute_reviewed(db, dispute, data.status, data.instructor_notes)
+    if data.status in ("approved", "rejected"):
+        _notify_student_dispute_reviewed(db, dispute, data.status, data.instructor_notes)
 
     log_action(db, "dispute_reviewed", actor_id=current_user.id, actor_role=current_user.role,
                resource="attendance_dispute", resource_id=dispute_id,

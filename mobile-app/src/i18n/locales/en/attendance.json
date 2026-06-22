@@ -14,7 +14,8 @@
     "review": {
       "approved": "Approved",
       "rejected": "Rejected",
-      "pending": "Pending"
+      "pending": "Pending",
+      "undo": "Undo"
     },
     "take": "Check In",
     "taken": "Checked In",
@@ -82,6 +83,8 @@
       "fake_gps_detected": "Fake GPS detected",
       "suspicious_accuracy": "Suspicious GPS accuracy",
       "low_accuracy": "Low GPS accuracy",
+      "location_failed": "Location verification failed",
+      "face_failed": "Face verification failed",
       "web_verification_failed": "Web verification failed"
     }
   },

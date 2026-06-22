@@ -5,7 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { Colors, Shadows } from '@/config/theme';
 import LanguageToggle from '@/components/LanguageToggle';
 
-export default function Header({ userName, hasNotification = false, onRefresh }) {
+export default function Header({
+  userName,
+  hasNotification = false,
+  unreadCount = 0,
+  onRefresh,
+  onNotificationPress,
+}) {
   const { t } = useTranslation();
   const firstName = userName?.split(' ')[0] || t('common.studentFallback');
   const hour = new Date().getHours();
@@ -28,9 +34,19 @@ export default function Header({ userName, hasNotification = false, onRefresh })
             <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.notifBtn}
+          activeOpacity={0.7}
+          onPress={onNotificationPress}
+        >
           <Ionicons name="notifications-outline" size={22} color={Colors.text} />
-          {hasNotification && <View style={styles.dot} />}
+          {hasNotification && (
+            <View style={styles.dot}>
+              {unreadCount > 0 && (
+                <Text style={styles.dotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              )}
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -59,11 +75,15 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   dot: {
-    position: 'absolute', top: 10, right: 10,
-    width: 8, height: 8,
-    borderRadius: 4,
+    position: 'absolute', top: 6, right: 6,
+    minWidth: 16, height: 16,
+    borderRadius: 8,
     backgroundColor: Colors.error,
-    borderWidth: 1.5,
+    borderWidth: 1.2,
     borderColor: Colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
   },
+  dotText: { color: '#fff', fontSize: 9, fontWeight: '800' },
 });

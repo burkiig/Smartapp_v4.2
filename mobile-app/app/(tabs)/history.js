@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useUser } from '@/context/UserContext';
 import InstructorHistory from '@/screens/InstructorHistory';
@@ -106,16 +106,43 @@ function findNextClass(allCourses) {
 // ── Öğrenci Ders Programı ekranı ─────────────────────────────────────────────
 function StudentSchedule() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { t } = useTranslation();
   const { daysShort, daysFull } = useCalendar();
   const getStatusLabel = useAttendanceStatusLabel();
   const getFlagReasonLabel = useFlagReasonLabel();
-  const [tab,        setTab]        = useState('schedule');    // 'schedule' | 'history'
+  const initialTab = useMemo(() => {
+    const raw = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+    return raw === 'history' ? 'history' : 'schedule';
+  }, [params.tab]);
+  const initialDay = useMemo(() => {
+    const raw = Array.isArray(params.day) ? params.day[0] : params.day;
+    const parsed = Number(raw);
+    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 6
+      ? parsed
+      : new Date().getDay();
+  }, [params.day]);
+  const cancellationNotice = useMemo(() => {
+    const notifyType = Array.isArray(params.notify_type) ? params.notify_type[0] : params.notify_type;
+    if (notifyType !== 'class_cancelled') return null;
+    const one = (v) => (Array.isArray(v) ? v[0] : v) || '';
+    return {
+      courseCode: one(params.course_code),
+      courseName: one(params.course_name),
+      date: one(params.date),
+      startTime: one(params.start_time),
+      endTime: one(params.end_time),
+      reason: one(params.reason),
+      topic: one(params.topic),
+    };
+  }, [params]);
+
+  const [tab,        setTab]        = useState(initialTab);    // 'schedule' | 'history'
   const [courses,    setCourses]    = useState([]);
   const [history,    setHistory]    = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+  const [selectedDay, setSelectedDay] = useState(initialDay);
   const [filter,     setFilter]     = useState('all');
   // İtiraz modalı (Alert.prompt Android'de desteklenmiyor)
   const [disputeModal,  setDisputeModal]  = useState(false);
@@ -136,6 +163,14 @@ function StudentSchedule() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    setSelectedDay(initialDay);
+  }, [initialDay]);
 
   // 'history' sekmesi açıkken her 30 saniyede yoklama geçmişini güncelle
   // (öğretmenin yaptığı override değişikliklerini kısa sürede yansıtmak için)
@@ -370,6 +405,29 @@ function StudentSchedule() {
                   </View>
                 </LinearGradient>
               )}
+              {cancellationNotice && (
+                <View style={styles.cancelNoticeCard}>
+                  <View style={styles.cancelNoticeRow}>
+                    <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
+                    <Text style={styles.cancelNoticeTitle}>{t('history.cancelNoticeTitle', 'Iptal bildirimi')}</Text>
+                  </View>
+                  <Text style={styles.cancelNoticeLine}>
+                    {(cancellationNotice.courseCode || '#')}{cancellationNotice.courseName ? ` — ${cancellationNotice.courseName}` : ''}
+                  </Text>
+                  <Text style={styles.cancelNoticeLine}>
+                    {cancellationNotice.date || '—'}
+                    {cancellationNotice.startTime
+                      ? ` • ${cancellationNotice.startTime}${cancellationNotice.endTime ? ` - ${cancellationNotice.endTime}` : ''}`
+                      : ''}
+                  </Text>
+                  {cancellationNotice.topic ? (
+                    <Text style={styles.cancelNoticeLine}>{t('history.cancelNoticeTopic', 'Konu')}: {cancellationNotice.topic}</Text>
+                  ) : null}
+                  {cancellationNotice.reason ? (
+                    <Text style={styles.cancelNoticeLine}>{t('history.cancelNoticeReason', 'Sebep')}: {cancellationNotice.reason}</Text>
+                  ) : null}
+                </View>
+              )}
 
               {/* Gün seçici */}
               <ScrollView
@@ -559,6 +617,19 @@ const styles = StyleSheet.create({
   nextMeta:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
   nextMetaText:{ fontSize: 12, color: 'rgba(255,255,255,0.75)', flexShrink: 1 },
   nextMetaDot: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
+  cancelNoticeCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    backgroundColor: '#FFF7ED',
+    padding: 12,
+  },
+  cancelNoticeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  cancelNoticeTitle: { fontSize: 12, fontWeight: '800', color: '#9A3412', textTransform: 'uppercase', letterSpacing: 0.4 },
+  cancelNoticeLine: { fontSize: 12, color: '#7C2D12', marginBottom: 2 },
 
   // Gün seçici
   dayScroll:        { marginTop: 16 },

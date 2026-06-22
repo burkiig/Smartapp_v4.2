@@ -91,7 +91,7 @@ export default function FaceScanScreen() {
       },
       unknown: {
         title: t('flows.face.errors.unknownTitle'),
-        body: errMessage || t('flows.face.errors.unknownBody'),
+        body: t('flows.face.errors.unknownBody'),
         actions: [{ text: t('common.ok') }],
       },
     };

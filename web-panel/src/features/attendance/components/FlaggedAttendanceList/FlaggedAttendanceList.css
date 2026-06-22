@@ -94,6 +94,12 @@
   background: transparent;
 }
 
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
 .approve-btn {
   background: #d1fae5;
   color: #065f46;

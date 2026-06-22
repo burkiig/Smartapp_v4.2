@@ -1,22 +1,53 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import Webcam from 'react-webcam';
-import { MdSchool, MdCheckCircle, MdWarning, MdHistory, MdRefresh, MdReportProblem } from 'react-icons/md';
+import { MdSchool, MdCheckCircle, MdWarning, MdHistory, MdRefresh } from 'react-icons/md';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 } from 'chart.js';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
-import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
+import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
+import { SkeletonTable } from '../../../shared/components/Skeleton';
 import apiClient from '../../../shared/services/apiClient';
 import { useActiveSessionsQuery, activeSessionsQueryKey } from '../../../shared/query/hooks/useActiveSessionsQuery';
 import './StudentDashboardPage.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const DAYS_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const readStudentTabFromUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const validTabs = ['dashboard', 'schedule', 'attendance', 'excuses', 'take', 'disputes'];
+  return validTabs.includes(tab) ? tab : null;
+};
+
+const readCancellationContextFromUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const notifyType = params.get('notify_type');
+  if (notifyType !== 'class_cancelled') return null;
+  const courseIdRaw = params.get('course_id');
+  const cancellationIdRaw = params.get('cancellation_id');
+  const toInt = (value) => {
+    const parsed = parseInt(value || '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+  return {
+    course_id: toInt(courseIdRaw),
+    cancellation_id: toInt(cancellationIdRaw),
+    course_name: params.get('course_name') || '',
+    course_code: params.get('course_code') || '',
+    date: params.get('date') || '',
+    start_time: params.get('start_time') || '',
+    end_time: params.get('end_time') || '',
+    reason: params.get('reason') || '',
+    topic: params.get('topic') || '',
+  };
+};
 
 // ── Disputes Panel ───────────────────────────────────────────────────────────
 function DisputesPanel({ disputes, courses, onRefresh }) {
@@ -139,6 +170,7 @@ function WebAttendance() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [locationRetryInfo, setLocationRetryInfo] = useState(null);
   const [completedSessionIds, setCompletedSessionIds] = useState(() => new Set());
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -176,7 +208,7 @@ function WebAttendance() {
   const handleSelectSession = () => {
     if (!selectedSession) { setError(t('studentDashboard.takeAttendance.errorSelectSession')); return; }
     if (completedSessionIds.has(String(selectedSession))) {
-      setError(t('studentDashboard.takeAttendance.alreadyTaken', 'Bu oturum için yoklaman zaten alınmış.'));
+      setError(t('studentDashboard.takeAttendance.alreadyTaken'));
       return;
     }
     setError('');
@@ -192,6 +224,7 @@ function WebAttendance() {
 
   const handleGetGPS = () => {
     setGpsStatus('loading');
+    setLocationRetryInfo(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGpsData({
@@ -209,15 +242,32 @@ function WebAttendance() {
     );
   };
 
+  const parseLocationRetryInfo = useCallback((message = '') => {
+    if (
+      !message ||
+      (!message.includes('Konum doğrulaması başarısız') &&
+       !message.includes('Location verification failed'))
+    ) return null;
+    const distanceMatch = message.match(/(?:Mevcut mesafe|Current distance):\s*([\d.]+)m/i);
+    const retryMatch = message.match(/\((\d+)\s*\/\s*(\d+)\)/);
+    return {
+      distanceM: distanceMatch ? Math.round(parseFloat(distanceMatch[1])) : null,
+      current: retryMatch ? Number(retryMatch[1]) : null,
+      total: retryMatch ? Number(retryMatch[2]) : null,
+      message,
+    };
+  }, []);
+
   const handleSubmit = async () => {
     if (!capturedImage) { setError(t('studentDashboard.takeAttendance.errorNeedPhoto')); return; }
     if (!gpsData) { setError(t('studentDashboard.takeAttendance.errorNeedGps')); return; }
     if (completedSessionIds.has(String(selectedSession))) {
-      setError(t('studentDashboard.takeAttendance.alreadyTaken', 'Bu oturum için yoklaman zaten alınmış.'));
+      setError(t('studentDashboard.takeAttendance.alreadyTaken'));
       return;
     }
     setSubmitting(true);
     setError('');
+    setLocationRetryInfo(null);
     try {
       const res = await apiClient.post('/attendance/web-attend', {
         session_id: Number(selectedSession),
@@ -235,7 +285,13 @@ function WebAttendance() {
       });
       queryClient.invalidateQueries({ queryKey: activeSessionsQueryKey });
     } catch (e) {
-      setError(e.message || t('studentDashboard.takeAttendance.errorSubmit'));
+      const msg = e.message || t('studentDashboard.takeAttendance.errorSubmit');
+      const retryInfo = parseLocationRetryInfo(msg);
+      if (retryInfo) {
+        setLocationRetryInfo(retryInfo);
+        setStep('location');
+      }
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -249,6 +305,7 @@ function WebAttendance() {
     setGpsStatus('idle');
     setResult(null);
     setError('');
+    setLocationRetryInfo(null);
   };
 
   const WA_STEPS = [
@@ -364,7 +421,7 @@ function WebAttendance() {
                   <label
                     key={s.id}
                     className={`wa-session-item ${selectedSession === String(s.id) ? 'selected' : ''} ${completedSessionIds.has(String(s.id)) ? 'disabled' : ''}`}
-                    title={completedSessionIds.has(String(s.id)) ? t('studentDashboard.takeAttendance.alreadyTaken', 'Bu oturum için yoklaman zaten alınmış.') : ''}
+                    title={completedSessionIds.has(String(s.id)) ? t('studentDashboard.takeAttendance.alreadyTaken') : ''}
                   >
                     <input
                       type="radio"
@@ -381,7 +438,7 @@ function WebAttendance() {
                     </div>
                     <span className="wa-session-badge">
                       {completedSessionIds.has(String(s.id))
-                        ? t('studentDashboard.takeAttendance.taken', 'Alındı')
+                        ? t('studentDashboard.takeAttendance.taken')
                         : t('studentDashboard.takeAttendance.active')}
                     </span>
                   </label>
@@ -450,6 +507,19 @@ function WebAttendance() {
           <h2>{t('studentDashboard.takeAttendance.locationTitle')}</h2>
           <p className="wa-hint">{t('studentDashboard.takeAttendance.locationHint')}</p>
           <div className="wa-gps-status">
+            {locationRetryInfo && (
+              <div className="wa-error" role="alert" style={{ marginBottom: 12 }}>
+                {t('studentDashboard.takeAttendance.locationRetryHint', {
+                  current: locationRetryInfo.current ?? 1,
+                  total: locationRetryInfo.total ?? 2,
+                })}
+                {typeof locationRetryInfo.distanceM === 'number' && (
+                  <div style={{ marginTop: 6 }}>
+                    {t('studentDashboard.takeAttendance.gpsDistanceHint', { m: locationRetryInfo.distanceM })}
+                  </div>
+                )}
+              </div>
+            )}
             {gpsStatus === 'idle' && (
               <button className="wa-btn primary" onClick={handleGetGPS}>
                 {t('studentDashboard.takeAttendance.getLocationBtn')}
@@ -518,21 +588,52 @@ function WebAttendance() {
 // ── Main StudentDashboardPage ────────────────────────────────────────────────
 export const StudentDashboardPage = ({ user, onLogout }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const initialTab = useMemo(() => readStudentTabFromUrl() || 'dashboard', []);
+  const cancelContext = useMemo(() => readCancellationContextFromUrl(), []);
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [selectedScheduleCourse, setSelectedScheduleCourse] = useState(null);
+  const [scheduleCancellationNotice, setScheduleCancellationNotice] = useState(cancelContext);
 
   const STUDENT_MENU_ITEMS = [
     { id: 'dashboard',  label: t('nav.student.dashboard')  },
     { id: 'schedule',   label: t('nav.student.schedule')   },
     { id: 'attendance', label: t('nav.student.attendance') },
+    { id: 'excuses',    label: t('nav.student.excuses')    },
     { id: 'take',       label: t('nav.student.takeAttendance') },
     { id: 'disputes',   label: t('nav.student.disputes')   },
   ];
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [history, setHistory] = useState([]);
+  const [excusesHistory, setExcusesHistory] = useState([]);
   const [historyFilter, setHistoryFilter] = useState('');
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [openingExcuseId, setOpeningExcuseId] = useState(null);
+
+  const formatCourseDays = useCallback((schedule) => {
+    if (!schedule || typeof schedule !== 'object') return '—';
+    if (Array.isArray(schedule.slots) && schedule.slots.length > 0) {
+      return schedule.slots.map(slot => slot.day).join(', ');
+    }
+    if (Array.isArray(schedule.days) && schedule.days.length > 0) {
+      return schedule.days.join(', ');
+    }
+    return '—';
+  }, []);
+
+  const formatCourseTimes = useCallback((schedule) => {
+    if (!schedule || typeof schedule !== 'object') return '—';
+    if (Array.isArray(schedule.slots) && schedule.slots.length > 0) {
+      return schedule.slots
+        .map(slot => `${slot.day}: ${slot.start_time || '--:--'} - ${slot.end_time || '--:--'}`)
+        .join(' | ');
+    }
+    if (schedule.start_time || schedule.end_time) {
+      return `${schedule.start_time || '--:--'} - ${schedule.end_time || '--:--'}`;
+    }
+    return '—';
+  }, []);
 
   const handleTabChange = (id) => {
     if (id === 'logout') { onLogout(); return; }
@@ -566,6 +667,15 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
           if (coursesRes.status === 'fulfilled') setCourses(coursesRes.value || []);
           break;
         }
+        case 'excuses': {
+          const [excusesRes, coursesRes] = await Promise.allSettled([
+            apiClient.get('/excuses/'),
+            apiClient.get('/courses/'),
+          ]);
+          if (excusesRes.status === 'fulfilled') setExcusesHistory(excusesRes.value || []);
+          if (coursesRes.status === 'fulfilled') setCourses(coursesRes.value || []);
+          break;
+        }
         case 'disputes': {
           const [disputesRes, coursesRes] = await Promise.allSettled([
             apiClient.get('/disputes/'),
@@ -585,6 +695,29 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
   }, []);
 
   useEffect(() => { fetchData(activeTab); }, [activeTab, fetchData]);
+
+  useEffect(() => {
+    if (!cancelContext || activeTab !== 'schedule') return;
+    setScheduleCancellationNotice(cancelContext);
+  }, [activeTab, cancelContext]);
+
+  const handleOpenExcuseDocument = useCallback(async (excuseId) => {
+    if (!excuseId) return;
+    setOpeningExcuseId(excuseId);
+    try {
+      const response = await apiClient.get(`/excuses/${excuseId}/document`);
+      const signedUrl = response?.signed_url;
+      if (!signedUrl) {
+        throw new Error(t('studentDashboard.excusesHistory.documentOpenFailed'));
+      }
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      const message = err?.message || t('studentDashboard.excusesHistory.documentOpenFailed');
+      window.alert(message);
+    } finally {
+      setOpeningExcuseId(null);
+    }
+  }, [t]);
 
   // ── Overview ────────────────────────────────────────────────────────────────
   const renderDashboard = () => {
@@ -644,35 +777,45 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
   // ── Schedule ─────────────────────────────────────────────────────────────────
   const renderSchedule = () => {
     const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    const grouped = {};
-    DAYS_ORDER.forEach(d => { grouped[d] = []; });
-    courses.forEach(c => {
-      const sch = c.schedule;
-      if (!sch) return;
+    const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+    const TODAY_INDEX = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
 
-      // slots[] formatı: [{ day: 'Monday', start_time: '09:00', end_time: '10:00' }]
+    const scheduleByDay = {};
+    const seenByDay = {};
+    DAYS_ORDER.forEach((d) => {
+      scheduleByDay[d] = [];
+      seenByDay[d] = new Set();
+    });
+
+    courses.forEach((course, idx) => {
+      const sch = course.schedule;
+      if (!sch) return;
+      const colorPalette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
+      const color = colorPalette[idx % colorPalette.length];
+
+      const pushCourse = (day, start, end) => {
+        if (!DAYS_ORDER.includes(day)) return;
+        const startTime = start || '09:00';
+        const endTime = end || '10:00';
+        const dedupeKey = `${course.code || course.id}|${day}|${startTime}|${endTime}`;
+        if (seenByDay[day].has(dedupeKey)) return;
+        seenByDay[day].add(dedupeKey);
+
+        scheduleByDay[day].push({
+          ...course,
+          _slotTime: `${startTime} – ${endTime}`,
+          _startTime: startTime,
+          _endTime: endTime,
+          _color: color,
+        });
+      };
+
       if (Array.isArray(sch.slots) && sch.slots.length > 0) {
-        sch.slots.forEach(slot => {
-          if (grouped[slot.day] !== undefined) {
-            grouped[slot.day].push({
-              ...c,
-              _slotTime: slot.start_time && slot.end_time ? `${slot.start_time} – ${slot.end_time}` : null,
-            });
-          }
-        });
-      // days[] formatı: { days: ['Monday'], start_time: '09:00', end_time: '10:00' }
-      } else if (Array.isArray(sch.days)) {
-        sch.days.forEach(day => {
-          if (grouped[day] !== undefined) {
-            grouped[day].push({
-              ...c,
-              _slotTime: sch.start_time && sch.end_time ? `${sch.start_time} – ${sch.end_time}` : null,
-            });
-          }
-        });
+        sch.slots.forEach((slot) => pushCourse(slot.day, slot.start_time, slot.end_time));
+      } else if (Array.isArray(sch.days) && sch.days.length > 0) {
+        sch.days.forEach((day) => pushCourse(day, sch.start_time, sch.end_time));
       }
     });
-    const today = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
 
     return (
       <div className="student-schedule">
@@ -680,41 +823,72 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
           <h1>{t('studentDashboard.schedule.title')}</h1>
           <button className="refresh-btn" onClick={() => fetchData('schedule')}>{t('common.refresh')}</button>
         </div>
+        {scheduleCancellationNotice && (
+          <div className="schedule-cancel-notice">
+            <div className="schedule-cancel-title">
+              {t('studentDashboard.schedule.cancelNoticeTitle')}
+            </div>
+            <div className="schedule-cancel-line">
+              {(scheduleCancellationNotice.course_code || '#')}{scheduleCancellationNotice.course_name ? ` — ${scheduleCancellationNotice.course_name}` : ''}
+            </div>
+            <div className="schedule-cancel-line">
+              {scheduleCancellationNotice.date || '—'}
+              {scheduleCancellationNotice.start_time
+                ? ` • ${scheduleCancellationNotice.start_time}${scheduleCancellationNotice.end_time ? ` - ${scheduleCancellationNotice.end_time}` : ''}`
+                : ''}
+            </div>
+            {scheduleCancellationNotice.topic && (
+              <div className="schedule-cancel-line">{t('studentDashboard.schedule.cancelNoticeTopic')}: {scheduleCancellationNotice.topic}</div>
+            )}
+            {scheduleCancellationNotice.reason && (
+              <div className="schedule-cancel-line">{t('studentDashboard.schedule.cancelNoticeReason')}: {scheduleCancellationNotice.reason}</div>
+            )}
+          </div>
+        )}
         {loading ? <SkeletonTable rows={5} cols={4} /> : (
-          <div className="schedule-table-wrapper">
-            <table className="schedule-table">
-              <thead>
-                <tr>
-                  {DAYS_ORDER.map(day => (
-                    <th key={day} className={day === today ? 'today-col' : ''}>
-                      <div>{t(`studentDashboard.schedule.daysShort.${day}`)}</div>
-                      <div className="day-full">{t(`studentDashboard.schedule.daysFull.${day}`)}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  {DAYS_ORDER.map(day => (
-                    <td key={day} className={day === today ? 'today-col' : ''}>
-                      {grouped[day].length === 0 ? (
-                        <span className="no-class">—</span>
-                      ) : (
-                        grouped[day].map(c => (
-                          <div key={c.id} className="sch-course-cell">
-                            <div className="sch-code">{c.code}</div>
-                            <div className="sch-name">{c.name}</div>
-                            {c._slotTime && (
-                              <div className="sch-time">{c._slotTime}</div>
-                            )}
+          <div className="student-weekly-container">
+            <div className="student-weekly-grid">
+              <div className="student-time-column">
+                <div className="student-time-header"></div>
+                {TIME_SLOTS.map(time => <div key={time} className="student-time-slot">{time}</div>)}
+              </div>
+
+              {DAYS_ORDER.map((day, dayIndex) => {
+                const daySchedule = scheduleByDay[day] || [];
+                const isToday = dayIndex === TODAY_INDEX;
+                return (
+                  <div key={day} className="student-day-column">
+                    <div className={`student-day-header ${isToday ? 'today' : ''}`}>
+                      <div className="student-day-name">{t(`studentDashboard.schedule.daysFull.${day}`)}</div>
+                      {isToday && <div className="student-today-badge">{t('schedule.today')}</div>}
+                    </div>
+                    <div className="student-day-slots">
+                      {TIME_SLOTS.map((time) => {
+                        const hour = Number(time.split(':')[0]);
+                        const classItems = daySchedule.filter((course) => Number((course._startTime || '00:00').split(':')[0]) === hour);
+                        return (
+                          <div key={`${day}-${time}`} className={`student-schedule-slot ${classItems.length > 0 ? 'has-class' : ''}`}>
+                            {classItems.map((course, idx) => (
+                              <button
+                                key={`${course.id}-${course.code}-${course._startTime}-${idx}`}
+                                type="button"
+                                className="student-class-info"
+                                style={{ background: course._color }}
+                                onClick={() => setSelectedScheduleCourse(course)}
+                              >
+                                <div className="student-class-code">{course.code}</div>
+                                <div className="student-class-name">{course.name}</div>
+                                <div className="student-class-time">{course._slotTime}</div>
+                              </button>
+                            ))}
                           </div>
-                        ))
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             {courses.every(c => !c.schedule?.days?.length && !c.schedule?.slots?.length) && (
               <p className="empty-text" style={{ textAlign: 'center', marginTop: '32px' }}>
                 {t('studentDashboard.schedule.noSchedule')}
@@ -774,7 +948,6 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     };
 
     const lowAttendanceCourses = statEntries.filter(s => s.rate < 70);
-
     return (
       <div className="student-attendance">
         <div className="page-header">
@@ -872,7 +1045,84 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                 </tbody>
               </table>
             </div>
+
           </>
+        )}
+      </div>
+    );
+  };
+
+  const renderExcuses = () => {
+    const excuseStatusClass = {
+      pending: 'status-badge pending_review',
+      approved: 'status-badge present',
+      rejected: 'status-badge absent',
+    };
+
+    return (
+      <div className="student-excuse-history">
+        <div className="page-header">
+          <h1>{t('studentDashboard.excusesHistory.title')}</h1>
+          <button className="refresh-btn" onClick={() => fetchData('excuses')}>{t('common.refresh')}</button>
+        </div>
+        {loading ? <SkeletonTable rows={5} cols={6} /> : (
+          excusesHistory.length === 0 ? (
+            <p className="empty-text">{t('studentDashboard.excusesHistory.empty')}</p>
+          ) : (
+            <div className="attendance-table-container">
+              <table className="attendance-table">
+                <thead>
+                  <tr>
+                    <th>{t('studentDashboard.excusesHistory.headers.course')}</th>
+                    <th>{t('studentDashboard.excusesHistory.headers.sessionDate')}</th>
+                    <th>{t('studentDashboard.excusesHistory.headers.type')}</th>
+                    <th>{t('studentDashboard.excusesHistory.headers.document')}</th>
+                    <th>{t('studentDashboard.excusesHistory.headers.status')}</th>
+                    <th>{t('studentDashboard.excusesHistory.headers.note')}</th>
+                    <th>{t('studentDashboard.excusesHistory.headers.created')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {excusesHistory.map((e) => (
+                    <tr key={e.id}>
+                      <td>{e.course_code || `#${e.course_id}`}</td>
+                      <td>{e.session_date || '—'}</td>
+                      <td>{t(`excuses.types.${e.excuse_type}`, e.excuse_type || 'other')}</td>
+                      <td>
+                        {Boolean(e.storage_path) && (e.upload_status || 'uploaded') === 'uploaded' ? (
+                          <button
+                            type="button"
+                            className="excuse-doc-btn"
+                            onClick={() => handleOpenExcuseDocument(e.id)}
+                            disabled={openingExcuseId === e.id}
+                          >
+                            {openingExcuseId === e.id
+                              ? t('studentDashboard.excusesHistory.openingDocument')
+                              : t('studentDashboard.excusesHistory.openDocument')}
+                          </button>
+                        ) : (
+                          <span className="excuse-doc-status">
+                            {(e.upload_status || 'none') === 'pending'
+                              ? t('studentDashboard.excusesHistory.documentStates.pending')
+                              : (e.upload_status || 'none') === 'failed'
+                                ? t('studentDashboard.excusesHistory.documentStates.failed')
+                                : t('studentDashboard.excusesHistory.documentStates.none')}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={excuseStatusClass[e.status] || 'status-badge'}>
+                          {t(`excuses.statuses.${e.status}`, e.status || 'pending')}
+                        </span>
+                      </td>
+                      <td>{e.instructor_notes || e.description || '—'}</td>
+                      <td>{e.created_at ? new Date(e.created_at).toLocaleDateString('tr-TR') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
     );
@@ -892,6 +1142,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
       case 'dashboard':  return renderDashboard();
       case 'schedule':   return renderSchedule();
       case 'attendance': return renderAttendance();
+      case 'excuses':    return renderExcuses();
       case 'take':       return <WebAttendance />;
       case 'disputes':   return renderDisputes();
       default:           return renderDashboard();
@@ -913,11 +1164,33 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
         <div className="student-top-bar">
           <div className="top-bar-spacer" />
           <LanguageSwitcher compact />
+          <NotificationBell />
         </div>
         <main className="main-content">
           {renderContent()}
         </main>
       </div>
+      {selectedScheduleCourse && (
+        <div className="course-detail-overlay" onClick={() => setSelectedScheduleCourse(null)}>
+          <div className="course-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="course-detail-header">
+              <h3>{t('studentDashboard.schedule.courseDetailTitle')}</h3>
+              <button type="button" className="course-detail-close" onClick={() => setSelectedScheduleCourse(null)}>
+                {t('common.close')}
+              </button>
+            </div>
+            <div className="course-detail-body">
+              <p><strong>{t('studentDashboard.schedule.courseCode')}:</strong> {selectedScheduleCourse.code || '—'}</p>
+              <p><strong>{t('studentDashboard.schedule.courseName')}:</strong> {selectedScheduleCourse.name || '—'}</p>
+              <p><strong>{t('studentDashboard.schedule.daysLabel')}:</strong> {formatCourseDays(selectedScheduleCourse.schedule)}</p>
+              <p><strong>{t('studentDashboard.schedule.timeLabel')}:</strong> {formatCourseTimes(selectedScheduleCourse.schedule)}</p>
+              {selectedScheduleCourse.instructor_name && (
+                <p><strong>{t('studentDashboard.schedule.instructor')}:</strong> {selectedScheduleCourse.instructor_name}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,7 +2,86 @@
 
 Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-**API Sürümü:** v4.2.1 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
+**API Sürümü:** v4.2.2 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
+
+---
+
+## Son Güncelleme — v4.2.2 (22 Haziran 2026)
+
+Paralel ders veri bütünlüğü, mazeret dosya yükleme saga akışı ve CI stabilizasyonu.
+
+## Son Güncelleme — v4.2.3 (22 Haziran 2026 — Gece)
+
+Web ve mobilde öğretmen/öğrenci akışlarında karar esnekliği, ders programı görünümü ve i18n tutarlılığı odaklı iyileştirmeler.
+
+### Öğrenci Programı ve Ders Görünürlüğü
+
+| Alan | Değişiklik |
+|------|------------|
+| **Paralel ders görünürlüğü** | Öğrenci `/courses/` listesinde paralel grup derslerini de görecek şekilde backend filtreleri genişletildi (`shared_class_id`) |
+| **Web öğrenci programı** | Öğrenci paneli ders programı görünümü öğretmen haftalık düzeniyle hizalandı; slot üretimi normalize edildi |
+| **Pazartesi tekrar sorunu** | Aynı gün/saat/ders kombinasyonunda tekrarlı kart üretimini engelleyen dedupe mantığı eklendi |
+
+### İptal Bildirimi ve Derin Link Akışı
+
+| Alan | Değişiklik |
+|------|------------|
+| **İptal payload** | `course_code`, `course_name`, `date`, `start_time`, `end_time`, `reason`, `topic`, `cancellation_id` alanları notification data'ya eklendi |
+| **Web öğrenci** | Bildirimden programa geçişte iptal kartı ders + tarih/saat + sebep + konu detaylarıyla gösteriliyor |
+| **Mobil öğrenci** | `home -> history` deep-link akışı aynı detayları query param ile taşıyor; iptal bildirimi daha açıklayıcı gösteriliyor |
+
+### Öğretmen Kararları (Yoklama / Mazeret / İtiraz)
+
+| Alan | Değişiklik |
+|------|------------|
+| **Yoklama** | Öğretmen çözülmüş kayıtta da tekrar karar verebilir (onay/red); gerekirse undo ile tekrar incelemeye alabilir |
+| **Mazeret (web)** | Karar sonrası tekrar değişim açık; aksiyon dili "Mazeretli / Katılmadı" (EN: Excused / Absent) olarak netleştirildi |
+| **Mazeret (mobil)** | Öğretmen kartlarında aynı semantik etiketler kullanıldı; API status yine `approved/rejected` olarak korunuyor |
+| **İtiraz (web + backend)** | Çözümlenmiş itirazlarda da yeniden karar verilebilir; karar değiştiğinde bağlı yoklama kaydı da senkron güncellenir |
+
+### i18n ve UX Düzeltmeleri
+
+| Alan | Değişiklik |
+|------|------------|
+| **Web i18n** | `EXCUSES.*` ham key görünümüne neden olan yanlış path kullanımları düzeltildi |
+| **Mazeret geçmişi** | Öğrenci web tarafında "Belge" sütunu eklendi; signed URL ile belge açma eylemi eklendi |
+| **Mobil konum adımı** | 3. adımda sonuç metni konuma göre ayrıldı: "Konum Doğrulandı" / "Şüpheli Konum" (TR/EN) |
+| **QR TTL** | Web QR sayaç/rotation süresi backend `ttl_seconds` alanı ile senkronlandı |
+
+---
+
+### Paralel Ders — Course Credit Semantiği (Yeni)
+
+| Katman | Değişiklik |
+|--------|------------|
+| **Resolver** | `EnrollmentRepository.resolve_attendance_course_id(student_id, session_course_id)` eklendi; yoklama/dispute/excuse kayıtlarında kredilenecek `course_id` tek merkezden çözülüyor |
+| **Kayıt üretimi** | `attendance_service.py`, `session_service.py`, `attendance.py` (`set-status`) artık doğrudan `session.course_id` yazmıyor; resolved course yazıyor |
+| **Scope** | Instructor scope kontrolleri paralel grupları kapsayacak şekilde `get_instructor_course_ids_with_parallel()` ile birleştirildi |
+| **Öğrenci listesi** | `GET /courses/{id}/students` paralel gruptaki derslerin öğrencilerini de döndürüyor |
+| **Backfill migration** | `i6j7k8l9m0n1_backfill_parallel_course_credit.py` mevcut `final_attendance_records`, `attendance_disputes`, `excuses` verisini yeni semantiğe göre düzeltir |
+
+> Backfill notu: Ambiguous paralel kayıt durumunda migration deterministik seçim yapar (session course öncelikli, değilse en küçük course_id).
+
+### Mazeret Belgesi — Upload Saga (Yeni)
+
+| Katman | Değişiklik |
+|--------|------------|
+| **Model** | `excuses` tablosuna `upload_status`, `upload_error`, `document_mime`, `document_name` alanları eklendi |
+| **Akış** | Upload sırasında durum: `none -> pending_upload -> uploaded` veya `upload_failed` |
+| **API** | `GET /excuses/{id}/document` yalnızca `upload_status == uploaded` ise signed URL döner |
+| **Web UI** | Modal'da `pending_upload`, `upload_failed`, `none` durumları ayrı görsel mesajlarla gösterilir; belge butonları sadece `uploaded` durumunda görünür |
+| **Mobil UI** | PDF/JPG/PNG MIME+uzantı ön doğrulaması eklendi; upload başarısızsa "mazeret kaydedildi, belge yüklenemedi" mesajı verilir |
+| **Migration** | `j7k8l9m0n1o2_excuse_upload_saga_fields.py` |
+
+### CI ve Geriye Dönük Uyumluluk Düzeltmeleri
+
+| Alan | Değişiklik |
+|------|------------|
+| **Backend test** | `requirements-test.txt` içine `pytest-cov` + `coverage` eklendi |
+| **Workflow** | `backend-test` adımı `python -m pytest ... --cov ...` olarak güncellendi |
+| **Node lockfiles** | `web-panel` ve `mobile-app` lockfile senkronu güncellendi (`npm ci` uyumlu) |
+| **Legacy endpoint uyumu** | `PUT /api/v1/admin/settings/` (body: `{key,value}`) ve `GET /api/v1/dashboard/audit-logs` geri eklendi |
+| **Rooms endpoint uyumu** | `GET /api/v1/rooms/{id}` ve `PUT /api/v1/rooms/{id}` eklendi; room create 200 döner |
 
 ---
 
@@ -728,7 +807,9 @@ Tüm endpoint'ler `/api/v1` prefix'i ile başlar. Swagger UI: `http://localhost:
 |---|---|---|---|
 | POST | `/` | Mazeret gönder | Öğrenci |
 | GET | `/` | Mazeretleri listele | Öğretmen/Admin |
-| PATCH | `/{id}/review` | Mazeret onayla/reddet | Öğretmen/Admin |
+| POST | `/upload?excuse_id={id}` | Mazeret belgesi yükle (saga status günceller) | Öğrenci |
+| GET | `/{id}/document` | Yüklenmiş belge için signed URL al | Öğrenci/Öğretmen/Admin |
+| PATCH | `/{id}` | Mazeret onayla/reddet/pending | Öğretmen/Admin |
 
 ### Disputes (`/api/v1/disputes`) — YENİ
 
@@ -759,6 +840,7 @@ Tüm endpoint'ler `/api/v1` prefix'i ile başlar. Swagger UI: `http://localhost:
 | Method | Path | Açıklama | Yetki |
 |---|---|---|---|
 | GET | `/` | Tüm sistem ayarlarını getir | Admin |
+| PUT | `/` | Body ile upsert (`{key,value}`) | Admin |
 | PUT | `/{key}` | Bir ayarı güncelle | Admin |
 
 Dinamik ayarlar: `qr_token_ttl_seconds`, `min_attendance_rate`, `geofence_radius_m`
@@ -770,6 +852,7 @@ Dinamik ayarlar: `qr_token_ttl_seconds`, `min_attendance_rate`, `geofence_radius
 | GET | `/stats` | Genel istatistikler (role-aware) | Giriş yapılmış |
 | GET | `/course-performance` | Ders bazlı devam oranı | Öğretmen/Admin |
 | GET | `/recent-activity` | Son aktiviteler | Giriş yapılmış |
+| GET | `/audit-logs` | Audit kayıtları (legacy uyum endpoint) | Admin |
 
 ### Leadership (`/api/v1/leadership`) — YENİ (5/21/26)
 
@@ -1307,5 +1390,6 @@ Bu bölüm, derin güvenlik ve kalite denetimi sonucu tespit edilen ve giderilen
 | D8 | `.github/workflows/ci.yml` | Mobil lint, Alembic check, SAST, secret scan, coverage threshold yoktu | 5 job'a genişletildi: `backend-test` (coverage ≥%60 + alembic check), `backend-sast` (Bandit), `secret-scan` (Gitleaks), `web-build` (ESLint), `mobile-lint` |
 | D9 | `README.md` | "docker-compose tüm servisleri kaldırır" yazıyordu, sadece API vardı | "API + PostgreSQL servislerini ayağa kaldırır" olarak düzeltildi |
 | D10 | `README.md` | `course_instructor.py` ve `test_new_features.py` listelerde eksikti | Her iki dosya ilgili bölümlere eklendi |
+| D11 | `backend/requirements-test.txt`, `.github/workflows/ci.yml` | `--cov` argümanları CI'da plugin eksikliği/yorumlayıcı farkıyla kırılıyordu | `pytest-cov` + `coverage` eklendi; test adımı `python -m pytest` olarak standartlaştırıldı |
 
 ---

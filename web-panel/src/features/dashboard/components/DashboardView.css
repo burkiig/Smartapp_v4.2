@@ -103,6 +103,20 @@
   font-size: 13px;
   color: #64748B;
 }
+.stat-inline-btn {
+  margin-top: 8px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.stat-inline-btn:hover {
+  background: #dbeafe;
+}
 
 /* Dashboard Grid */
 .dashboard-grid {
@@ -519,6 +533,31 @@
 
 /* ── Today's Classes ─────────────────────────────────────────────────────────── */
 .todays-classes { margin-bottom: 20px; }
+.today-cancel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.today-cancel-scope {
+  display: inline-flex;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.scope-btn {
+  border: none;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.scope-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+}
 .today-course-list { display: flex; flex-direction: column; gap: 8px; }
 .today-course-item {
   display: flex;
@@ -544,8 +583,24 @@
   background: #eff6ff; padding: 2px 8px; border-radius: 5px;
 }
 .today-course-name { font-size: 0.9rem; color: #374151; }
+.today-course-date { font-size: 0.75rem; color: #64748b; }
 .today-course-right { display: flex; align-items: center; gap: 8px; }
 .today-course-time { font-size: 0.82rem; color: #6b7280; font-weight: 600; }
+.today-cancel-btn {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.today-cancel-btn:hover {
+  background: #ffe4e6;
+  transform: translateY(-1px);
+}
 .approaching-badge {
   font-size: 0.75rem; font-weight: 700; color: #92400e;
   background: #fef3c7; padding: 2px 8px; border-radius: 12px;
@@ -562,6 +617,174 @@
 }
 .see-all-btn:hover { background: #f3f4f6; color: #374151; }
 .review-student-num { font-size: 0.78rem; color: #9ca3af; font-weight: 400; }
+
+/* ── Today cancel modal ───────────────────────────────────────────────────── */
+.today-cancel-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+.today-cancel-modal {
+  width: min(440px, 100%);
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.25);
+  padding: 18px;
+}
+.courses-modal {
+  width: min(640px, 100%);
+}
+.courses-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.courses-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 62vh;
+  overflow: auto;
+}
+.course-list-item-btn {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.course-list-item-btn:hover {
+  border-color: #93c5fd;
+  background: #ffffff;
+}
+.course-list-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.course-list-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+.courses-modal-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.courses-modal-title {
+  margin: 0;
+  font-size: 17px;
+  color: #0f172a;
+}
+.course-detail-stats {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 700;
+}
+.course-students-list {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+}
+.course-student-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.course-student-item:last-child {
+  border-bottom: none;
+}
+.today-cancel-modal h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #0f172a;
+}
+.today-cancel-modal-subtitle {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 13px;
+}
+.today-cancel-meta {
+  margin: 0 0 10px;
+  color: #475569;
+  font-size: 12px;
+}
+.today-cancel-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+.today-cancel-select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.today-cancel-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.today-cancel-error {
+  margin-bottom: 10px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.today-cancel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.today-cancel-secondary,
+.today-cancel-primary {
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.today-cancel-secondary {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+.today-cancel-primary {
+  border: 1px solid #b91c1c;
+  background: #dc2626;
+  color: #ffffff;
+}
+.today-cancel-secondary:disabled,
+.today-cancel-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* ── Stat icon enhancements (react-icons) ─────────────────────────────────── */
 .stat-icon {

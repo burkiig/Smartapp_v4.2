@@ -209,6 +209,7 @@ def start_scheduler():
         logger.warning("[Scheduler] Could not register session reminder job: %s", e)
 
     # Okunmuş eski bildirimleri temizle — her gün 03:00'da (Istanbul saatiyle)
+    # Retention policy NotificationRepository.DEFAULT_RETENTION_DAYS (14 gün).
     def _cleanup_notifications():
         from app.database.connection import SessionLocal
         from app.repositories.notification_repo import NotificationRepository

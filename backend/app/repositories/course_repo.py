@@ -1,8 +1,12 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import exists
+from sqlalchemy import exists, or_
 from typing import Optional, List
 from app.models.course import Course, Enrollment
 from app.models.course_instructor import CourseInstructor
+from app.models.session import AttendanceSession
+from app.models.attendance import FinalAttendanceRecord, ClassCancellation
+from app.models.dispute import AttendanceDispute
+from app.models.excuse import Excuse
 from app.models.user import User
 
 
@@ -16,22 +20,60 @@ class CourseRepository:
     def get_by_code(self, code: str) -> Optional[Course]:
         return self.db.query(Course).filter(Course.code == code).first()
 
-    def get_all(self, instructor_id: Optional[int] = None) -> List[Course]:
+    def get_all(self, instructor_id: Optional[int] = None, department: Optional[str] = None) -> List[Course]:
         if instructor_id:
-            return self.get_by_instructor(instructor_id)
-        return self.db.query(Course).all()
+            courses = self.get_by_instructor(instructor_id)
+            if department:
+                dep = department.strip()
+                courses = [c for c in courses if (c.department or "").strip() == dep]
+            return courses
+        q = self.db.query(Course)
+        if department:
+            q = q.filter(Course.department == department.strip())
+        return q.all()
 
     def get_by_instructor(self, instructor_id: int) -> List[Course]:
-        """course_instructors join tablosunu kullanır — authoritative kaynak."""
+        """Join table + legacy courses.instructor_id fallback."""
         return (
             self.db.query(Course)
-            .join(CourseInstructor, CourseInstructor.course_id == Course.id)
-            .filter(CourseInstructor.instructor_id == instructor_id)
+            .filter(
+                or_(
+                    Course.instructor_id == instructor_id,
+                    exists().where(
+                        CourseInstructor.course_id == Course.id,
+                        CourseInstructor.instructor_id == instructor_id,
+                    ),
+                )
+            )
             .all()
         )
 
+    def get_instructor_course_ids_with_parallel(self, instructor_id: int) -> set[int]:
+        """
+        Instructor'ın doğrudan verdiği dersler + aynı paralel gruptaki ders ID'leri.
+        """
+        direct_courses = self.get_by_instructor(instructor_id)
+        direct_ids = {c.id for c in direct_courses}
+        shared_ids = {
+            c.shared_class_id for c in direct_courses if c.shared_class_id is not None
+        }
+        if not shared_ids:
+            return direct_ids
+        parallel_ids = {
+            row.id
+            for row in self.db.query(Course.id)
+            .filter(Course.shared_class_id.in_(shared_ids))
+            .all()
+        }
+        return direct_ids | parallel_ids
+
     def is_instructor_of_course(self, instructor_id: int, course_id: int) -> bool:
         """Öğretmenin bu derse atanıp atanmadığını tek EXISTS sorgusuyla kontrol eder."""
+        course = self.get_by_id(course_id)
+        if not course:
+            return False
+        if course.instructor_id == instructor_id:
+            return True
         return self.db.query(
             exists().where(
                 CourseInstructor.instructor_id == instructor_id,
@@ -80,6 +122,18 @@ class CourseRepository:
             Course.shared_class_id == shared_class_id
         ).all()
 
+    def is_same_or_parallel_course(self, course_a_id: int, course_b_id: int) -> bool:
+        """İki dersin aynı ders veya aynı paralel grupta olup olmadığını döndür."""
+        if course_a_id == course_b_id:
+            return True
+        course_a = self.get_by_id(course_a_id)
+        course_b = self.get_by_id(course_b_id)
+        if not course_a or not course_b:
+            return False
+        if course_a.shared_class_id is None or course_b.shared_class_id is None:
+            return False
+        return course_a.shared_class_id == course_b.shared_class_id
+
     def get_parallel_enrolled_student_ids(self, shared_class_id: int) -> set:
         """Paralel gruptaki tüm derslere kayıtlı öğrenci ID'lerini birleştir."""
         parallel_courses = self.get_parallel_courses(shared_class_id)
@@ -91,11 +145,11 @@ class CourseRepository:
         ).all()
         return {e.student_id for e in enrollments}
 
-    def create(self, code: str, name: str, instructor_id: Optional[int] = None,
+    def create(self, code: str, name: str, department: Optional[str] = None, instructor_id: Optional[int] = None,
                schedule=None, default_duration_minutes=None,
                shared_class_id: Optional[int] = None) -> Course:
         course = Course(
-            code=code, name=name, instructor_id=instructor_id,
+            code=code, name=name, department=department, instructor_id=instructor_id,
             schedule=schedule, default_duration_minutes=default_duration_minutes,
             shared_class_id=shared_class_id,
         )
@@ -125,6 +179,26 @@ class CourseRepository:
         self.db.delete(course)
         self.db.commit()
 
+    def get_delete_dependency_counts(self, course_id: int) -> dict[str, int]:
+        """Return dependent row counts that block hard delete (RESTRICT FKs)."""
+        return {
+            "attendance_sessions": self.db.query(AttendanceSession).filter(
+                AttendanceSession.course_id == course_id
+            ).count(),
+            "final_attendance_records": self.db.query(FinalAttendanceRecord).filter(
+                FinalAttendanceRecord.course_id == course_id
+            ).count(),
+            "class_cancellations": self.db.query(ClassCancellation).filter(
+                ClassCancellation.course_id == course_id
+            ).count(),
+            "disputes": self.db.query(AttendanceDispute).filter(
+                AttendanceDispute.course_id == course_id
+            ).count(),
+            "excuses": self.db.query(Excuse).filter(
+                Excuse.course_id == course_id
+            ).count(),
+        }
+
     def get_enrolled_count(self, course_id: int) -> int:
         return self.db.query(Enrollment).filter(Enrollment.course_id == course_id).count()
 
@@ -147,16 +221,59 @@ class EnrollmentRepository:
 
     def student_can_attend_course(self, student_id: int, course_id: int) -> bool:
         """Öğrenci bu oturum dersinde veya paralel ortak şubede kayıtlıysa True (QR / yoklama ile uyumlu)."""
-        if self.get(student_id, course_id):
+        try:
+            return self.resolve_attendance_course_id(student_id, course_id) is not None
+        except ValueError:
+            # Ambiguous parallel enrollment is considered attendable from authorization
+            # perspective; downstream flows should resolve explicitly.
             return True
+
+    def resolve_attendance_course_id(
+        self,
+        student_id: int,
+        session_course_id: int,
+        *,
+        strict_ambiguous: bool = True,
+    ) -> Optional[int]:
+        """
+        Resolve which course_id attendance should be credited to for a session.
+
+        Rules:
+          1) If student is directly enrolled in session_course_id, use it.
+          2) Else if session course has shared_class_id, pick student's enrolled course
+             within the same parallel group.
+          3) If no enrollment matches, return None.
+          4) If multiple parallel enrollments match and strict_ambiguous=True, raise.
+        """
+        direct = self.get(student_id, session_course_id)
+        if direct:
+            return session_course_id
+
         course_repo = CourseRepository(self.db)
-        course = course_repo.get_by_id(course_id)
-        if course and course.shared_class_id is not None:
-            parallel_ids = {
-                c.id for c in course_repo.get_parallel_courses(course.shared_class_id)
-            }
-            return any(self.get(student_id, cid) for cid in parallel_ids)
-        return False
+        session_course = course_repo.get_by_id(session_course_id)
+        if not session_course or session_course.shared_class_id is None:
+            return None
+
+        candidates = (
+            self.db.query(Enrollment.course_id)
+            .join(Course, Course.id == Enrollment.course_id)
+            .filter(
+                Enrollment.student_id == student_id,
+                Course.shared_class_id == session_course.shared_class_id,
+            )
+            .all()
+        )
+        candidate_ids = sorted({row.course_id for row in candidates})
+        if not candidate_ids:
+            return None
+        if len(candidate_ids) == 1:
+            return candidate_ids[0]
+        if strict_ambiguous:
+            raise ValueError(
+                f"Ambiguous parallel enrollment for student_id={student_id}, "
+                f"session_course_id={session_course_id}: {candidate_ids}"
+            )
+        return candidate_ids[0]
 
     def get_attendable_course_ids(self, student_id: int) -> set:
         """Öğrencinin katılabileceği tüm ders ID'lerini tek sorgu setiyle döndürür.

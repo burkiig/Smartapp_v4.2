@@ -20,6 +20,8 @@ export const ClassDetails = ({ classData, onBack }) => {
   const [overriding, setOverriding] = useState(new Set());
   const [localStatuses, setLocalStatuses] = useState({});
 
+  const normalizeId = (value) => (value == null ? '' : String(value));
+
   const fetchDetails = useCallback(async () => {
     if (!session?.id) return;
     setLoading(true);
@@ -71,8 +73,6 @@ export const ClassDetails = ({ classData, onBack }) => {
     }
   };
 
-  const getStatus = (recordId) => localStatuses[recordId] ?? null;
-
   const handleOverrideRecord = async (record, newStatus) => {
     const key = record.id;
     if (overriding.has(key)) return;
@@ -111,8 +111,24 @@ export const ClassDetails = ({ classData, onBack }) => {
     }
   };
 
-  // All attendance records (present + pending_review + excused) count as attended
-  const presentIds = new Set(attendanceRecords.filter(r => r.status !== 'absent').map(r => r.student_id));
+  // Normalize IDs once to avoid number/string mismatch between endpoints.
+  const enrolledIdSet = new Set(enrolledStudents.map(s => normalizeId(s.id)));
+  const recordedStudentIds = new Set(
+    attendanceRecords
+      .map(r => normalizeId(r.student_id))
+      .filter(id => enrolledIdSet.has(id))
+  );
+  // All non-absent records (present + pending_review + excused) count as attended.
+  const presentIds = new Set(
+    attendanceRecords
+      .filter(r => r.status !== 'absent')
+      .map(r => normalizeId(r.student_id))
+      .filter(id => enrolledIdSet.has(id))
+  );
+  // Right panel is for students without any attendance record yet.
+  const studentsWithoutRecord = enrolledStudents.filter(
+    s => !recordedStudentIds.has(normalizeId(s.id))
+  );
   const presentCount = presentIds.size;
   const absentCount = Math.max(0, enrolledStudents.length - presentCount);
   const flaggedCount = attendanceRecords.filter(r => r.is_flagged).length;
@@ -263,9 +279,7 @@ export const ClassDetails = ({ classData, onBack }) => {
             <p className="empty-text">Kayıtlı öğrenci yok</p>
           ) : (
             <div className="absent-list">
-              {enrolledStudents
-                .filter(s => !presentIds.has(s.id))
-                .map(s => {
+              {studentsWithoutRecord.map(s => {
                   const key = `new-${s.id}`;
                   const isBusy = overriding.has(key);
                   return (
@@ -294,7 +308,7 @@ export const ClassDetails = ({ classData, onBack }) => {
                     </div>
                   );
                 })}
-              {enrolledStudents.filter(s => !presentIds.has(s.id)).length === 0 && (
+              {studentsWithoutRecord.length === 0 && (
                 <p className="empty-text">Tüm öğrenciler katıldı!</p>
               )}
             </div>

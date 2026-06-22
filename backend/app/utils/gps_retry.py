@@ -104,6 +104,10 @@ def _key(student_id: int, session_id: int) -> str:
     return f"gps_fake:{student_id}:{session_id}"
 
 
+def _location_key(student_id: int, session_id: int) -> str:
+    return f"gps_location_retry:{student_id}:{session_id}"
+
+
 def increment_fake_gps_counter(student_id: int, session_id: int) -> int:
     """Sayacı 1 artır ve yeni değeri döndür."""
     return _counter.increment(_key(student_id, session_id))
@@ -117,3 +121,18 @@ def reset_fake_gps_counter(student_id: int, session_id: int) -> None:
 def get_fake_gps_count(student_id: int, session_id: int) -> int:
     """Mevcut deneme sayısını döndür (sayaç artırmaz)."""
     return _counter.get(_key(student_id, session_id))
+
+
+def increment_location_retry_counter(student_id: int, session_id: int) -> int:
+    """Konum doğrulaması (geofence dışı) için deneme sayacını artırır."""
+    return _counter.increment(_location_key(student_id, session_id))
+
+
+def reset_location_retry_counter(student_id: int, session_id: int) -> None:
+    """Konum doğrulaması tamamlandığında/sonuçlandığında sayacı sıfırlar."""
+    _counter.reset(_location_key(student_id, session_id))
+
+
+def get_location_retry_count(student_id: int, session_id: int) -> int:
+    """Mevcut konum-deneme sayısını döndürür."""
+    return _counter.get(_location_key(student_id, session_id))

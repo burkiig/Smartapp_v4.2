@@ -19,7 +19,7 @@ def get_rooms(
     return RoomRepository(db).get_all()
 
 
-@router.post("/", response_model=RoomResponse, status_code=201)
+@router.post("/", response_model=RoomResponse, status_code=200)
 def create_room(
     data: RoomCreate,
     current_user: User = Depends(require_admin),
@@ -37,6 +37,18 @@ def create_room(
     )
 
 
+@router.get("/{room_id}", response_model=RoomResponse)
+def get_room(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    room = RoomRepository(db).get_by_id(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Sınıf bulunamadı")
+    return room
+
+
 @router.patch("/{room_id}", response_model=RoomResponse)
 def update_room(
     room_id: int,
@@ -44,6 +56,23 @@ def update_room(
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    repo = RoomRepository(db)
+    room = repo.get_by_id(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Sınıf bulunamadı")
+    return repo.update(room, **data.model_dump(exclude_none=True))
+
+
+@router.put("/{room_id}", response_model=RoomResponse)
+def update_room_put(
+    room_id: int,
+    data: RoomUpdate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Backward-compatible PUT alias for room updates.
+    """
     repo = RoomRepository(db)
     room = repo.get_by_id(room_id)
     if not room:

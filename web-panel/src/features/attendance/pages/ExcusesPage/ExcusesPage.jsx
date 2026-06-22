@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdCheckCircle, MdCancel, MdRefresh, MdSelectAll, MdDescription } from 'react-icons/md';
+import { MdCheckCircle, MdCancel, MdRefresh, MdSelectAll, MdDescription, MdUndo } from 'react-icons/md';
 import {
   fetchExcuseRecords,
   approveExcuse,
@@ -76,7 +76,7 @@ export const ExcusesPage = () => {
       });
       setMessage(
         t(status === 'approved' ? 'excuses.bulkApproveMsg' : 'excuses.bulkRejectMsg', { count: res.updated }) +
-        (res.skipped > 0 ? ` ${t('excuses.skipped', { count: res.skipped })}` : '')
+        (res.skipped > 0 ? t('excuses.bulkSkipped', { count: res.skipped }) : '')
       );
       setSelected(new Set());
       loadData();
@@ -155,10 +155,10 @@ export const ExcusesPage = () => {
             <>
               <span className="selected-count">{t('excuses.selectedCount', { count: selected.size })}</span>
               <button className="bulk-btn approve" onClick={() => bulkAction('approved')} disabled={bulkLoading}>
-                <MdCheckCircle size={16} style={{ marginRight: 4 }} />{t('excuses.bulkApproveBtn')}
+                <MdCheckCircle size={16} style={{ marginRight: 4 }} />{t('excuses.bulkApprove')}
               </button>
               <button className="bulk-btn reject" onClick={() => bulkAction('rejected')} disabled={bulkLoading}>
-                <MdCancel size={16} style={{ marginRight: 4 }} />{t('excuses.bulkRejectBtn')}
+                <MdCancel size={16} style={{ marginRight: 4 }} />{t('excuses.bulkReject')}
               </button>
             </>
           )}
@@ -181,14 +181,14 @@ export const ExcusesPage = () => {
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th>{t('excuses.student')}</th>
-                <th>{t('excuses.course')}</th>
-                <th>{t('excuses.date')}</th>
-                <th>{t('excuses.type')}</th>
-                <th>{t('excuses.description')}</th>
-                <th>{t('excuses.document')}</th>
-                <th>{t('excuses.status')}</th>
-                <th>{t('excuses.action')}</th>
+                <th>{t('excuses.tableHeaders.student')}</th>
+                <th>{t('excuses.tableHeaders.course')}</th>
+                <th>{t('excuses.tableHeaders.date')}</th>
+                <th>{t('excuses.tableHeaders.type')}</th>
+                <th>{t('excuses.tableHeaders.description')}</th>
+                <th>{t('excuses.tableHeaders.document')}</th>
+                <th>{t('excuses.tableHeaders.status')}</th>
+                <th>{t('excuses.tableHeaders.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -208,7 +208,7 @@ export const ExcusesPage = () => {
                     <div className="student-cell">
                       <span className="student-name">{e.studentName}</span>
                       {e.student_number && (
-                        <span className="student-number">{t('excuses.studentNoLabel')}: {e.student_number}</span>
+                        <span className="student-number">{t('admin.users.studentNo')}: {e.student_number}</span>
                       )}
                     </div>
                   </td>
@@ -216,7 +216,7 @@ export const ExcusesPage = () => {
                     <span className="course-code">{e.courseTitle}</span>
                   </td>
                   <td>{e.classDate}</td>
-                  <td>{t(`excuses.types.${e.excuseType}`, e.excuseType)}</td>
+                  <td>{t(`excuses.types.${e.excuseType}`, { defaultValue: e.excuseType || '—' })}</td>
                   <td className="desc-cell">{e.description || '—'}</td>
                   <td>
                     {e.hasDocument ? (
@@ -234,7 +234,7 @@ export const ExcusesPage = () => {
                   </td>
                   <td>
                     <span className={`excuse-badge ${STATUS_CLS[e.status] || ''}`}>
-                      {t(`excuses.statuses.${e.status}`, e.status)}
+                      {t(`excuses.statuses.${e.status}`, { defaultValue: e.status || 'pending' })}
                     </span>
                   </td>
                   <td>
@@ -242,20 +242,33 @@ export const ExcusesPage = () => {
                       <button
                         className="act-btn detail"
                         onClick={() => setSelectedExcuse(e)}
-                        title={t('excuses.viewDetails')}
+                        title={t('common.detail')}
                       >
                         {t('common.detail')}
                       </button>
-                      {e.status === 'pending' && (
-                        <>
-                          <button className="act-btn approve" onClick={() => singleAction(e.id, 'approved')}>
-                            {t('common.approve')}
-                          </button>
-                          <button className="act-btn reject" onClick={() => singleAction(e.id, 'rejected')}>
-                            {t('common.reject')}
-                          </button>
-                        </>
-                      )}
+                      <button
+                        className="act-btn approve"
+                        onClick={() => singleAction(e.id, 'approved')}
+                        disabled={e.status === 'approved'}
+                      >
+                        {t('excuses.approve')}
+                      </button>
+                      <button
+                        className="act-btn reject"
+                        onClick={() => singleAction(e.id, 'rejected')}
+                        disabled={e.status === 'rejected'}
+                      >
+                        {t('excuses.reject')}
+                      </button>
+                      <button
+                        className="act-btn undo"
+                        onClick={() => singleAction(e.id, 'pending')}
+                        disabled={e.status === 'pending'}
+                        title={t('common.undo')}
+                      >
+                        <MdUndo size={14} style={{ marginRight: 4 }} />
+                        {t('common.undo')}
+                      </button>
                     </div>
                   </td>
                 </tr>

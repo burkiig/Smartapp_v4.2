@@ -65,6 +65,42 @@ export default function LoginFaceVerifyScreen() {
     return () => loop.stop();
   }, []);
 
+  const classifyFaceError = (msg = '') => {
+    const text = String(msg || '').toLowerCase();
+    if (text.includes('kayıt bulunamadı') || text.includes('yüz kaydı') || text.includes('face') && text.includes('not found') || text.includes('404')) {
+      return 'no_reference';
+    }
+    if (text.includes('yüz bulunamadı') || text.includes('görüntüde yüz') || text.includes('no face') || text.includes('detect')) {
+      return 'no_face';
+    }
+    if (text.includes('liveness') || text.includes('statik görüntü') || text.includes('static image')) {
+      return 'liveness';
+    }
+    if (text.includes('benzerlik') || text.includes('similarity') || text.includes('doğrulaması başarısız') || text.includes('threshold')) {
+      return 'similarity';
+    }
+    return 'unknown';
+  };
+
+  const showLocalizedFaceError = (rawMessage = '') => {
+    const type = classifyFaceError(rawMessage);
+    const titleByType = {
+      no_reference: t('flows.face.errors.noReferenceTitle'),
+      no_face: t('flows.face.errors.noFaceTitle'),
+      liveness: t('flows.face.errors.livenessTitle'),
+      similarity: t('flows.face.errors.mismatchTitle'),
+      unknown: t('flows.face.errors.unknownTitle'),
+    };
+    const bodyByType = {
+      no_reference: t('flows.face.errors.noReferenceBody'),
+      no_face: t('flows.face.errors.noFaceBody'),
+      liveness: t('flows.face.errors.livenessBody'),
+      similarity: t('flows.face.errors.mismatchBody'),
+      unknown: t('flows.face.errors.unknownBody'),
+    };
+    Alert.alert(titleByType[type] || t('common.error'), bodyByType[type] || t('flows.face.scanFailed'));
+  };
+
   const handleScan = async () => {
     if (!isCameraReady || !cameraRef.current || isScanning) return;
     setIsScanning(true);
@@ -130,7 +166,7 @@ export default function LoginFaceVerifyScreen() {
       }
     } catch (err) {
       setStatusKey('readyToScan');
-      Alert.alert(t('common.error'), err?.message || t('flows.face.scanFailed'));
+      showLocalizedFaceError(err?.message || '');
     } finally {
       setIsScanning(false);
     }

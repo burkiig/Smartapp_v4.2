@@ -3,6 +3,20 @@
  */
 import apiAdapter from '@/utils/apiAdapter';
 
+const ALLOWED_EXCUSE_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const ALLOWED_EXCUSE_EXT = new Set(['pdf', 'jpg', 'jpeg', 'png']);
+
+const _fileExt = (name = '') => {
+  const parts = String(name).toLowerCase().split('.');
+  return parts.length > 1 ? parts[parts.length - 1] : '';
+};
+
+const _isAllowedExcuseFile = (fileName, mimeType = '') => {
+  const normalizedMime = String(mimeType || '').toLowerCase();
+  if (ALLOWED_EXCUSE_MIME.has(normalizedMime)) return true;
+  return ALLOWED_EXCUSE_EXT.has(_fileExt(fileName));
+};
+
 // ==================== AUTH ====================
 
 export const auth = {
@@ -67,8 +81,16 @@ export const sessions = {
     apiAdapter.post(`/sessions/${sessionId}/end`, {}),
 
   /** POST /api/v1/sessions/cancel */
-  cancel: (courseId, reason, sessionId = null) =>
-    apiAdapter.post('/sessions/cancel', { course_id: courseId, reason, session_id: sessionId }),
+  cancel: (courseId, reason, sessionId = null, options = {}) =>
+    apiAdapter.post('/sessions/cancel', {
+      course_id: courseId,
+      reason,
+      session_id: sessionId,
+      date: options?.date ?? null,
+      topic: options?.topic ?? null,
+      start_time: options?.start_time ?? null,
+      end_time: options?.end_time ?? null,
+    }),
 };
 
 // ==================== ATTENDANCE PIPELINE ====================
@@ -222,12 +244,16 @@ export const excuses = {
     apiAdapter.get(`/excuses/${excuseId}/document?expires_in=${expiresIn}`),
 
   /** POST /api/v1/excuses/upload?excuse_id=<id> — multipart/form-data file upload */
-  uploadDocument: (excuseId, fileUri, fileName, mimeType) =>
-    apiAdapter.uploadFile(`/excuses/upload?excuse_id=${excuseId}`, fileUri, fileName, mimeType),
+  uploadDocument: (excuseId, fileUri, fileName, mimeType) => {
+    if (!_isAllowedExcuseFile(fileName, mimeType)) {
+      throw new Error('Sadece PDF, JPG veya PNG dosyaları yüklenebilir.');
+    }
+    return apiAdapter.uploadFile(`/excuses/upload?excuse_id=${excuseId}`, fileUri, fileName, mimeType);
+  },
 
   /** PATCH /api/v1/excuses/<id> */
   review: (excuseId, status, notes = '') =>
-    apiAdapter.patch(`/excuses/${excuseId}/`, { status, instructor_notes: notes }),
+    apiAdapter.patch(`/excuses/${excuseId}`, { status, instructor_notes: notes }),
 };
 
 // ==================== NOTIFICATIONS ====================
@@ -252,6 +278,14 @@ export const notifications = {
   /** PATCH /api/v1/notifications/read-all — mark all as read */
   markAllRead: () =>
     apiAdapter.patch('/notifications/read-all', {}),
+
+  /** DELETE /api/v1/notifications/{id} — delete single notification */
+  remove: (notificationId) =>
+    apiAdapter.delete(`/notifications/${notificationId}`),
+
+  /** DELETE /api/v1/notifications/prune-read — delete all read notifications */
+  pruneRead: () =>
+    apiAdapter.delete('/notifications/prune-read'),
 };
 
 // ==================== DISPUTES ====================

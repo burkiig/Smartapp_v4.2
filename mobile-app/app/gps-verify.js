@@ -43,7 +43,21 @@ export default function GPSVerifyScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
   const [distanceFromClass, setDistanceFromClass] = useState(null);
+  const [retryProgress, setRetryProgress] = useState(null);
   const [pulseAnim] = useState(new Animated.Value(1));
+  const isSuspiciousLocationResult = useCallback((flagReason) => {
+    if (!flagReason) return false;
+    const reasons = String(flagReason)
+      .split(/\s*\+\s*/)
+      .map((reason) => reason.trim())
+      .filter(Boolean);
+    return reasons.some((reason) => (
+      reason === 'location_failed'
+      || reason === 'fake_gps_detected'
+      || reason === 'suspicious_accuracy'
+      || reason === 'low_accuracy'
+    ));
+  }, []);
 
   // Pulsing animation for the location icon while checking
   useEffect(() => {
@@ -96,18 +110,32 @@ export default function GPSVerifyScreen() {
         is_flagged: verification?.is_flagged || false,
         flag_reason: verification?.flag_reason || null,
       });
+      setRetryProgress(null);
       setStep('success');
     } catch (err) {
       const msg = err.message || '';
-      if (msg.includes('Konum doğrulaması') || msg.includes('outside') || msg.includes('Mesafe:')) {
-        // "Mesafe: 87m (izin verilen: 50m)" formatından mesafeyi çıkar
-        const match = msg.match(/Mesafe:\s*([\d.]+)m/);
+      if (
+        msg.includes('Konum doğrulaması') ||
+        msg.includes('Location verification') ||
+        msg.includes('outside') ||
+        msg.includes('Mesafe:') ||
+        msg.includes('Mevcut mesafe:') ||
+        msg.includes('Current distance:')
+      ) {
+        // "Mesafe: 87m", "Mevcut mesafe: 87m" veya "Current distance: 87m"
+        const match = msg.match(/(?:Mesafe|Mevcut mesafe|Current distance):\s*([\d.]+)m/i);
         if (match) setDistanceFromClass(Math.round(parseFloat(match[1])));
+        const retryMatch = msg.match(/\((\d+)\s*\/\s*(\d+)\)/);
+        if (retryMatch) {
+          setRetryProgress({ current: Number(retryMatch[1]), total: Number(retryMatch[2]) });
+        } else {
+          setRetryProgress(null);
+        }
         setStep('outside');
-        setErrorMessage(msg);
+        setErrorMessage(t('flows.gps.outsideWarning'));
       } else {
         setStep('error');
-        setErrorMessage(msg || t('flows.gps.locationFailedRetry'));
+        setErrorMessage(t('flows.gps.locationFailedRetry'));
       }
     }
   }, [session_id, t]);
@@ -183,41 +211,52 @@ export default function GPSVerifyScreen() {
     );
   };
 
-  const renderSuccess = () => (
-    <View style={styles.centerContent}>
-      <View style={[styles.iconCircle, styles.iconCircleGreen]}>
-        <Ionicons name="checkmark-circle" size={64} color="#fff" />
-      </View>
-      <Text style={styles.statusTitle}>{t('flows.gps.insideClass')}</Text>
-      <Text style={styles.statusSubtitle}>{t('flows.gps.verifySuccess')}</Text>
-
-      {result && (
-        <View style={styles.infoCard}>
-          {result.gps_accuracy ? (
-            <View style={styles.infoRow}>
-              <Ionicons name="pulse-outline" size={18} color="#059669" />
-              <Text style={styles.infoLabel}>{t('flows.gps.gpsAccuracy')}</Text>
-              <Text style={styles.infoValue}>±{Math.round(result.gps_accuracy)} m</Text>
-            </View>
-          ) : null}
-          {result.is_flagged && (
-            <View style={styles.infoRow}>
-              <Ionicons name="flag-outline" size={18} color="#F59E0B" />
-              <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>{t('flows.gps.note')}</Text>
-              <Text style={[styles.infoValue, { color: '#F59E0B' }]}>
-                {getFlagReasonLabel(result.flag_reason)}
-              </Text>
-            </View>
-          )}
+  const renderSuccess = () => {
+    const isSuspiciousLocation = isSuspiciousLocationResult(result?.flag_reason);
+    return (
+      <View style={styles.centerContent}>
+        <View style={[styles.iconCircle, styles.iconCircleGreen]}>
+          <Ionicons name="checkmark-circle" size={64} color="#fff" />
         </View>
-      )}
+        <Text style={styles.statusTitle}>
+          {isSuspiciousLocation
+            ? t('flows.gps.suspiciousLocationTitle')
+            : t('flows.gps.locationVerifiedTitle')}
+        </Text>
+        <Text style={styles.statusSubtitle}>
+          {isSuspiciousLocation
+            ? t('flows.gps.suspiciousLocationBody')
+            : t('flows.gps.locationVerifiedBody')}
+        </Text>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleContinue} activeOpacity={0.85}>
-        <Ionicons name="checkmark-done-circle" size={22} color="#fff" />
-        <Text style={styles.primaryButtonText}>{t('flows.gps.completeReturnHome')}</Text>
-      </TouchableOpacity>
-    </View>
-  );
+        {result && (
+          <View style={styles.infoCard}>
+            {result.gps_accuracy ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="pulse-outline" size={18} color="#059669" />
+                <Text style={styles.infoLabel}>{t('flows.gps.gpsAccuracy')}</Text>
+                <Text style={styles.infoValue}>±{Math.round(result.gps_accuracy)} m</Text>
+              </View>
+            ) : null}
+            {result.is_flagged && (
+              <View style={styles.infoRow}>
+                <Ionicons name="flag-outline" size={18} color="#F59E0B" />
+                <Text style={[styles.infoLabel, { color: '#F59E0B' }]}>{t('flows.gps.note')}</Text>
+                <Text style={[styles.infoValue, { color: '#F59E0B' }]}>
+                  {getFlagReasonLabel(result.flag_reason)}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.primaryButton} onPress={handleContinue} activeOpacity={0.85}>
+          <Ionicons name="checkmark-done-circle" size={22} color="#fff" />
+          <Text style={styles.primaryButtonText}>{t('flows.gps.completeReturnHome')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderOutside = () => (
     <View style={styles.centerContent}>
@@ -246,6 +285,14 @@ export default function GPSVerifyScreen() {
           </View>
         </View>
       ) : null}
+      {retryProgress && (
+        <View style={styles.signalBadge}>
+          <Ionicons name="refresh" size={16} color="#FCD34D" />
+          <Text style={[styles.signalText, { color: '#FCD34D' }]}>
+            {t('flows.gps.retryProgress', { current: retryProgress.current, total: retryProgress.total })}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.warningBox}>
         <Ionicons name="warning-outline" size={18} color="#92400E" />

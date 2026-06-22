@@ -13,9 +13,11 @@ const FLAG_REASON_LABELS = {
   manual_no_face:           'Manuel yoklama (yüzsüz)',
   manual_no_face_ref:       'Yüz referansı bulunamadı',
   face_not_enrolled:        'Yüz kaydı yok',
+  face_failed:              'Yüz doğrulaması başarısız',
   fake_gps_detected:        'Sahte GPS tespit edildi',
   suspicious_accuracy:      'Şüpheli GPS hassasiyeti',
   low_accuracy:             'GPS doğruluğu düşük',
+  location_failed:          'Konum doğrulaması başarısız',
 };
 
 export const STATUS_LABELS = {

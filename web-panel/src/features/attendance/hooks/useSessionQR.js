@@ -1,14 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import apiClient from '../../../shared/services/apiClient';
 
-const QR_ROTATE_INTERVAL_MS = 55_000;
+const DEFAULT_QR_TTL_SECONDS = 20;
 
 /**
  * Dynamic QR polling + rotation timer shared by QRScan, Classroom, and Present views.
  */
 export function useSessionQR() {
   const [activeQR, setActiveQR] = useState(null);
-  const [qrCountdown, setQrCountdown] = useState(55);
+  const [qrCountdown, setQrCountdown] = useState(DEFAULT_QR_TTL_SECONDS);
+  const [qrTtlSeconds, setQrTtlSeconds] = useState(DEFAULT_QR_TTL_SECONDS);
   const rotateTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
 
@@ -25,19 +26,24 @@ export function useSessionQR() {
       setActiveQR((prev) => (prev?.sessionId === sessionId
         ? { ...prev, qrImage: result.qr_image }
         : prev));
-      setQrCountdown(55);
+      const ttl = Number(result?.ttl_seconds) > 0 ? Number(result.ttl_seconds) : DEFAULT_QR_TTL_SECONDS;
+      setQrTtlSeconds(ttl);
+      setQrCountdown(ttl);
     } catch (err) {
       console.error('[useSessionQR] rotate-qr error:', err);
     }
   }, []);
 
-  const startQRRotation = useCallback((sessionId) => {
+  const startQRRotation = useCallback((sessionId, ttlSeconds = DEFAULT_QR_TTL_SECONDS) => {
     clearInterval(rotateTimerRef.current);
     clearInterval(countdownTimerRef.current);
-    setQrCountdown(55);
-    rotateTimerRef.current = setInterval(() => rotateQR(sessionId), QR_ROTATE_INTERVAL_MS);
+    const ttl = Number(ttlSeconds) > 0 ? Number(ttlSeconds) : DEFAULT_QR_TTL_SECONDS;
+    setQrTtlSeconds(ttl);
+    setQrCountdown(ttl);
+    const rotateEveryMs = Math.max((ttl - 1) * 1000, 1000);
+    rotateTimerRef.current = setInterval(() => rotateQR(sessionId), rotateEveryMs);
     countdownTimerRef.current = setInterval(() => {
-      setQrCountdown((prev) => (prev <= 1 ? 55 : prev - 1));
+      setQrCountdown((prev) => (prev <= 1 ? ttl : prev - 1));
     }, 1000);
   }, [rotateQR]);
 
@@ -53,8 +59,11 @@ export function useSessionQR() {
       qrImage: dynRes.status === 'fulfilled' ? dynRes.value.qr_image : null,
       staticQrImage: statRes.status === 'fulfilled' ? statRes.value.qr_image : null,
     };
+    const ttl = dynRes.status === 'fulfilled' && Number(dynRes.value?.ttl_seconds) > 0
+      ? Number(dynRes.value.ttl_seconds)
+      : DEFAULT_QR_TTL_SECONDS;
     setActiveQR(next);
-    startQRRotation(sessionId);
+    startQRRotation(sessionId, ttl);
     return next;
   }, [startQRRotation]);
 
@@ -65,7 +74,8 @@ export function useSessionQR() {
       qrImage: session.qr_image,
       staticQrImage: session.static_qr_image || null,
     });
-    startQRRotation(sessionId);
+    const ttl = Number(session?.ttl_seconds) > 0 ? Number(session.ttl_seconds) : DEFAULT_QR_TTL_SECONDS;
+    startQRRotation(sessionId, ttl);
   }, [startQRRotation]);
 
   const dismissQR = useCallback(() => {
@@ -81,6 +91,7 @@ export function useSessionQR() {
   return {
     activeQR,
     qrCountdown,
+    qrTtlSeconds,
     fetchQRPair,
     applyStartSessionResult,
     dismissQR,

@@ -183,6 +183,7 @@ class CancellationRepository:
         return q.order_by(ClassCancellation.created_at.desc()).all()
 
     def create(self, course_id: int, instructor_id: int, date: str, reason: str,
+               topic: Optional[str] = None,
                session_id: Optional[int] = None) -> ClassCancellation:
         cancellation = ClassCancellation(
             course_id=course_id,
@@ -190,6 +191,7 @@ class CancellationRepository:
             instructor_id=instructor_id,
             date=date,
             reason=reason,
+            topic=topic,
             notified_at=datetime.now(timezone.utc),
         )
         self.db.add(cancellation)

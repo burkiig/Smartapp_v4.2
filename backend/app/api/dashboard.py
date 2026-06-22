@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.database.connection import get_db
+from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.models.attendance import FinalAttendanceRecord
 from app.models.session import AttendanceSession
@@ -234,3 +235,49 @@ def recent_activity(
 # Audit-log endpoint removed from dashboard router.
 # Use the dedicated GET /api/v1/audit-logs/ endpoint (audit_logs.py) instead —
 # it supports resource filtering and case-insensitive action matching.
+
+
+@router.get("/audit-logs")
+def audit_logs_legacy(
+    action: Optional[str] = None,
+    actor_id: Optional[int] = None,
+    resource: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Backward-compatible dashboard audit log endpoint.
+    Mirrors response shape expected by existing clients/tests.
+    """
+    q = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    if action:
+        q = q.filter(AuditLog.action.ilike(f"%{action}%"))
+    if actor_id:
+        q = q.filter(AuditLog.actor_id == actor_id)
+    if resource:
+        q = q.filter(AuditLog.resource == resource)
+
+    total = q.count()
+    logs = q.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+        "logs": [
+            {
+                "id": log.id,
+                "actor_id": log.actor_id,
+                "actor_role": log.actor_role,
+                "action": log.action,
+                "resource": log.resource,
+                "resource_id": log.resource_id,
+                "detail": log.detail,
+                "ip_address": log.ip_address,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
+    }

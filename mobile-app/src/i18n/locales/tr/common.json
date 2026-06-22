@@ -46,6 +46,40 @@
     "minutesAgo": "{{count}} dk önce",
     "hoursAgo": "{{count}} saat önce",
     "daysAgo": "{{count}} gün önce",
+    "notificationsTitle": "Bildirimler",
+    "markAllRead": "Tümünü okundu yap",
+    "clearRead": "Okunanları temizle",
+    "noNotifications": "Henüz bildirim yok",
+    "notificationFeed": {
+      "defaultTitle": "Bildirim",
+      "defaultBody": "Yeni bir bildiriminiz var.",
+      "types": {
+        "session_started": {
+          "title": "📋 Yoklama Başladı",
+          "body": "{{course}} dersi için yoklama açıldı."
+        },
+        "class_cancelled": {
+          "title": "Ders İptal Edildi",
+          "body": "{{course}} dersi iptal edildi."
+        },
+        "flagged_attendance": {
+          "title": "⚠️ Şüpheli Yoklama",
+          "body": "Öğrenci {{student}} için şüpheli kayıt (oturum {{session}})."
+        },
+        "dispute_submitted": {
+          "title": "Yeni İtiraz",
+          "body": "{{course}} dersi için yeni itiraz gönderildi."
+        },
+        "dispute_approved": {
+          "title": "İtiraz Onaylandı",
+          "body": "{{course}} dersi itirazı onaylandı."
+        },
+        "dispute_rejected": {
+          "title": "İtiraz Sonuçlandı",
+          "body": "{{course}} dersi itirazı reddedildi."
+        }
+      }
+    },
     "requestTimeout": "İstek zaman aşımına uğradı",
     "sessionExpired": "Oturum süresi doldu",
     "unexpectedError": "Beklenmeyen bir hata oluştu",

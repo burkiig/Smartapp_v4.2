@@ -30,6 +30,10 @@ class ExcuseResponse(BaseModel):
     excuse_type: str
     description: Optional[str] = None
     storage_path: Optional[str] = None
+    upload_status: str
+    upload_error: Optional[str] = None
+    document_mime: Optional[str] = None
+    document_name: Optional[str] = None
     status: str
     instructor_notes: Optional[str] = None
     created_at: datetime

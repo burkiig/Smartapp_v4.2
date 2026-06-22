@@ -184,7 +184,7 @@ function NotificationManager() {
       } else {
         enqueueBanner({
           type: 'info',
-          message: title || body || i18n.t('notifications.sessionStartedMessage'),
+          message: i18n.t('notifications.sessionStartedMessage'),
           actionLabel: i18n.t('notifications.sessionStartedAction'),
           onAction: () =>
             router.push({
@@ -206,7 +206,7 @@ function NotificationManager() {
       } else {
         enqueueBanner({
           type: 'warning',
-          message: title || body || i18n.t('notifications.flaggedMessage'),
+          message: i18n.t('notifications.flaggedMessage'),
           actionLabel: i18n.t('notifications.flaggedAction'),
           onAction: () =>
             router.push({
@@ -219,11 +219,30 @@ function NotificationManager() {
     }
 
     if (data?.type === 'class_cancelled') {
+      const dayFromDate = (() => {
+        const dateStr = data?.date;
+        if (!dateStr || typeof dateStr !== 'string') return undefined;
+        const parsed = new Date(`${dateStr}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) return undefined;
+        return String(parsed.getDay());
+      })();
+      const scheduleParams = {
+        tab: 'schedule',
+        ...(dayFromDate !== undefined ? { day: dayFromDate } : {}),
+        ...(data?.course_id != null ? { course_id: String(data.course_id) } : {}),
+        ...(typeof data?.date === 'string' ? { date: data.date } : {}),
+      };
+      if (mode === 'response') {
+        router.push({ pathname: '/(tabs)/history', params: scheduleParams });
+        return true;
+      }
       enqueueBanner({
         type: 'error',
         message: i18n.t('notifications.classCancelled', {
           sessionName: data?.session_name || i18n.t('notifications.unknownSession'),
         }),
+        actionLabel: i18n.t('notifications.classCancelledAction'),
+        onAction: () => router.push({ pathname: '/(tabs)/history', params: scheduleParams }),
       });
       return true;
     }

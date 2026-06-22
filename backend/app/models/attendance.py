@@ -84,6 +84,7 @@ class ClassCancellation(Base):
     instructor_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     date = Column(String, nullable=False)
     reason = Column(String, nullable=False)
+    topic = Column(String, nullable=True)
     notified_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 

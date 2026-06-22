@@ -197,6 +197,9 @@ class CancellationCreate(BaseModel):
     session_id: Optional[int] = None
     date: Optional[str] = None
     reason: str
+    topic: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
 
 
 class CancellationResponse(BaseModel):
@@ -206,6 +209,7 @@ class CancellationResponse(BaseModel):
     instructor_id: int
     date: str
     reason: str
+    topic: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

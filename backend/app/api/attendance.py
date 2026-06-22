@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import io
+from datetime import datetime, timezone
 
 from app.database.connection import get_db
 from app.schemas.attendance import (
@@ -15,7 +16,7 @@ from app.schemas.attendance import (
 from app.services.attendance_service import AttendancePipelineService
 from app.services.audit_service import log_action
 from app.repositories.attendance_repo import FinalAttendanceRepository
-from app.repositories.course_repo import CourseRepository
+from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 from app.security.dependencies import get_current_user, require_student, require_instructor
 from app.security.rate_limit import rate_limit
 from app.models.user import User
@@ -28,6 +29,31 @@ router = APIRouter()
 # Bu limitin üzerinde kayıt varsa X-Export-Truncated: true header'ı döner;
 # kullanıcı daha dar bir filtre (course_id / date) ile tekrar isteyebilir.
 _EXPORT_LIMIT = 5_000
+
+
+def _append_flagged_history(
+    existing_steps: dict,
+    record: FinalAttendanceRecord,
+    reviewer_id: int,
+    new_status: str,
+    note: Optional[str] = None,
+) -> dict:
+    """Keep a lightweight audit trail for resolved flagged records."""
+    steps = dict(existing_steps or {})
+    history = list(steps.get("flagged_history") or [])
+    history.append(
+        {
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": reviewer_id,
+            "previous_status": record.status,
+            "previous_flag_reason": record.flag_reason,
+            "new_status": new_status,
+            "note": note,
+        }
+    )
+    steps["flagged_history"] = history
+    steps["was_flagged"] = True
+    return steps
 
 
 # ── Student pipeline ──────────────────────────────────────────────────────────
@@ -153,7 +179,9 @@ def get_records(
     effective_allowed_ids: Optional[List[int]] = None
 
     if current_user.role == "instructor":
-        my_course_ids = [c.id for c in CourseRepository(db).get_by_instructor(current_user.id)]
+        my_course_ids = list(
+            CourseRepository(db).get_instructor_course_ids_with_parallel(current_user.id)
+        )
         if course_id:
             if course_id not in my_course_ids:
                 raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
@@ -244,7 +272,7 @@ def session_attendance(
     if current_user.role == "instructor" and records:
         from app.repositories.course_repo import CourseRepository
         course_repo = CourseRepository(db)
-        my_course_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
+        my_course_ids = course_repo.get_instructor_course_ids_with_parallel(current_user.id)
         records = [r for r in records if r.course_id in my_course_ids]
 
     return [
@@ -271,15 +299,26 @@ def get_flagged(
     current_user: User = Depends(require_instructor),
     db: Session = Depends(get_db),
 ):
-    repo = FinalAttendanceRepository(db)
-    records = repo.get_flagged()
-    if current_user.role == "admin":
-        filtered = records
-    else:
+    records = (
+        db.query(FinalAttendanceRecord)
+        .options(
+            joinedload(FinalAttendanceRecord.student),
+            joinedload(FinalAttendanceRecord.course),
+        )
+        .order_by(FinalAttendanceRecord.marked_at.desc())
+        .all()
+    )
+    if current_user.role != "admin":
         from app.repositories.course_repo import CourseRepository
         course_repo = CourseRepository(db)
-        my_course_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
-        filtered = [r for r in records if r.course_id in my_course_ids]
+        my_course_ids = set(course_repo.get_instructor_course_ids_with_parallel(current_user.id))
+        records = [r for r in records if r.course_id in my_course_ids]
+
+    def _has_flagged_history(record: FinalAttendanceRecord) -> bool:
+        steps = record.verification_steps or {}
+        return bool(steps.get("flagged_history"))
+
+    filtered = [r for r in records if r.is_flagged or _has_flagged_history(r)]
 
     return [
         {
@@ -320,7 +359,9 @@ def export_attendance(
     effective_allowed_ids: Optional[List[int]] = None
 
     if current_user.role == "instructor":
-        my_ids = [c.id for c in CourseRepository(db).get_by_instructor(current_user.id)]
+        my_ids = list(
+            CourseRepository(db).get_instructor_course_ids_with_parallel(current_user.id)
+        )
         if course_id:
             if course_id not in my_ids:
                 raise HTTPException(status_code=403, detail="Bu derse erişim yetkiniz yok")
@@ -449,19 +490,31 @@ def override_attendance(
 
     if current_user.role != "admin":
         from app.repositories.course_repo import CourseRepository
-        my_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_course_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         if record.course_id not in my_course_ids:
             raise HTTPException(status_code=403, detail="Bu kayıt üzerinde yetkiniz yok")
 
     old_status = record.status
+    existing_steps = dict(record.verification_steps or {})
+    if record.is_flagged or record.status == "pending_review" or record.flag_reason:
+        existing_steps = _append_flagged_history(
+            existing_steps=existing_steps,
+            record=record,
+            reviewer_id=current_user.id,
+            new_status=data.status,
+            note=data.note,
+        )
     repo = FinalAttendanceRepository(db)
     update_kwargs: dict = {
         "status": data.status,
         "is_flagged": False,
         "flag_reason": None,
     }
+    if existing_steps:
+        update_kwargs["verification_steps"] = existing_steps
     if data.note:
-        existing_steps = record.verification_steps or {}
         existing_steps["instructor_override_note"] = data.note
         existing_steps["instructor_override_by"] = current_user.id
         update_kwargs["verification_steps"] = existing_steps
@@ -513,9 +566,29 @@ def set_attendance_status(
         raise HTTPException(status_code=400, detail="İptal edilmiş oturuma yoklama kaydı eklenemez")
 
     if current_user.role != "admin":
-        my_course_ids = {c.id for c in CourseRepository(db).get_by_instructor(current_user.id)}
+        my_course_ids = CourseRepository(db).get_instructor_course_ids_with_parallel(
+            current_user.id
+        )
         if session.course_id not in my_course_ids:
             raise HTTPException(status_code=403, detail="Bu oturum için yetkiniz yok")
+
+    enroll_repo = EnrollmentRepository(db)
+    try:
+        attendance_course_id = enroll_repo.resolve_attendance_course_id(
+            data.student_id,
+            session.course_id,
+            strict_ambiguous=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Öğrenci aynı paralel grupta birden fazla derse kayıtlı. "
+                "Lütfen öğrenci ders atamalarını kontrol edin."
+            ),
+        ) from exc
+    if attendance_course_id is None:
+        raise HTTPException(status_code=403, detail="Öğrenci bu oturuma katılamaz")
 
     record = db.query(FinalAttendanceRecord).filter(
         FinalAttendanceRecord.student_id == data.student_id,
@@ -529,13 +602,22 @@ def set_attendance_status(
 
     if record:
         old_status = record.status
+        existing = dict(record.verification_steps or {})
+        if record.is_flagged or record.status == "pending_review" or record.flag_reason:
+            existing = _append_flagged_history(
+                existing_steps=existing,
+                record=record,
+                reviewer_id=current_user.id,
+                new_status=data.status,
+                note=data.note,
+            )
+        record.course_id = attendance_course_id
         record.status = data.status
         record.is_flagged = False
         record.flag_reason = None
         if verification_steps:
-            existing = record.verification_steps or {}
             existing.update(verification_steps)
-            record.verification_steps = existing
+        record.verification_steps = existing if existing else None
         db.commit()
         db.refresh(record)
         log_action(
@@ -548,7 +630,7 @@ def set_attendance_status(
         record = FinalAttendanceRecord(
             student_id=data.student_id,
             session_id=data.session_id,
-            course_id=session.course_id,
+            course_id=attendance_course_id,
             status=data.status,
             is_flagged=False,
             flag_reason=None,
@@ -592,7 +674,7 @@ def review_attendance(
     if current_user.role != "admin":
         from app.repositories.course_repo import CourseRepository
         course_repo = CourseRepository(db)
-        my_course_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
+        my_course_ids = course_repo.get_instructor_course_ids_with_parallel(current_user.id)
         if record.course_id not in my_course_ids:
             raise HTTPException(status_code=403, detail="Bu kayıt üzerinde yetkiniz yok")
     old_status = record.status

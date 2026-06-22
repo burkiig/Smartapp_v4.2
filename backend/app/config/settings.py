@@ -104,7 +104,7 @@ class Settings:
     LOGIN_RATE_LIMIT: str = os.getenv("LOGIN_RATE_LIMIT", "10/minute")
 
     # ── QR Token TTL ──────────────────────────────────────────────────────────
-    QR_TOKEN_TTL_SECONDS: int = int(os.getenv("QR_TOKEN_TTL_SECONDS", "90"))
+    QR_TOKEN_TTL_SECONDS: int = int(os.getenv("QR_TOKEN_TTL_SECONDS", "20"))
 
     # ── Cookies ───────────────────────────────────────────────────────────────
     # Set COOKIE_SECURE=true in production (requires HTTPS).

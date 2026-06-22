@@ -99,6 +99,30 @@ export const ExcuseDetailsModal = ({ excuse, onClose, onApprove, onReject }) => 
           <p className="excuse-description">{excuse.excuseDescription || excuse.description}</p>
         </div>
 
+        {!excuse.hasDocument && excuse.uploadStatus === 'pending_upload' && (
+          <div className="excuse-section">
+            <h3>{t('excuseModal.documents')}</h3>
+            <p className="excuse-description">{t('excuseModal.docPendingUpload')}</p>
+          </div>
+        )}
+
+        {!excuse.hasDocument && excuse.uploadStatus === 'upload_failed' && (
+          <div className="excuse-section">
+            <h3>{t('excuseModal.documents')}</h3>
+            <p className="excuse-description">
+              {t('excuseModal.docUploadFailed')}
+              {excuse.uploadError ? ` (${excuse.uploadError})` : ''}
+            </p>
+          </div>
+        )}
+
+        {!excuse.hasDocument && (!excuse.uploadStatus || excuse.uploadStatus === 'none') && (
+          <div className="excuse-section">
+            <h3>{t('excuseModal.documents')}</h3>
+            <p className="excuse-description">{t('excuseModal.docNotUploaded')}</p>
+          </div>
+        )}
+
         {(excuse.hasDocument || (excuse.documents && excuse.documents.length > 0)) && (
           <div className="excuse-section">
             <h3>{t('excuseModal.documents')}</h3>
@@ -124,7 +148,7 @@ export const ExcuseDetailsModal = ({ excuse, onClose, onApprove, onReject }) => 
                       }
                     }}
                   >
-                    {docLoading ? t('common.loading') : `🔍 ${t('excuseModal.view')}`}
+                    {docLoading ? t('common.loading') : `🔍 ${t('excuseModal.viewDoc')}`}
                   </button>
                   <button
                     className="doc-download-btn"
@@ -170,20 +194,34 @@ export const ExcuseDetailsModal = ({ excuse, onClose, onApprove, onReject }) => 
           </div>
         </div>
 
-        {excuse.status === 'pending' && !showRejectInput ? (
+        <div className="excuse-section">
+          <div className={`excuse-status-badge ${excuse.status}`}>
+            {t(`excuses.statuses.${excuse.status}`, { defaultValue: excuse.status || 'pending' })}
+          </div>
+        </div>
+
+        {!showRejectInput ? (
           <div className="excuse-actions">
-            <button className="excuse-btn approve-btn" onClick={handleApprove} disabled={isProcessing || !onApprove}>
-              {isProcessing ? t('common.processing') : `✓ ${t('common.approve')}`}
+            <button
+              className="excuse-btn approve-btn"
+              onClick={handleApprove}
+              disabled={isProcessing || !onApprove || excuse.status === 'approved'}
+            >
+              {isProcessing ? t('common.processing') : `✓ ${t('excuses.approve')}`}
             </button>
-            <button className="excuse-btn reject-btn" onClick={() => setShowRejectInput(true)} disabled={isProcessing}>
-              ✗ {t('common.reject')}
+            <button
+              className="excuse-btn reject-btn"
+              onClick={() => setShowRejectInput(true)}
+              disabled={isProcessing || excuse.status === 'rejected'}
+            >
+              ✗ {t('excuses.reject')}
             </button>
           </div>
-        ) : excuse.status === 'pending' && showRejectInput ? (
+        ) : (
           <div className="excuse-reject-section">
             <textarea
               className="reject-reason-input"
-              placeholder={t('excuseModal.rejectReasonPlaceholder')}
+              placeholder={t('excuseModal.rejectPlaceholder')}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               rows={3}
@@ -201,12 +239,6 @@ export const ExcuseDetailsModal = ({ excuse, onClose, onApprove, onReject }) => 
               >
                 {isProcessing ? t('common.processing') : t('excuseModal.confirmReject')}
               </button>
-            </div>
-          </div>
-        ) : (
-          <div className="excuse-section">
-            <div className={`excuse-status-badge ${excuse.status}`}>
-              {excuse.status === 'approved' ? `✓ ${t('excuses.statusApproved')}` : excuse.status === 'rejected' ? `✗ ${t('excuses.statusRejected')}` : excuse.status}
             </div>
           </div>
         )}

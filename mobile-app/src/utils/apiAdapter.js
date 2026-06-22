@@ -60,6 +60,7 @@ async function request(method, path, body = null, customToken = null) {
 
   const headers = {
     'Content-Type': 'application/json',
+    'Accept-Language': i18n?.resolvedLanguage || i18n?.language || 'tr',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 

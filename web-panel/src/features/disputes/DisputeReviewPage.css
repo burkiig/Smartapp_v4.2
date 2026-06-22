@@ -201,6 +201,12 @@
   transform: translateY(-1px);
 }
 
+.dr-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
 .dr-btn.approve {
   background: var(--success-bg, #d1fae5);
   color: var(--success-text, #065f46);
@@ -209,6 +215,12 @@
 .dr-btn.reject {
   background: var(--error-bg, #fee2e2);
   color: var(--error-text, #991b1b);
+}
+
+.dr-btn.undo {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
 }
 
 /* ── Resolved Table ────────────────────────────────────────── */
@@ -244,6 +256,7 @@
   padding: 10px 14px;
   color: var(--text, #0f172a);
   border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
 }
 
 .dr-table tr:last-child td {
@@ -267,3 +280,8 @@
 .badge-pending  { background: var(--warning-bg, #fef3c7);  color: var(--warning-text, #92400e); }
 .badge-approved { background: var(--success-bg, #d1fae5);  color: var(--success-text, #065f46); }
 .badge-rejected { background: var(--error-bg, #fee2e2);    color: var(--error-text, #991b1b); }
+
+.dispute-notes-compact {
+  min-width: 180px;
+  width: 100%;
+}

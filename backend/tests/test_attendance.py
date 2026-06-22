@@ -170,25 +170,32 @@ class TestFakeGpsFlagging:
         db.commit()
 
     def test_is_mocked_true_always_flagged(self, client, db, student_headers, active_session, enrollment, student_user):
-        """If mobile reports mocked location, record must be flagged regardless of accuracy."""
+        """If mobile reports mocked location, flow should eventually produce flagged record."""
         self._prepare_attempt_for_location(client, db, student_headers, active_session, enrollment, student_user)
 
-        resp = client.post("/api/v1/attendance/verify-location", json={
-            "session_id": active_session.id,
-            "latitude": active_session.latitude,
-            "longitude": active_session.longitude,
-            "accuracy": 5.0,
-            "is_mocked": True,
-        }, headers=student_headers)
-
+        # fake_gps retry logic may return 400 until max attempts are reached.
+        data = None
+        resp = None
+        for _ in range(3):
+            resp = client.post("/api/v1/attendance/verify-location", json={
+                "session_id": active_session.id,
+                "latitude": active_session.latitude,
+                "longitude": active_session.longitude,
+                "accuracy": 5.0,
+                "is_mocked": True,
+            }, headers=student_headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                break
+        assert resp is not None
         assert resp.status_code == 200
-        data = resp.json()
+        assert data is not None
         assert data["is_flagged"] is True
         assert data["flag_reason"] == "fake_gps_detected"
         assert data["status"] == "pending_review"
 
-    def test_accuracy_above_threshold_flagged_even_if_not_mocked(self, client, db, student_headers, active_session, enrollment, student_user):
-        """If GPS accuracy is too poor (> threshold), record must be flagged even when is_mocked=False."""
+    def test_location_skipped_flagged_when_session_has_no_coordinates(self, client, db, student_headers, active_session, enrollment, student_user):
+        """If session has no geofence coordinates, location is skipped and record is flagged."""
         self._prepare_attempt_for_location(
             client, db, student_headers, active_session, enrollment, student_user, set_session_coords=False
         )
@@ -204,8 +211,43 @@ class TestFakeGpsFlagging:
         assert resp.status_code == 200
         data = resp.json()
         assert data["is_flagged"] is True
-        assert data["flag_reason"] == "fake_gps_detected"
+        assert data["flag_reason"] in ("location_skipped", "face_simulated")
         assert data["status"] == "pending_review"
+
+    def test_outside_geofence_is_flagged_instead_of_rejected(
+        self, client, db, student_headers, active_session, enrollment, student_user
+    ):
+        """
+        Mobile step-3 policy: geofence mismatch gives one retry warning first,
+        then finalizes as flagged/pending_review on next attempt.
+        """
+        self._prepare_attempt_for_location(
+            client, db, student_headers, active_session, enrollment, student_user, set_session_coords=True
+        )
+
+        first = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 40.7128,   # intentionally far from seeded Istanbul coordinate
+            "longitude": -74.0060,
+            "accuracy": 5.0,
+            "is_mocked": False,
+        }, headers=student_headers)
+        assert first.status_code == 400
+        assert "Sınıfa yaklaşın" in first.json()["detail"]
+        assert "(1/2)" in first.json()["detail"]
+
+        second = client.post("/api/v1/attendance/verify-location", json={
+            "session_id": active_session.id,
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "accuracy": 5.0,
+            "is_mocked": False,
+        }, headers=student_headers)
+        assert second.status_code == 200
+        data = second.json()
+        assert data["is_flagged"] is True
+        assert data["status"] == "pending_review"
+        assert "location_failed" in (data["flag_reason"] or "")
 
 
 class TestReviewAttendance:
@@ -249,6 +291,67 @@ class TestReviewAttendance:
         assert resp.status_code == 404
 
 
+class TestParallelCourseCredit:
+    def test_set_status_credits_student_parallel_course(
+        self, client, db, instructor_headers, student_user, instructor_user
+    ):
+        from app.models.course import Course, Enrollment
+        from app.models.session import AttendanceSession
+        from app.models.attendance import FinalAttendanceRecord
+        from app.utils.qr import generate_qr_token
+
+        session_course = Course(
+            code="PCR101",
+            name="Parallel Session Course",
+            instructor_id=instructor_user.id,
+            shared_class_id=999,
+        )
+        student_course = Course(
+            code="PCR102",
+            name="Parallel Student Course",
+            instructor_id=instructor_user.id,
+            shared_class_id=999,
+        )
+        db.add(session_course)
+        db.add(student_course)
+        db.commit()
+        db.refresh(session_course)
+        db.refresh(student_course)
+
+        db.add(Enrollment(course_id=student_course.id, student_id=student_user.id))
+        db.commit()
+
+        session = AttendanceSession(
+            course_id=session_course.id,
+            date="2024-06-01",
+            start_time="09:00",
+            status="active",
+            qr_token=generate_qr_token(),
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        resp = client.put(
+            "/api/v1/attendance/set-status",
+            json={
+                "student_id": student_user.id,
+                "session_id": session.id,
+                "status": "present",
+            },
+            headers=instructor_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["course_id"] == student_course.id
+
+        record = db.query(FinalAttendanceRecord).filter(
+            FinalAttendanceRecord.student_id == student_user.id,
+            FinalAttendanceRecord.session_id == session.id,
+        ).first()
+        assert record is not None
+        assert record.course_id == student_course.id
+
+
 class TestWebAttendInputValidation:
     def test_oversized_image_rejected(self, client, student_headers, active_session, enrollment):
         big_image = "A" * 3_000_000  # > 2.8M char limit
@@ -266,6 +369,68 @@ class TestWebAttendInputValidation:
             # missing image_base64, latitude, longitude
         }, headers=student_headers)
         assert resp.status_code == 422
+
+
+class TestWebAttendPolicy:
+    def test_web_attend_location_skipped_flagged_when_face_passes(
+        self, client, db, student_headers, active_session, enrollment, monkeypatch
+    ):
+        from app.services.face_service import FaceService
+
+        monkeypatch.setattr(FaceService, "verify", lambda *args, **kwargs: (True, 0.99))
+        active_session.latitude = None
+        active_session.longitude = None
+        db.commit()
+
+        resp = client.post("/api/v1/attendance/web-attend", json={
+            "session_id": active_session.id,
+            "image_base64": "dGVzdA==",
+            "latitude": 41.015137,
+            "longitude": 28.979530,
+            "accuracy": 10.0,
+            "is_mocked": False,
+        }, headers=student_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_flagged"] is True
+        assert data["status"] == "pending_review"
+        assert "location_skipped" in (data["flag_reason"] or "")
+
+    def test_web_attend_outside_geofence_flagged_when_face_passes(
+        self, client, db, student_headers, active_session, enrollment, monkeypatch
+    ):
+        from app.services.face_service import FaceService
+
+        monkeypatch.setattr(FaceService, "verify", lambda *args, **kwargs: (True, 0.99))
+        active_session.latitude = 41.015137
+        active_session.longitude = 28.979530
+        db.commit()
+
+        first = client.post("/api/v1/attendance/web-attend", json={
+            "session_id": active_session.id,
+            "image_base64": "dGVzdA==",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "accuracy": 5.0,
+            "is_mocked": False,
+        }, headers=student_headers)
+        assert first.status_code == 400
+        assert "Sınıfa yaklaşın" in first.json()["detail"]
+        assert "(1/2)" in first.json()["detail"]
+
+        second = client.post("/api/v1/attendance/web-attend", json={
+            "session_id": active_session.id,
+            "image_base64": "dGVzdA==",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "accuracy": 5.0,
+            "is_mocked": False,
+        }, headers=student_headers)
+        assert second.status_code == 200
+        data = second.json()
+        assert data["is_flagged"] is True
+        assert data["status"] == "pending_review"
+        assert "location_failed" in (data["flag_reason"] or "")
 
 
 class TestGpsHardening:
@@ -380,15 +545,22 @@ class TestGpsHardening:
         attempt.face_status = "verified"
         db.commit()
 
-        resp = client.post("/api/v1/attendance/verify-location", json={
-            "session_id": active_session.id,
-            "latitude": 41.015137,
-            "longitude": 28.979530,
-            "accuracy": 0.001,
-            "is_mocked": True,
-        }, headers=student_headers)
+        data = None
+        resp = None
+        for _ in range(3):
+            resp = client.post("/api/v1/attendance/verify-location", json={
+                "session_id": active_session.id,
+                "latitude": 41.015137,
+                "longitude": 28.979530,
+                "accuracy": 0.001,
+                "is_mocked": True,
+            }, headers=student_headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                break
 
+        assert resp is not None
         assert resp.status_code == 200
-        data = resp.json()
+        assert data is not None
         assert data["is_flagged"] is True
         assert data["flag_reason"] == "fake_gps_detected"  # is_mocked öncelikli

@@ -17,6 +17,31 @@ export const WeeklySchedulePage = () => {
   ];
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
+  const formatDays = (schedule) => {
+    if (!schedule) return '—';
+    if (Array.isArray(schedule.slots) && schedule.slots.length > 0) {
+      return schedule.slots.map((slot) => slot.day).join(', ');
+    }
+    if (Array.isArray(schedule.days) && schedule.days.length > 0) {
+      return schedule.days.join(', ');
+    }
+    return '—';
+  };
+
+  const formatTimes = (schedule) => {
+    if (!schedule) return '—';
+    if (Array.isArray(schedule.slots) && schedule.slots.length > 0) {
+      return schedule.slots
+        .map((slot) => `${slot.day}: ${slot.start_time || '--:--'} - ${slot.end_time || '--:--'}`)
+        .join(' | ');
+    }
+    if (schedule.start_time || schedule.end_time) {
+      return `${schedule.start_time || '--:--'} - ${schedule.end_time || '--:--'}`;
+    }
+    return '—';
+  };
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -43,14 +68,27 @@ export const WeeklySchedulePage = () => {
         return sched.slots
           .filter(slot => slot.day === dayName)
           .map(slot => ({
+            id: c.id,
             code: c.code, name: c.name,
             start_time: slot.start_time || '09:00',
             end_time: slot.end_time || '10:00',
             color, instructors,
+            schedule: sched,
+            department: c.department || null,
           }));
       }
       if (Array.isArray(sched.days) && sched.days.includes(dayName)) {
-        return [{ code: c.code, name: c.name, start_time: sched.start_time || '09:00', end_time: sched.end_time || '10:00', color, instructors }];
+        return [{
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          start_time: sched.start_time || '09:00',
+          end_time: sched.end_time || '10:00',
+          color,
+          instructors,
+          schedule: sched,
+          department: c.department || null,
+        }];
       }
       return [];
     });
@@ -98,7 +136,13 @@ export const WeeklySchedulePage = () => {
                       return (
                         <div key={`${day}-${time}`} className={`schedule-slot ${classItems.length > 0 ? 'has-class' : ''}`}>
                           {classItems.map((classItem, ci) => (
-                            <div key={ci} className="class-info" style={{ background: classItem.color }}>
+                            <button
+                              key={ci}
+                              type="button"
+                              className="class-info"
+                              style={{ background: classItem.color }}
+                              onClick={() => setSelectedCourse(classItem)}
+                            >
                               <div className="class-code">{classItem.code}</div>
                               <div className="class-name">{classItem.name}</div>
                               <div className="class-time">{classItem.start_time} – {classItem.end_time}</div>
@@ -107,7 +151,7 @@ export const WeeklySchedulePage = () => {
                                   👤 {classItem.instructors.join(' · ')}
                                 </div>
                               )}
-                            </div>
+                            </button>
                           ))}
                         </div>
                       );
@@ -123,6 +167,29 @@ export const WeeklySchedulePage = () => {
       <div className="schedule-legend">
         <div className="legend-item"><div className="legend-color" style={{ background: '#3B82F6' }}></div><span>{t('schedule.scheduled')}</span></div>
       </div>
+
+      {selectedCourse && (
+        <div className="course-detail-overlay" onClick={() => setSelectedCourse(null)}>
+          <div className="course-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="course-detail-header">
+              <h3>{t('schedule.courseDetailTitle', 'Ders Detayı')}</h3>
+              <button type="button" className="course-detail-close" onClick={() => setSelectedCourse(null)}>
+                {t('common.close')}
+              </button>
+            </div>
+            <div className="course-detail-body">
+              <p><strong>{t('schedule.courseCode', 'Ders Kodu')}:</strong> {selectedCourse.code}</p>
+              <p><strong>{t('schedule.courseName', 'Ders Adı')}:</strong> {selectedCourse.name}</p>
+              <p><strong>{t('schedule.days', 'Günler')}:</strong> {formatDays(selectedCourse.schedule)}</p>
+              <p><strong>{t('schedule.timeRange', 'Saat')}:</strong> {formatTimes(selectedCourse.schedule)}</p>
+              <p><strong>{t('schedule.instructors', 'Öğretmenler')}:</strong> {selectedCourse.instructors?.length ? selectedCourse.instructors.join(' · ') : '—'}</p>
+              {selectedCourse.department && (
+                <p><strong>{t('schedule.department', 'Bölüm')}:</strong> {selectedCourse.department}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

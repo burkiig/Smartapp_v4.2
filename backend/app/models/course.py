@@ -14,6 +14,8 @@ class Course(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
+    # Optional organizational label for large-campus filtering/grouping.
+    department = Column(String, nullable=True, index=True)
     # Primary instructor — geriye dönük uyumluluk + bildirim kısayolu.
     # Yetkilendirme için course_instructors join tablosunu kullanın.
     instructor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

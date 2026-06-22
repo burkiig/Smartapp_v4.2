@@ -7,6 +7,8 @@ GET    /                  — paginated list + unread_count
 GET    /count             — lightweight unread count (for bell badge polling)
 PATCH  /{id}/read         — mark a single notification as read
 PATCH  /read-all          — mark all unread as read
+DELETE /{id}              — delete a single notification
+DELETE /prune-read        — delete all read notifications of current user
 POST   /broadcast         — admin: fan-out system announcement to a role
 """
 from __future__ import annotations
@@ -103,6 +105,27 @@ def mark_read(
 ):
     n = NotificationRepository(db).mark_read(notification_id, current_user.id)
     if not n:
+        raise HTTPException(status_code=404, detail="Bildirim bulunamadı")
+    return {"success": True}
+
+
+@router.delete("/prune-read", summary="Delete all read notifications")
+def delete_read_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    deleted = NotificationRepository(db).delete_read_for_user(current_user.id)
+    return {"success": True, "deleted": deleted}
+
+
+@router.delete("/{notification_id}", summary="Delete a single notification")
+def delete_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    deleted = NotificationRepository(db).delete_for_user(notification_id, current_user.id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="Bildirim bulunamadı")
     return {"success": True}
 

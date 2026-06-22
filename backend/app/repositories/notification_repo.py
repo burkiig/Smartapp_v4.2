@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.models.notification import Notification
 
 # Rows older than this are eligible for cleanup (read rows only).
-DEFAULT_RETENTION_DAYS = 30
+# Product decision: keep recent context, purge stale notifications every 2 weeks.
+DEFAULT_RETENTION_DAYS = 14
 
 
 class NotificationRepository:
@@ -107,6 +108,42 @@ class NotificationRepository:
         )
         self.db.commit()
         return updated
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Delete
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def delete_for_user(self, notification_id: int, user_id: int) -> bool:
+        """
+        Delete a single notification that belongs to the current user.
+        Returns True if deleted, False if not found / unauthorized.
+        """
+        deleted = (
+            self.db.query(Notification)
+            .filter(
+                Notification.id == notification_id,
+                Notification.user_id == user_id,
+            )
+            .delete(synchronize_session=False)
+        )
+        self.db.commit()
+        return bool(deleted)
+
+    def delete_read_for_user(self, user_id: int) -> int:
+        """
+        Delete all read notifications of a user.
+        Keeps unread items intact to avoid accidental loss.
+        """
+        deleted = (
+            self.db.query(Notification)
+            .filter(
+                Notification.user_id == user_id,
+                Notification.is_read == True,  # noqa: E712
+            )
+            .delete(synchronize_session=False)
+        )
+        self.db.commit()
+        return deleted
 
     # ─────────────────────────────────────────────────────────────────────────
     # Retention / housekeeping

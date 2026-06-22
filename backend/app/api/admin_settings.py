@@ -14,10 +14,11 @@ router = APIRouter()
 
 # Default settings seeded on first access
 _DEFAULTS = {
-    "qr_token_ttl_seconds": ("60", "QR kod geçerlilik süresi (saniye)"),
+    "qr_token_ttl_seconds": ("20", "QR kod geçerlilik süresi (saniye)"),
     "min_attendance_rate": ("70", "Minimum devam oranı (%)"),
     "geofence_radius_m": ("50", "Konum doğrulama yarıçapı (metre)"),
     "fake_gps_max_attempts": ("3", "Sahte GPS denemesi eşiği — bu sayıya ulaşınca öğretmene bildirim gönderilir"),
+    "location_verify_max_attempts": ("2", "Konum doğrulamasında geofence dışı kalma deneme hakkı"),
 }
 
 # ── In-memory TTL cache — her QR taramasında DB'ye gitmemek için ─────────────
@@ -75,6 +76,11 @@ class SettingUpdate(BaseModel):
     value: str
 
 
+class SettingUpsert(BaseModel):
+    key: str
+    value: str
+
+
 @router.put("/{key}")
 def update_setting(
     key: str,
@@ -87,6 +93,29 @@ def update_setting(
     db.commit()
     db.refresh(setting)
     _invalidate_cache()  # Yeni değer hemen geçerli olsun
+    return {
+        "key": setting.key,
+        "value": setting.value,
+        "description": setting.description,
+        "updated_at": setting.updated_at.isoformat() if setting.updated_at else None,
+    }
+
+
+@router.put("/")
+def upsert_setting(
+    data: SettingUpsert,
+    _=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Backward-compatible upsert endpoint.
+    Accepts {key, value} in body and updates/creates the setting.
+    """
+    setting = _get_or_create(db, data.key)
+    setting.value = data.value
+    db.commit()
+    db.refresh(setting)
+    _invalidate_cache()
     return {
         "key": setting.key,
         "value": setting.value,

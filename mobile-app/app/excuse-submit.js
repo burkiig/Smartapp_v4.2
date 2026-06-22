@@ -33,12 +33,27 @@ import { excuses } from '@/services/api';
 import { Colors, Shadows } from '@/config/theme';
 
 const EXCUSE_TYPE_KEYS = ['medical', 'family', 'school_activity', 'transportation', 'other'];
+const ALLOWED_ATTACHMENT_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const ALLOWED_ATTACHMENT_EXT = new Set(['pdf', 'jpg', 'jpeg', 'png']);
 const EXCUSE_ICONS = {
   medical: '🏥',
   family: '👨‍👩‍👧',
   school_activity: '🎓',
   transportation: '🚌',
   other: '📋',
+};
+
+const getFileExt = (name = '') => {
+  const parts = String(name).toLowerCase().split('.');
+  return parts.length > 1 ? parts[parts.length - 1] : '';
+};
+
+const isAllowedAttachment = (file) => {
+  if (!file) return false;
+  const mime = (file.mimeType || '').toLowerCase();
+  if (ALLOWED_ATTACHMENT_MIME.has(mime)) return true;
+  const ext = getFileExt(file.name);
+  return ALLOWED_ATTACHMENT_EXT.has(ext);
 };
 
 export default function ExcuseSubmitScreen() {
@@ -115,6 +130,14 @@ export default function ExcuseSubmitScreen() {
 
     setIsSubmitting(true);
     try {
+      if (attachment && !isAllowedAttachment(attachment)) {
+        Alert.alert(
+          t('common.warning'),
+          'Sadece PDF, JPG veya PNG dosyaları yüklenebilir.'
+        );
+        return;
+      }
+
       const submitted = await excuses.submit({
         courseId: parsedCourseId,
         sessionId: session_id ? parseInt(session_id, 10) : null,
@@ -127,11 +150,13 @@ export default function ExcuseSubmitScreen() {
       if (attachment && submitted?.id) {
         try {
           await excuses.uploadDocument(submitted.id, attachment.uri, attachment.name, attachment.mimeType);
-        } catch {
+        } catch (uploadErr) {
           // Belge yükleme başarısız olsa bile mazeret kaydedildi, kullanıcıyı uyar
           Alert.alert(
-            t('excuse.partialSuccess'),
-            t('excuse.success'),
+            t('excuse.partialSuccess') || t('common.warning'),
+            uploadErr?.message
+              ? `Mazeret kaydedildi ancak belge yüklenemedi: ${uploadErr.message}`
+              : 'Mazeret kaydedildi ancak belge yüklenemedi. Lütfen tekrar deneyin.',
             [{ text: t('common.ok'), onPress: () => router.back() }]
           );
           return;

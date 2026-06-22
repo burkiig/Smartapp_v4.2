@@ -10,7 +10,6 @@ from app.repositories.user_repo import UserRepository
 from app.repositories.course_repo import CourseRepository, EnrollmentRepository
 from app.security.dependencies import get_current_user, require_admin, require_instructor
 from app.security.user_privileges import apply_create_scope, enforce_update_privileges
-from app.models.course import Course
 from app.models.user import User
 
 router = APIRouter()
@@ -70,10 +69,7 @@ def get_students(
         return repo.get_all_list(role="student")
     course_repo = CourseRepository(db)
     enroll_repo = EnrollmentRepository(db)
-    my_course_ids = {c.id for c in course_repo.get_by_instructor(current_user.id)}
-    my_course_ids.update(
-        cid for cid, in db.query(Course.id).filter(Course.instructor_id == current_user.id)
-    )
+    my_course_ids = course_repo.get_instructor_course_ids_with_parallel(current_user.id)
     student_ids = set()
     for cid in my_course_ids:
         for e in enroll_repo.get_by_course(cid):
