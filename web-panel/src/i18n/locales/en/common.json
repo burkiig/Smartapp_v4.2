@@ -714,6 +714,7 @@
       "errorNeedGps": "Please get your location first",
       "errorGps": "Could not get location. Check browser location permission.",
       "errorSubmit": "Could not submit attendance",
+      "errorBothVerificationFailed": "Both face and location verification failed. Attendance was not recorded.",
       "gpsVerifiedTitle": "Location verified",
       "gpsVerifiedBody": "Your position matched the class geofence; you are recorded as being in the safe zone.",
       "gpsDistanceHint": "About {{m}} m from the class location.",

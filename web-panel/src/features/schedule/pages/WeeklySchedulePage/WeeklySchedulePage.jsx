@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../../../shared/services/apiClient';
 import './WeeklySchedulePage.css';
@@ -58,41 +58,57 @@ export const WeeklySchedulePage = () => {
     fetchCourses();
   }, []);
 
-  const getScheduleForDay = (dayName) => {
-    return courses.flatMap((c, idx) => {
-      const sched = c.schedule;
-      if (!sched) return [];
+  const dayHourToClassesMap = useMemo(() => {
+    const byDayHour = Object.fromEntries(DAYS_EN.map((day) => [day, {}]));
+
+    const pushClass = (dayName, item) => {
+      if (!byDayHour[dayName]) return;
+      const hour = parseInt((item.start_time || '00:00').split(':')[0], 10);
+      if (!Number.isFinite(hour)) return;
+      if (!byDayHour[dayName][hour]) byDayHour[dayName][hour] = [];
+      byDayHour[dayName][hour].push(item);
+    };
+
+    courses.forEach((course, idx) => {
+      const sched = course.schedule;
+      if (!sched) return;
+
       const color = COLORS[idx % COLORS.length];
-      const instructors = c.instructor_names?.length ? c.instructor_names : [];
+      const instructors = course.instructor_names?.length ? course.instructor_names : [];
+      const baseItem = {
+        id: course.id,
+        code: course.code,
+        name: course.name,
+        color,
+        instructors,
+        schedule: sched,
+        department: course.department || null,
+      };
+
       if (Array.isArray(sched.slots)) {
-        return sched.slots
-          .filter(slot => slot.day === dayName)
-          .map(slot => ({
-            id: c.id,
-            code: c.code, name: c.name,
+        sched.slots.forEach((slot) => {
+          pushClass(slot.day, {
+            ...baseItem,
             start_time: slot.start_time || '09:00',
             end_time: slot.end_time || '10:00',
-            color, instructors,
-            schedule: sched,
-            department: c.department || null,
-          }));
+          });
+        });
+        return;
       }
-      if (Array.isArray(sched.days) && sched.days.includes(dayName)) {
-        return [{
-          id: c.id,
-          code: c.code,
-          name: c.name,
-          start_time: sched.start_time || '09:00',
-          end_time: sched.end_time || '10:00',
-          color,
-          instructors,
-          schedule: sched,
-          department: c.department || null,
-        }];
+
+      if (Array.isArray(sched.days)) {
+        sched.days.forEach((dayName) => {
+          pushClass(dayName, {
+            ...baseItem,
+            start_time: sched.start_time || '09:00',
+            end_time: sched.end_time || '10:00',
+          });
+        });
       }
-      return [];
     });
-  };
+
+    return byDayHour;
+  }, [courses]);
 
   return (
     <div className="weekly-schedule">
@@ -121,7 +137,6 @@ export const WeeklySchedulePage = () => {
             </div>
 
             {DAYS_EN.map((day, dayIndex) => {
-              const daySchedule = getScheduleForDay(day);
               const isToday = dayIndex === TODAY_INDEX;
               return (
                 <div key={day} className="day-column">
@@ -132,7 +147,7 @@ export const WeeklySchedulePage = () => {
                   <div className="day-slots">
                     {TIME_SLOTS.map(time => {
                       const slotHour = parseInt(time.split(':')[0], 10);
-                      const classItems = daySchedule.filter(c => parseInt(c.start_time.split(':')[0], 10) === slotHour);
+                      const classItems = dayHourToClassesMap[day]?.[slotHour] || [];
                       return (
                         <div key={`${day}-${time}`} className={`schedule-slot ${classItems.length > 0 ? 'has-class' : ''}`}>
                           {classItems.map((classItem, ci) => (

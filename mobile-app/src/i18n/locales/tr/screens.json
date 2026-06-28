@@ -40,7 +40,10 @@
     "noSessionInfo": "Bu kayıt için oturum bilgisi bulunamadı.",
     "emptySchedule": "Bu gün için kayıtlı ders yok",
     "emptyHistory": "Yoklama geçmişi bulunamadı",
-    "submitDispute": "İtiraz Gönder"
+    "submitDispute": "İtiraz Gönder",
+    "cancelNoticeTitle": "İptal bildirimi",
+    "cancelNoticeTopic": "Konu",
+    "cancelNoticeReason": "Sebep"
   },
   "more": {
     "management": "Yönetim",

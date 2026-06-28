@@ -2,13 +2,134 @@
 
 Yüz tanıma, QR kod ve GPS doğrulama kullanan üç aşamalı akıllı yoklama sistemi.
 
-**API Sürümü:** v4.2.2 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
+**API Sürümü:** v4.2.4 &nbsp;|&nbsp; **Backend:** FastAPI &nbsp;|&nbsp; **DB:** PostgreSQL &nbsp;|&nbsp; **Deployment:** Docker + Tailscale
 
 ---
 
-## Son Güncelleme — v4.2.2 (22 Haziran 2026)
+## Son Güncelleme — v4.2.4 (26 Haziran 2026)
 
-Paralel ders veri bütünlüğü, mazeret dosya yükleme saga akışı ve CI stabilizasyonu.
+**Web Panel — Production-Safe Performans Optimizasyonu**
+
+Mobil i18n düzeltmelerinden bağımsız olarak, web panelde iş mantığı / API / routing / yetki akışı korunarak uygulanan performans PR'ları. Detaylı özet aşağıdadır; tüm adımlar `npm run build` + ESLint ile doğrulandı.
+
+### PR Özeti
+
+| PR | Dosya(lar) | Sorun | Çözüm | Risk |
+|----|------------|-------|-------|------|
+| **PR-1** | `App.js`, `InstructorDashboardPage.jsx`, `AdminDashboardPage.jsx` | Tüm dashboard ve ağır sekmeler ilk yüklemede tek bundle | `React.lazy` + `Suspense` ile role/tab bazlı code splitting | Düşük |
+| **PR-2** | `DashboardView.js` | Chart dataset/options ve türetilmiş listeler her render'da yeniden üretiliyordu | `useMemo` ile chart data/options, `pendingFlagged`, `cancelableEntries` | Düşük |
+| **PR-3** | `WeeklySchedulePage.jsx` | Her slot için nested filter (`O(gün×saat×ders)`) | `useMemo` ile `dayHourToClassesMap` lookup | Düşük |
+| **PR-4** | `Instructor/Admin/StudentDashboardPage.jsx` | `Sidebar`'a her render'da yeni `menuItems` / callback prop'ları | `useMemo` + `useCallback` ile prop stabilizasyonu | Düşük |
+| **PR-5** | `VirtualizedTableBody.jsx`, Admin/Student/Audit tabloları | Büyük tablolarda tüm satırlar DOM'a yazılıyordu | Viewport sanallaştırma (yalnız görünür satırlar + spacer) | Düşük-Orta |
+| **PR-6** | `useAuditLogsQuery.js`, `AuditLogPage.jsx` | Audit log `useEffect` + manuel fetch | React Query (`keepPreviousData`, prefetch, retry) | Düşük |
+| **PR-7** | `AdminDashboardPage.jsx` | Reports `page_size=200` + client-side filter | Server pagination (`page`, `page_size=50`, `course_id`) | Düşük |
+| **PR-8** | `registerBarChart.js`, chart sayfaları, `package.json` | Duplicate Chart.js register; kullanılmayan `axios` | Ortak bar chart setup; `axios` kaldırıldı | Düşük |
+| **PR-9** | `useAuditLogsQuery.js`, `AuditLogPage.jsx`, `Sidebar.jsx`, `StudentDashboardPage.jsx` | Audit query polling; Sidebar gereksiz re-render | Query ayarları gözden geçirildi; `React.memo` + chart memo | Düşük |
+
+### PR-1 — Code Splitting
+
+- **Eager (hemen yüklenir):** Login, auth shell, `ErrorBoundary`, `PresentAttendancePage`
+- **Lazy (ihtiyaç anında):** `InstructorDashboardPage`, `AdminDashboardPage`, `StudentDashboardPage`, `LeadershipDashboardPage`
+- **Instructor sekmeleri (lazy):** Attendance, Students, Records, Schedule, Settings, Excuses, Disputes, Audit, FaceScan, QRScan, Classroom
+- **Admin sekmeleri (lazy):** Excuses, Disputes, AuditLog
+- Her lazy boundary `Suspense` + mevcut `loading-inline` fallback kullanır
+
+### PR-5 — Tablo Sanallaştırma
+
+Sanallaştırılan tablolar (scroll viewport `maxHeight: 560px`):
+
+| Ekran | Bileşen |
+|-------|---------|
+| Admin → Users | `AdminDashboardPage.jsx` |
+| Admin → Reports | `AdminDashboardPage.jsx` |
+| Student → Attendance | `StudentDashboardPage.jsx` |
+| Audit → System Logs | `AuditLogPage.jsx` |
+
+Ortak bileşen: `web-panel/src/shared/components/ui/Table/VirtualizedTableBody.jsx`
+
+### PR-6 / PR-9 — AuditLog React Query
+
+Dosya: `web-panel/src/shared/query/hooks/useAuditLogsQuery.js`
+
+| Ayar | Değer | Gerekçe |
+|------|-------|---------|
+| `staleTime` | **60 saniye** (`AUDIT_LOGS_STALE_TIME_MS`) | Audit log anlık değil; 60s cache + manuel yenileme dengeli. Çok kısa → gereksiz istek; çok uzun → eski veri |
+| `refetchInterval` | **Kapalı** (kaldırıldı) | Ekran genelde uzun süre açık tutulmuyor; arka plan polling gereksiz ağ trafiği üretiyordu |
+| `refetchOnWindowFocus` | **Açık** | Sekmeye dönünce stale (>60s) veri varsa yenilenir — audit incelemesi için mantıklı |
+| `refetchOnReconnect` | **Açık** | Ağ kopunca geri gelince tutarlılık |
+| `placeholderData` | `keepPreviousData` | Sayfa geçişlerinde tablo flicker azalır |
+| Prefetch | Sonraki sayfa | Pagination hızlandırma; `staleTime` hook ile hizalı |
+
+**Veri tazeliği akışı:**
+
+1. İlk açılış → fetch  
+2. 60s içinde aynı sayfa/filtre → cache  
+3. 60s sonra pencereye dönüş → focus refetch (stale ise)  
+4. Kullanıcı **Yenile** → anında `refetch()`  
+5. Sayfa / filtre değişimi → yeni query key → fetch (+ next-page prefetch)
+
+### PR-7 — Admin Reports Server Pagination
+
+- **Önce:** `GET /attendance/records?page=1&page_size=200` + client-side course filter  
+- **Sonra:** `page`, `page_size=50`, `course_id` backend'e gönderilir  
+- Backend zaten destekliyor: `backend/app/api/attendance.py` → `GET /records`  
+- Tablo altında Prev/Next sayfalama; kayıt sayısı backend `total` değerinden gösterilir
+
+### PR-8 — Bundle
+
+| Değişiklik | Etki |
+|------------|------|
+| `axios` dependency kaldırıldı | API istekleri zaten `fetch` tabanlı `apiClient.js` kullanıyordu; 3 paket silindi |
+| `shared/chart/registerBarChart.js` | Chart.js bar scale kaydı tek modülde; `DashboardView`, `StudentDashboardPage`, `LeadershipDashboardPage` paylaşıyor |
+| `DashboardView` unused scales | `LineElement`, `PointElement`, `Filler` kaldırıldı (yalnız Bar kullanılıyor) |
+
+**Ölçülen bundle (gzip):** vendor chunk `58.*` ≈ **-2.5 KB** (PR-8 sonrası)
+
+### PR-9 — Rendering Audit
+
+- `Sidebar.jsx` → `React.memo` (PR-4'te stabilize edilen prop'larla birlikte)
+- `AuditLogPage.jsx` → `renderAuditLogRow` / scroll handler `useCallback`; arka plan fetch göstergesi yalnız `isFetching && !isPending`
+- `StudentDashboardPage.jsx` → attendance chart `chartData` / `chartOptions` component seviyesinde `useMemo`
+
+### Değişen web-panel dosyaları (performans PR'ları)
+
+```
+web-panel/src/App.js
+web-panel/src/features/dashboard/components/DashboardView.js
+web-panel/src/features/dashboard/pages/InstructorDashboardPage.jsx
+web-panel/src/features/dashboard/pages/AdminDashboardPage.jsx
+web-panel/src/features/dashboard/pages/StudentDashboardPage.jsx
+web-panel/src/features/schedule/pages/WeeklySchedulePage/WeeklySchedulePage.jsx
+web-panel/src/features/audit/AuditLogPage.jsx
+web-panel/src/shared/components/layout/Sidebar/Sidebar.jsx
+web-panel/src/shared/components/ui/Table/VirtualizedTableBody.jsx
+web-panel/src/shared/chart/registerBarChart.js
+web-panel/src/shared/query/hooks/useAuditLogsQuery.js
+web-panel/src/pages/LeadershipDashboardPage.jsx
+web-panel/package.json
+```
+
+### Doğrulama
+
+```bash
+cd web-panel
+npm install          # axios kaldırıldıysa lockfile güncellemesi için
+npx eslint src/...   # ilgili dosyalar
+npm run build        # production build
+```
+
+Manuel smoke test önerisi:
+
+- [ ] Admin / Instructor / Student login + logout  
+- [ ] Tab geçişleri (Suspense fallback görünür mü)  
+- [ ] Admin Reports: filtre + sayfalama  
+- [ ] Audit Logs: filtre, sayfa, yenile, sekme focus refetch  
+- [ ] Büyük tablolarda scroll akıcılığı  
+- [ ] Dashboard chart'ları dil değişiminde doğru mu  
+
+> **Not:** `npm run test:smoke` (Playwright) yerel ortamda browser binary eksikse çalışmayabilir; build + ESLint geçti.
+
+---
 
 ## Son Güncelleme — v4.2.3 (22 Haziran 2026 — Gece)
 
@@ -453,8 +574,17 @@ Smart_Attendance_System/
 │       └── shared/
 │           ├── services/
 │           │   └── apiClient.js    # fetch + credentials; sessiz token yenileme
+│           ├── query/                # TanStack React Query (PR-6/9)
+│           │   ├── QueryProvider.jsx
+│           │   ├── queryClient.js
+│           │   └── hooks/
+│           │       ├── useActiveSessionsQuery.js
+│           │       └── useAuditLogsQuery.js
+│           ├── chart/
+│           │   └── registerBarChart.js
 │           └── components/
 │               ├── layout/Sidebar/
+│               ├── ui/Table/VirtualizedTableBody.jsx
 │               ├── LanguageSwitcher/
 │               └── NotificationBell/
 │
@@ -1112,6 +1242,8 @@ docker run --rm -e ENV=test -e TESTING=true \
 ## Yapılan Optimizasyon ve Düzeltmeler
 
 Bu bölüm, sisteme yapılan performans, güvenlik ve UI/UX iyileştirmelerini belgeler.
+
+> **Web panel performans PR'ları (26 Haziran 2026):** Code splitting, memoization, tablo sanallaştırma, React Query, server pagination ve bundle optimizasyonu için yukarıdaki **[Son Güncelleme — v4.2.4](#son-güncelleme--v424-26-haziran-2026)** bölümüne bakın.
 
 ---
 

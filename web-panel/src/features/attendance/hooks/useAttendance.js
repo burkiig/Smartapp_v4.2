@@ -65,9 +65,9 @@ export const useAttendance = () => {
     }
   }, []);
 
-  const undo = useCallback(async (recordId) => {
+  const undo = useCallback(async (recordId, flagReason = null) => {
     try {
-      const result = await undoFlaggedRecord(recordId);
+      const result = await undoFlaggedRecord(recordId, flagReason);
       if (result.success) {
         // Backend undo → status: 'pending_review', is_flagged: true (inceleme bekliyor)
         setFlaggedRecords(prev =>

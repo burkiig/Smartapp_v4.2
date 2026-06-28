@@ -4,6 +4,38 @@ import { Table } from '../../../../shared/components/ui/Table';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import './FlaggedAttendanceList.css';
 
+const LEGACY_REASON_CODES = {
+  'Mazeret incelemede': 'excuse_pending',
+  'Mazeret İncelemede': 'excuse_pending',
+};
+
+const LEGACY_REASON_LABELS = {
+  excuse_pending: { en: 'Excuse under review', tr: 'Mazeret incelemede' },
+};
+
+const getReasonLabel = (t, i18n, record) => {
+  const raw = record.flagReason;
+  if (!raw) return record.reason || '—';
+
+  const code = LEGACY_REASON_CODES[raw] || raw;
+  const legacy = LEGACY_REASON_LABELS[code];
+  if (legacy) {
+    return legacy[i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'tr'];
+  }
+
+  return t(`attendancePage.recordDetail.reasonCodes.${code}`, record.reason || raw);
+};
+
+const getMethodLabel = (t, record) => {
+  const steps = record.verificationSteps;
+  if (!steps) return record.method;
+  const parts = [];
+  if (steps.location_ok !== false) parts.push(t('attendancePage.recordDetail.methodParts.gps'));
+  if (steps.face_ok !== false) parts.push(t('attendancePage.recordDetail.methodParts.face'));
+  if (steps.qr_ok !== false) parts.push(t('attendancePage.recordDetail.methodParts.qr'));
+  return parts.length ? parts.join(' + ') : t('attendancePage.recordDetail.methodParts.qr');
+};
+
 /**
  * Generates initials for avatar fallback rendering.
  */
@@ -21,7 +53,7 @@ export const FlaggedAttendanceList = ({
   loading = false,
   focusedRecordId = null,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (loading) {
     return (
@@ -72,16 +104,18 @@ export const FlaggedAttendanceList = ({
       label: t('flaggedList.columns.reason'),
       render: (value, record) => (
         <Badge
-          variant={record.reasonType === 'error' ? 'error' : 'warning'}
+          variant={record.flagReason === 'duplicate_attendance' ? 'error' : 'warning'}
         >
-          {record.reason}
+          {getReasonLabel(t, i18n, record)}
         </Badge>
       ),
     },
     {
       key: 'method',
       label: t('flaggedList.columns.method'),
-      render: (value) => <Badge variant="info">{value}</Badge>,
+      render: (value, record) => (
+        <Badge variant="info">{getMethodLabel(t, record)}</Badge>
+      ),
     },
     {
       key: 'location',
@@ -106,10 +140,11 @@ export const FlaggedAttendanceList = ({
     {
       key: 'actions',
       label: t('flaggedList.columns.actions'),
+      style: { minWidth: '380px', whiteSpace: 'nowrap' },
       render: (value, record) => (
-        <div className="action-buttons">
+        <div className="flagged-list-actions">
           <button
-            className="action-btn approve-btn"
+            className="flagged-list-action-btn flagged-list-approve-btn"
             onClick={() => onApprove(record.id)}
             title={t('common.approve')}
             disabled={record.status === 'present' && !record.isFlagged}
@@ -117,20 +152,29 @@ export const FlaggedAttendanceList = ({
             {t('common.approve')}
           </button>
           <button
-            className="action-btn reject-btn"
+            className="flagged-list-action-btn flagged-list-reject-btn"
             onClick={() => onReject(record.id)}
             title={t('common.reject')}
             disabled={record.status === 'absent' && !record.isFlagged}
           >
             {t('common.reject')}
           </button>
-          {!record.isFlagged && (
-            <button className="action-btn undo-btn" onClick={() => onUndo(record.id)} title={t('common.undo', 'Geri Al')}>
-              {t('common.undo', 'Geri Al')}
-            </button>
-          )}
+          <button
+            className={`flagged-list-action-btn flagged-list-undo-btn ${record.isFlagged ? 'flagged-list-undo-placeholder' : ''}`}
+            onClick={() => !record.isFlagged && onUndo(record)}
+            title={t('common.undo')}
+            disabled={record.isFlagged}
+            aria-hidden={record.isFlagged}
+            tabIndex={record.isFlagged ? -1 : 0}
+          >
+            {t('common.undo')}
+          </button>
           {onViewDetails && (
-            <button className="action-btn details-btn" onClick={() => onViewDetails(record)} title={t('common.detail')}>
+            <button
+              className="flagged-list-action-btn flagged-list-details-btn"
+              onClick={() => onViewDetails(record)}
+              title={t('common.detail')}
+            >
               {t('common.detail')}
             </button>
           )}

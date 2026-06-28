@@ -117,12 +117,14 @@ export const rejectFlaggedRecord = async (recordId) => {
   }
 };
 
-export const undoFlaggedRecord = async (recordId) => {
+export const undoFlaggedRecord = async (recordId, flagReason = null) => {
   try {
-    await apiClient.patch(`/attendance/${recordId}/override`, {
+    const payload = {
+      is_flagged: true,
       status: 'pending_review',
-      note: 'Karar geri alındı',
-    });
+    };
+    if (flagReason) payload.flag_reason = flagReason;
+    await apiClient.patch(`/attendance/${recordId}/review`, payload);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };

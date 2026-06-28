@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdRefresh, MdSearch, MdFace, MdList, MdWarning, MdCheckCircle } from 'react-icons/md';
+import { useQueryClient } from '@tanstack/react-query';
 import apiClient from '../../shared/services/apiClient';
+import { VirtualizedTableBody } from '../../shared/components/ui/Table/VirtualizedTableBody';
+import {
+  AUDIT_LOGS_GC_TIME_MS,
+  AUDIT_LOGS_STALE_TIME_MS,
+  buildAuditLogsQueryKey,
+  fetchAuditLogs,
+  useAuditLogsQuery,
+} from '../../shared/query/hooks/useAuditLogsQuery';
 import { formatLocaleDateTime } from '../../shared/utils/localeFormat';
 import './AuditLogPage.css';
 
@@ -160,42 +169,81 @@ function FaceFailuresPanel() {
 
 export const AuditLogPage = () => {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' | 'face-failures'
 
   // ── Log list state ──────────────────────────────────────────────────────
-  const [logs, setLogs]             = useState([]);
-  const [total, setTotal]           = useState(0);
   const [page, setPage]             = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [actionFilter, setActionFilter] = useState('');
-  const [loading, setLoading]       = useState(true);
+  const [appliedActionFilter, setAppliedActionFilter] = useState('');
+  const [logsTableScrollTop, setLogsTableScrollTop] = useState(0);
+  const {
+    data: logsResponse,
+    isPending,
+    isFetching,
+    refetch,
+  } = useAuditLogsQuery({
+    page,
+    action: appliedActionFilter,
+    enabled: activeTab === 'logs',
+  });
 
-  const loadLogs = useCallback(async (p = 1, action = '') => {
-    setLoading(true);
-    try {
-      const params = { page: p, page_size: 50 };
-      if (action) params.action = action;
-      const res = await apiClient.get('/audit-logs/', { params });
-      setLogs(res.logs || []);
-      setTotal(res.total || 0);
-      setPage(res.page || 1);
-      setTotalPages(res.total_pages || 1);
-    } catch (err) {
-      console.error('Audit log error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'logs') loadLogs(page, actionFilter);
-  }, [activeTab, loadLogs, page, actionFilter]);
+  const logs = logsResponse?.logs || [];
+  const total = logsResponse?.total || 0;
+  const totalPages = logsResponse?.total_pages || 1;
 
   const handleSearch = (e) => {
     e.preventDefault();
     setPage(1);
-    loadLogs(1, actionFilter);
+    setAppliedActionFilter(actionFilter);
   };
+
+  useEffect(() => {
+    if (activeTab !== 'logs') return;
+    if (!logsResponse) return;
+    if (page >= totalPages) return;
+    const nextPage = page + 1;
+    queryClient.prefetchQuery({
+      queryKey: buildAuditLogsQueryKey({ page: nextPage, action: appliedActionFilter }),
+      queryFn: () => fetchAuditLogs({ page: nextPage, action: appliedActionFilter }),
+      staleTime: AUDIT_LOGS_STALE_TIME_MS,
+      gcTime: AUDIT_LOGS_GC_TIME_MS,
+      retry: 2,
+    });
+  }, [activeTab, appliedActionFilter, logsResponse, page, queryClient, totalPages]);
+
+  const renderAuditLogRow = useCallback((log) => (
+    <tr key={log.id}>
+      <td className="log-id">{log.id}</td>
+      <td className="log-date">
+        {formatLocaleDateTime(log.created_at, i18n.resolvedLanguage)}
+      </td>
+      <td>
+        <span className={`action-badge ${log.action?.includes('fail') || log.action?.includes('error') ? 'action-error' : 'action-ok'}`}>
+          {log.action}
+        </span>
+      </td>
+      <td>{log.actor_id ?? '—'}</td>
+      <td>{log.actor_role ?? '—'}</td>
+      <td>{log.resource ?? '—'}</td>
+      <td>{log.resource_id ?? '—'}</td>
+      <td>{log.ip_address ?? '—'}</td>
+      <td className="log-detail">
+        {log.detail ? (
+          <details>
+            <summary>{t('common.show')}</summary>
+            <pre>{JSON.stringify(log.detail, null, 2)}</pre>
+          </details>
+        ) : '—'}
+      </td>
+    </tr>
+  ), [i18n.resolvedLanguage, t]);
+
+  const handleLogsTableScroll = useCallback((e) => {
+    setLogsTableScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  const isBackgroundFetching = isFetching && !isPending;
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -227,7 +275,7 @@ export const AuditLogPage = () => {
               <h1 className="page-title">{t('audit.systemLogsTitle')}</h1>
               <p className="page-subtitle">{t('audit.systemLogsSubtitle', { total })}</p>
             </div>
-            <button className="audit-refresh-btn" onClick={() => loadLogs(page, actionFilter)}>
+            <button className="audit-refresh-btn" onClick={() => refetch()}>
               <MdRefresh size={16} style={{ marginRight: 5 }} />{t('common.refresh')}
             </button>
           </div>
@@ -245,13 +293,17 @@ export const AuditLogPage = () => {
             </button>
           </form>
 
-          {loading ? (
+          {isPending ? (
             <div className="audit-loading">{t('common.loading')}</div>
           ) : logs.length === 0 ? (
             <div className="audit-empty">{t('audit.notFound')}</div>
           ) : (
             <>
-              <div className="audit-table-wrapper">
+              <div
+                className="audit-table-wrapper"
+                style={{ maxHeight: '560px', overflowY: 'auto' }}
+                onScroll={handleLogsTableScroll}
+              >
                 <table className="audit-table">
                   <thead>
                     <tr>
@@ -266,36 +318,21 @@ export const AuditLogPage = () => {
                       <th>{t('audit.detail')}</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {logs.map(log => (
-                      <tr key={log.id}>
-                        <td className="log-id">{log.id}</td>
-                        <td className="log-date">
-                          {formatLocaleDateTime(log.created_at, i18n.resolvedLanguage)}
-                        </td>
-                        <td>
-                          <span className={`action-badge ${log.action?.includes('fail') || log.action?.includes('error') ? 'action-error' : 'action-ok'}`}>
-                            {log.action}
-                          </span>
-                        </td>
-                        <td>{log.actor_id ?? '—'}</td>
-                        <td>{log.actor_role ?? '—'}</td>
-                        <td>{log.resource ?? '—'}</td>
-                        <td>{log.resource_id ?? '—'}</td>
-                        <td>{log.ip_address ?? '—'}</td>
-                        <td className="log-detail">
-                          {log.detail ? (
-                            <details>
-                              <summary>{t('common.show')}</summary>
-                              <pre>{JSON.stringify(log.detail, null, 2)}</pre>
-                            </details>
-                          ) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  <VirtualizedTableBody
+                    rows={logs}
+                    colSpan={9}
+                    scrollTop={logsTableScrollTop}
+                    viewportHeight={560}
+                    rowHeight={60}
+                    renderRow={renderAuditLogRow}
+                  />
                 </table>
               </div>
+              {isBackgroundFetching && (
+                <div className="audit-loading" style={{ paddingTop: 8, paddingBottom: 0 }}>
+                  {t('common.loading')}
+                </div>
+              )}
 
               {totalPages > 1 && (
                 <div className="audit-pagination">

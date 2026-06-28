@@ -133,7 +133,7 @@ export default function ExcuseSubmitScreen() {
       if (attachment && !isAllowedAttachment(attachment)) {
         Alert.alert(
           t('common.warning'),
-          'Sadece PDF, JPG veya PNG dosyaları yüklenebilir.'
+          t('excuse.allowedFileTypes')
         );
         return;
       }
@@ -155,8 +155,8 @@ export default function ExcuseSubmitScreen() {
           Alert.alert(
             t('excuse.partialSuccess') || t('common.warning'),
             uploadErr?.message
-              ? `Mazeret kaydedildi ancak belge yüklenemedi: ${uploadErr.message}`
-              : 'Mazeret kaydedildi ancak belge yüklenemedi. Lütfen tekrar deneyin.',
+              ? t('excuse.uploadFailedWithReason', { reason: uploadErr.message })
+              : t('excuse.uploadFailedGeneric'),
             [{ text: t('common.ok'), onPress: () => router.back() }]
           );
           return;
@@ -247,7 +247,7 @@ export default function ExcuseSubmitScreen() {
               textAlignVertical="top"
             />
             <Text style={styles.charCount}>
-              {description.length} karakter {description.length < 10 ? `(en az 10)` : '✓'}
+              {description.length} {t('excuse.charCountUnit')} {description.length < 10 ? t('excuse.charCountMin', { min: 10 }) : '✓'}
             </Text>
           </View>
 
@@ -275,7 +275,7 @@ export default function ExcuseSubmitScreen() {
               <TouchableOpacity style={styles.attachmentBtn} onPress={showAttachmentOptions} activeOpacity={0.8}>
                 <Ionicons name="cloud-upload-outline" size={22} color="#6366F1" />
                 <Text style={styles.attachmentBtnText}>{t('excuse.attachmentTitle')}</Text>
-                <Text style={styles.attachmentBtnHint}>PDF, JPG, PNG desteklenir</Text>
+                <Text style={styles.attachmentBtnHint}>{t('excuse.attachmentHint')}</Text>
               </TouchableOpacity>
             )}
           </View>

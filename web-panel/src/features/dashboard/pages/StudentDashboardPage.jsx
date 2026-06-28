@@ -4,19 +4,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import Webcam from 'react-webcam';
 import { MdSchool, MdCheckCircle, MdWarning, MdHistory, MdRefresh } from 'react-icons/md';
 import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
-} from 'chart.js';
+import '../../../shared/chart/registerBarChart';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
 import { SkeletonTable } from '../../../shared/components/Skeleton';
+import { VirtualizedTableBody } from '../../../shared/components/ui/Table/VirtualizedTableBody';
 import apiClient from '../../../shared/services/apiClient';
 import { useActiveSessionsQuery, activeSessionsQueryKey } from '../../../shared/query/hooks/useActiveSessionsQuery';
 import { formatLocaleDate } from '../../../shared/utils/localeFormat';
 import './StudentDashboardPage.css';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const readStudentTabFromUrl = () => {
   if (typeof window === 'undefined') return null;
@@ -157,6 +154,17 @@ function DisputesPanel({ disputes, courses, onRefresh }) {
   );
 }
 
+function localizeAttendanceError(message, t) {
+  if (
+    message?.includes('Hem yüz doğrulaması hem de konum doğrulaması başarısız') ||
+    message?.includes('Both face verification and location verification failed') ||
+    message?.includes('Both face and location verification failed')
+  ) {
+    return t('studentDashboard.takeAttendance.errorBothVerificationFailed');
+  }
+  return message || t('studentDashboard.takeAttendance.errorSubmit');
+}
+
 // ── Web Attendance Component ─────────────────────────────────────────────────
 function WebAttendance() {
   const { t } = useTranslation();
@@ -286,8 +294,8 @@ function WebAttendance() {
       });
       queryClient.invalidateQueries({ queryKey: activeSessionsQueryKey });
     } catch (e) {
-      const msg = e.message || t('studentDashboard.takeAttendance.errorSubmit');
-      const retryInfo = parseLocationRetryInfo(msg);
+      const msg = localizeAttendanceError(e.message, t);
+      const retryInfo = parseLocationRetryInfo(e.message);
       if (retryInfo) {
         setLocationRetryInfo(retryInfo);
         setStep('location');
@@ -595,14 +603,14 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
   const [selectedScheduleCourse, setSelectedScheduleCourse] = useState(null);
   const [scheduleCancellationNotice, setScheduleCancellationNotice] = useState(cancelContext);
 
-  const STUDENT_MENU_ITEMS = [
+  const STUDENT_MENU_ITEMS = useMemo(() => [
     { id: 'dashboard',  label: t('nav.student.dashboard')  },
     { id: 'schedule',   label: t('nav.student.schedule')   },
     { id: 'attendance', label: t('nav.student.attendance') },
     { id: 'excuses',    label: t('nav.student.excuses')    },
     { id: 'take',       label: t('nav.student.takeAttendance') },
     { id: 'disputes',   label: t('nav.student.disputes')   },
-  ];
+  ], [t]);
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [history, setHistory] = useState([]);
@@ -611,6 +619,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openingExcuseId, setOpeningExcuseId] = useState(null);
+  const [attendanceTableScrollTop, setAttendanceTableScrollTop] = useState(0);
 
   const formatCourseDays = useCallback((schedule) => {
     if (!schedule || typeof schedule !== 'object') return '—';
@@ -636,10 +645,10 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     return '—';
   }, []);
 
-  const handleTabChange = (id) => {
+  const handleTabChange = useCallback((id) => {
     if (id === 'logout') { onLogout(); return; }
     setActiveTab(id);
-  };
+  }, [onLogout]);
 
   const fetchData = useCallback(async (tab) => {
     setLoading(true);
@@ -694,6 +703,64 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
       setLoading(false);
     }
   }, []);
+
+  const refreshDisputes = useCallback(() => {
+    fetchData('disputes');
+  }, [fetchData]);
+
+  const attendanceStatEntries = useMemo(() => {
+    const courseStats = {};
+    history.forEach((r) => {
+      const key = String(r.course_id);
+      if (!courseStats[key]) {
+        courseStats[key] = { code: r.course_code || `#${r.course_id}`, total: 0, present: 0 };
+      }
+      courseStats[key].total += 1;
+      if (r.status === 'present') courseStats[key].present += 1;
+    });
+    return Object.values(courseStats).map((s) => ({
+      ...s,
+      rate: s.total > 0 ? Math.round((s.present / s.total) * 100) : 0,
+    }));
+  }, [history]);
+
+  const attendanceChartData = useMemo(() => ({
+    labels: attendanceStatEntries.map((s) => s.code),
+    datasets: [{
+      label: t('studentDashboard.attendance.chartTitle'),
+      data: attendanceStatEntries.map((s) => s.rate),
+      backgroundColor: attendanceStatEntries.map((s) =>
+        s.rate >= 70 ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.75)'
+      ),
+      borderColor: attendanceStatEntries.map((s) =>
+        s.rate >= 70 ? '#16a34a' : '#dc2626'
+      ),
+      borderWidth: 1,
+      borderRadius: 6,
+    }],
+  }), [attendanceStatEntries, t]);
+
+  const attendanceChartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: {
+        display: true,
+        text: t('studentDashboard.attendance.chartTitle'),
+        font: { size: 14 },
+      },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.raw}%` } },
+    },
+    scales: {
+      y: { min: 0, max: 100, ticks: { callback: (v) => `${v}%` } },
+    },
+  }), [t]);
+
+  const lowAttendanceCourses = useMemo(
+    () => attendanceStatEntries.filter((s) => s.rate < 70),
+    [attendanceStatEntries]
+  );
 
   useEffect(() => { fetchData(activeTab); }, [activeTab, fetchData]);
 
@@ -910,45 +977,6 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     const presentCount = filtered.filter(r => r.status === 'present').length;
     const rate = filtered.length ? Math.round((presentCount / filtered.length) * 100) : 0;
 
-    // Per-course statistics for the bar chart
-    const courseStats = {};
-    history.forEach(r => {
-      const key = String(r.course_id);
-      if (!courseStats[key]) {
-        courseStats[key] = { code: r.course_code || `#${r.course_id}`, total: 0, present: 0 };
-      }
-      courseStats[key].total += 1;
-      if (r.status === 'present') courseStats[key].present += 1;
-    });
-    const statEntries = Object.values(courseStats).map(s => ({
-      ...s,
-      rate: s.total > 0 ? Math.round((s.present / s.total) * 100) : 0,
-    }));
-
-    const chartData = {
-      labels: statEntries.map(s => s.code),
-      datasets: [{
-        label: t('studentDashboard.attendance.chartTitle'),
-        data: statEntries.map(s => s.rate),
-        backgroundColor: statEntries.map(s => s.rate >= 70 ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.75)'),
-        borderColor: statEntries.map(s => s.rate >= 70 ? '#16a34a' : '#dc2626'),
-        borderWidth: 1,
-        borderRadius: 6,
-      }],
-    };
-    const chartOptions = {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-                title: { display: true, text: t('studentDashboard.attendance.chartTitle'), font: { size: 14 } },
-        tooltip: { callbacks: { label: ctx => `${ctx.raw}%` } },
-      },
-      scales: {
-        y: { min: 0, max: 100, ticks: { callback: v => `${v}%` } },
-      },
-    };
-
-    const lowAttendanceCourses = statEntries.filter(s => s.rate < 70);
     return (
       <div className="student-attendance">
         <div className="page-header">
@@ -958,7 +986,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
         {loading ? <SkeletonTable rows={5} cols={4} /> : (
           <>
             {/* Per-course bar chart */}
-            {statEntries.length > 0 && (
+            {attendanceStatEntries.length > 0 && (
               <div className="att-chart-section">
                 {lowAttendanceCourses.length > 0 && (
                   <div className="att-low-warning">
@@ -970,7 +998,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                   </div>
                 )}
                 <div className="att-chart-wrapper">
-                  <Bar data={chartData} options={chartOptions} />
+                  <Bar data={attendanceChartData} options={attendanceChartOptions} />
                 </div>
               </div>
             )}
@@ -993,7 +1021,11 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                 </div>
               )}
             </div>
-            <div className="attendance-table-container">
+            <div
+              className="attendance-table-container"
+              style={{ maxHeight: '560px', overflowY: 'auto' }}
+              onScroll={(e) => setAttendanceTableScrollTop(e.currentTarget.scrollTop)}
+            >
               <table className="attendance-table">
                 <thead>
                   <tr>
@@ -1005,11 +1037,18 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                     <th>{t('studentDashboard.attendance.headers.flag')}</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
+                {filtered.length === 0 ? (
+                  <tbody>
                     <tr><td colSpan="6" className="empty-cell">{t('studentDashboard.attendance.notFound')}</td></tr>
-                  ) : (
-                    filtered.map(r => (
+                  </tbody>
+                ) : (
+                  <VirtualizedTableBody
+                    rows={filtered}
+                    colSpan={6}
+                    scrollTop={attendanceTableScrollTop}
+                    viewportHeight={560}
+                    rowHeight={56}
+                    renderRow={(r) => (
                       <tr key={r.id} className={r.is_flagged ? 'flagged-row' : ''}>
                         <td>{formatLocaleDate(r.marked_at, i18n.resolvedLanguage)}</td>
                         <td>
@@ -1041,9 +1080,9 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
                             : <span className="ok-badge">{t('studentDashboard.attendance.normal')}</span>}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
+                    )}
+                  />
+                )}
               </table>
             </div>
 
@@ -1134,7 +1173,7 @@ export const StudentDashboardPage = ({ user, onLogout }) => {
     <DisputesPanel
       disputes={disputes}
       courses={courses}
-      onRefresh={() => fetchData('disputes')}
+      onRefresh={refreshDisputes}
     />
   );
 

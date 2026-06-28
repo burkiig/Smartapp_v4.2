@@ -74,72 +74,80 @@
   font-size: 16px;
 }
 
-.action-buttons {
-  display: flex;
+.flagged-list-actions {
+  display: inline-flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
-.action-btn {
-  width: 32px;
-  height: 32px;
+.flagged-list-action-btn {
+  box-sizing: border-box;
+  width: auto;
+  min-width: fit-content;
+  height: auto;
+  min-height: 32px;
+  padding: 6px 12px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-  background: transparent;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
-.action-btn:disabled {
+.flagged-list-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
 }
 
-.approve-btn {
+.flagged-list-approve-btn {
   background: #d1fae5;
   color: #065f46;
 }
 
-.approve-btn:hover {
+.flagged-list-approve-btn:hover:not(:disabled) {
   background: #a7f3d0;
-  transform: scale(1.1);
 }
 
-.reject-btn {
+.flagged-list-reject-btn {
   background: #fee2e2;
   color: #991b1b;
 }
 
-.reject-btn:hover {
+.flagged-list-reject-btn:hover:not(:disabled) {
   background: #fecaca;
-  transform: scale(1.1);
 }
 
-.undo-btn {
+.flagged-list-undo-btn {
   background: #e5e7eb;
   color: #374151;
-  font-size: 12px;
-  padding: 6px 12px;
-  width: auto;
+  min-width: 64px;
 }
 
-.undo-btn:hover {
+.flagged-list-undo-btn:hover:not(:disabled) {
   background: #d1d5db;
 }
 
-.details-btn {
-  background: #dbeafe;
-  color: #1e40af;
+.flagged-list-undo-placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 
-.details-btn:hover {
+.flagged-list-details-btn {
+  background: #dbeafe;
+  color: #1e40af;
+  min-width: 72px;
+}
+
+.flagged-list-details-btn:hover:not(:disabled) {
   background: #bfdbfe;
-  transform: scale(1.1);
 }
 
 .flagged-list-loading {

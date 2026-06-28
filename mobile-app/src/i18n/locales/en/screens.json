@@ -40,7 +40,10 @@
     "noSessionInfo": "Session information not found for this record.",
     "emptySchedule": "No registered classes for this day",
     "emptyHistory": "No attendance history found",
-    "submitDispute": "Submit Dispute"
+    "submitDispute": "Submit Dispute",
+    "cancelNoticeTitle": "Cancellation notice",
+    "cancelNoticeTopic": "Topic",
+    "cancelNoticeReason": "Reason"
   },
   "more": {
     "management": "Management",

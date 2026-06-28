@@ -1,20 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MdSchool, MdPeople, MdPlayCircle, MdWarning, MdRefresh,
   MdCheckCircle,
 } from 'react-icons/md';
 import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
-  PointElement, Title, Tooltip, Legend, Filler,
-} from 'chart.js';
+import '../../../shared/chart/registerBarChart';
 import apiClient from '../../../shared/services/apiClient';
 import { ClassDetails } from '../../attendance/components/ClassDetails';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
+import { getLocaleFromLanguage } from '../../../shared/utils/localeFormat';
 import './DashboardView.css';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
 
 const DAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -96,7 +92,7 @@ function isOngoing(start_time, end_time) {
 }
 
 function DashboardView({ onNavigate }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [stats, setStats] = useState(null);
     const [activeSessions, setActiveSessions] = useState([]);
     const [recentSessions, setRecentSessions] = useState([]);
@@ -171,12 +167,12 @@ function DashboardView({ onNavigate }) {
         }
     };
 
-    const cancellationReasonOptions = [
+    const cancellationReasonOptions = useMemo(() => ([
         t('dashboard.cancelReasons.teacherUnavailable'),
         t('dashboard.cancelReasons.holiday'),
         t('dashboard.cancelReasons.campusClosed'),
         t('dashboard.cancelReasons.other'),
-    ];
+    ]), [t]);
 
     const openCancelModal = (entry) => {
         setCancelTargetEntry(entry);
@@ -242,6 +238,41 @@ function DashboardView({ onNavigate }) {
         }
     };
 
+    const pendingFlagged = useMemo(
+        () => flaggedRecords.filter(r => r.is_flagged && r.status !== 'absent'),
+        [flaggedRecords]
+    );
+    const cancelableEntries = useMemo(
+        () => collectCourseOccurrences(courses, cancelScope),
+        [courses, cancelScope]
+    );
+    const coursePerformanceChartData = useMemo(() => ({
+        labels: coursePerformance.map(c => c.course),
+        datasets: [{
+            label: t('dashboard.attendancePct'),
+            data: coursePerformance.map(c => c.attendance),
+            backgroundColor: coursePerformance.map(c =>
+                c.attendance >= 70 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'
+            ),
+            borderColor: coursePerformance.map(c =>
+                c.attendance >= 70 ? '#10b981' : '#ef4444'
+            ),
+            borderWidth: 1,
+            borderRadius: 5,
+        }],
+    }), [coursePerformance, t]);
+    const coursePerformanceChartOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => `${ctx.raw}%` } },
+        },
+        scales: {
+            y: { min: 0, max: 100, ticks: { callback: v => `${v}%` } },
+        },
+    }), []);
+
     if (loading) {
         return (
             <div className="dashboard">
@@ -262,9 +293,6 @@ function DashboardView({ onNavigate }) {
     if (selectedSession) {
         return <ClassDetails classData={selectedSession} onBack={() => setSelectedSession(null)} />;
     }
-
-    const pendingFlagged = flaggedRecords.filter(r => r.is_flagged && r.status !== 'absent');
-    const cancelableEntries = collectCourseOccurrences(courses, cancelScope);
 
     return (
         <div className="dashboard">
@@ -505,11 +533,17 @@ function DashboardView({ onNavigate }) {
                                             </span>
                                             <span className="review-time">
                                                 {record.marked_at
-                                                    ? new Date(record.marked_at).toLocaleTimeString('tr-TR')
+                                                    ? new Date(record.marked_at).toLocaleTimeString(
+                                                        getLocaleFromLanguage(i18n.resolvedLanguage)
+                                                      )
                                                     : '—'}
                                             </span>
                                         </div>
-                                        <div className="review-reason">{record.flag_reason || t('dashboard.suspiciousRecord')}</div>
+                                        <div className="review-reason">
+                                            {record.flag_reason
+                                                ? t(`attendancePage.recordDetail.reasonCodes.${record.flag_reason}`, record.flag_reason)
+                                                : t('dashboard.suspiciousRecord')}
+                                        </div>
                                     </div>
                                 ))}
                                 {pendingFlagged.length > 5 && (
@@ -532,32 +566,8 @@ function DashboardView({ onNavigate }) {
                         {coursePerformance.length > 0 ? (
                             <div style={{ maxHeight: 260 }}>
                                 <Bar
-                                    data={{
-                                        labels: coursePerformance.map(c => c.course),
-                                        datasets: [{
-                                            label: t('dashboard.attendancePct'),
-                                            data: coursePerformance.map(c => c.attendance),
-                                            backgroundColor: coursePerformance.map(c =>
-                                                c.attendance >= 70 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'
-                                            ),
-                                            borderColor: coursePerformance.map(c =>
-                                                c.attendance >= 70 ? '#10b981' : '#ef4444'
-                                            ),
-                                            borderWidth: 1,
-                                            borderRadius: 5,
-                                        }],
-                                    }}
-                                    options={{
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        plugins: {
-                                            legend: { display: false },
-                                            tooltip: { callbacks: { label: ctx => `${ctx.raw}%` } },
-                                        },
-                                        scales: {
-                                            y: { min: 0, max: 100, ticks: { callback: v => `${v}%` } },
-                                        },
-                                    }}
+                                    data={coursePerformanceChartData}
+                                    options={coursePerformanceChartOptions}
                                 />
                             </div>
                         ) : (

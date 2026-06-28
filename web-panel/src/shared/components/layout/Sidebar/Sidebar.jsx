@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import './Sidebar.css';
 
-export const Sidebar = ({ 
+export const Sidebar = memo(function Sidebar({
   title = "Attendance System",
   subtitle,
   menuItems = [],
@@ -10,7 +10,7 @@ export const Sidebar = ({
   onTabChange,
   user,
   onLogout
-}) => {
+}) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -93,4 +93,4 @@ export const Sidebar = ({
       </aside>
     </>
   );
-};
+});

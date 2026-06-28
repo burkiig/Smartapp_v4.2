@@ -409,7 +409,7 @@ function StudentSchedule() {
                 <View style={styles.cancelNoticeCard}>
                   <View style={styles.cancelNoticeRow}>
                     <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
-                    <Text style={styles.cancelNoticeTitle}>{t('history.cancelNoticeTitle', 'Iptal bildirimi')}</Text>
+                    <Text style={styles.cancelNoticeTitle}>{t('history.cancelNoticeTitle')}</Text>
                   </View>
                   <Text style={styles.cancelNoticeLine}>
                     {(cancellationNotice.courseCode || '#')}{cancellationNotice.courseName ? ` — ${cancellationNotice.courseName}` : ''}
@@ -421,10 +421,10 @@ function StudentSchedule() {
                       : ''}
                   </Text>
                   {cancellationNotice.topic ? (
-                    <Text style={styles.cancelNoticeLine}>{t('history.cancelNoticeTopic', 'Konu')}: {cancellationNotice.topic}</Text>
+                    <Text style={styles.cancelNoticeLine}>{t('history.cancelNoticeTopic')}: {cancellationNotice.topic}</Text>
                   ) : null}
                   {cancellationNotice.reason ? (
-                    <Text style={styles.cancelNoticeLine}>{t('history.cancelNoticeReason', 'Sebep')}: {cancellationNotice.reason}</Text>
+                    <Text style={styles.cancelNoticeLine}>{t('history.cancelNoticeReason')}: {cancellationNotice.reason}</Text>
                   ) : null}
                 </View>
               )}

@@ -714,6 +714,7 @@
       "errorNeedGps": "Önce konum bilginizi alın",
       "errorGps": "Konum alınamadı. Tarayıcı konum iznini kontrol edin.",
       "errorSubmit": "Yoklama gönderilemedi",
+      "errorBothVerificationFailed": "Hem yüz doğrulaması hem de konum doğrulaması başarısız. Yoklama kaydedilmedi.",
       "gpsVerifiedTitle": "Konum doğrulandı",
       "gpsVerifiedBody": "Konumunuz sınıf alanıyla eşleşti; güvenli bölgede olduğunuz kaydedildi.",
       "gpsDistanceHint": "Ders konumuna yaklaşık {{m}} m mesafedesiniz.",

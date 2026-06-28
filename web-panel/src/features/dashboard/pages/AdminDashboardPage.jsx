@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MdPeople, MdPerson, MdSchool, MdPlayCircle, MdFlag,
@@ -8,13 +8,27 @@ import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
 import { SkeletonStatCard, SkeletonTable } from '../../../shared/components/Skeleton';
+import { VirtualizedTableBody } from '../../../shared/components/ui/Table/VirtualizedTableBody';
 import apiClient from '../../../shared/services/apiClient';
 import { getApiBaseUrl } from '../../../shared/services/apiBaseUrl';
 import { formatLocaleDateTime } from '../../../shared/utils/localeFormat';
-import { AuditLogPage } from '../../audit/AuditLogPage';
-import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
-import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
 import './AdminDashboardPage.css';
+
+const AuditLogPage = lazy(() =>
+  import('../../audit/AuditLogPage').then((module) => ({
+    default: module.AuditLogPage,
+  }))
+);
+const ExcusesPage = lazy(() =>
+  import('../../attendance/pages/ExcusesPage/ExcusesPage').then((module) => ({
+    default: module.ExcusesPage,
+  }))
+);
+const DisputeReviewPage = lazy(() =>
+  import('../../disputes/DisputeReviewPage').then((module) => ({
+    default: module.DisputeReviewPage,
+  }))
+);
 
 // ── Leadership role helpers (admin user form) ────────────────────────────────
 
@@ -1323,7 +1337,7 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(() => readAdminTabFromUrl() || 'overview');
 
-  const ADMIN_MENU_ITEMS = [
+  const ADMIN_MENU_ITEMS = useMemo(() => [
     { id: 'overview',   label: t('nav.admin.overview')   },
     { id: 'users',      label: t('nav.admin.users')      },
     { id: 'courses',    label: t('nav.admin.courses')    },
@@ -1333,13 +1347,13 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
     { id: 'disputes',   label: t('nav.admin.disputes')   },
     { id: 'audit-logs', label: t('nav.admin.auditLogs')  },
     { id: 'logout',     label: t('nav.admin.logout')     },
-  ];
+  ], [t]);
 
-  const roleTR = {
+  const roleTR = useMemo(() => ({
     admin:      t('admin.users.roles.admin'),
     instructor: t('admin.users.roles.instructor'),
     student:    t('admin.users.roles.student'),
-  };
+  }), [t]);
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -1351,6 +1365,11 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [reportCourseFilter, setReportCourseFilter] = useState('');
+  const [reportPage, setReportPage] = useState(1);
+  const [reportTotal, setReportTotal] = useState(0);
+  const [reportTotalPages, setReportTotalPages] = useState(1);
+  const [usersTableScrollTop, setUsersTableScrollTop] = useState(0);
+  const [reportsTableScrollTop, setReportsTableScrollTop] = useState(0);
 
   const [showAddUser,    setShowAddUser]    = useState(false);
   const [showCsvImport,  setShowCsvImport]  = useState(false);
@@ -1361,10 +1380,10 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
   const [showAddRoom,    setShowAddRoom]    = useState(false);
   const [editingRoom,    setEditingRoom]    = useState(null);
 
-  const handleTabChange = (id) => {
+  const handleTabChange = useCallback((id) => {
     if (id === 'logout') { onLogout(); return; }
     setActiveTab(id);
-  };
+  }, [onLogout]);
 
   const instructors = users.filter(u => u.role === 'instructor');
 
@@ -1411,13 +1430,22 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
           break;
         }
         case 'reports': {
+          const reportParams = {
+            page: reportPage,
+            page_size: 50,
+          };
+          if (reportCourseFilter) {
+            reportParams.course_id = Number(reportCourseFilter);
+          }
           const [rec, crs] = await Promise.allSettled([
-            apiClient.get('/attendance/records', { params: { page: 1, page_size: 200 } }),
+            apiClient.get('/attendance/records', { params: reportParams }),
             apiClient.get('/courses/'),
           ]);
           if (rec.status === 'fulfilled') {
             const v = rec.value;
             setAttendanceRecords(Array.isArray(v) ? v : (v?.records || []));
+            setReportTotal(Number(v?.total || 0));
+            setReportTotalPages(Math.max(1, Number(v?.total_pages || 1)));
           } else {
             setFetchError(rec.reason?.message || t('common.loadError'));
           }
@@ -1430,9 +1458,21 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       console.error('fetchData error:', err);
       setFetchError(err?.message || t('common.loadError'));
     } finally { setLoading(false); }
-  }, [t]);
+  }, [reportCourseFilter, reportPage, t]);
 
-  useEffect(() => { fetchData(activeTab); }, [activeTab, fetchData]);
+  useEffect(() => {
+    if (activeTab === 'reports') return;
+    fetchData(activeTab);
+  }, [activeTab, fetchData]);
+
+  useEffect(() => {
+    if (activeTab !== 'reports') return;
+    fetchData('reports');
+  }, [activeTab, fetchData, reportCourseFilter, reportPage]);
+
+  useEffect(() => {
+    setReportsTableScrollTop(0);
+  }, [reportCourseFilter, reportPage]);
 
   const handleDeleteUser = async (userId) => {
     if (!window.confirm(t('modals.confirmDeleteUser'))) return;
@@ -1624,7 +1664,11 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
           ))}
         </div>
         {loading ? <div className="loading-inline">{t('common.loading')}</div> : (
-          <div className="table-container">
+          <div
+            className="table-container"
+            style={{ maxHeight: '560px', overflowY: 'auto' }}
+            onScroll={(e) => setUsersTableScrollTop(e.currentTarget.scrollTop)}
+          >
             <table className="data-table">
               <thead>
                 <tr>
@@ -1638,10 +1682,18 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                   <th>{t('admin.users.actions')}</th>
                 </tr>
               </thead>
-              <tbody>
-                {filtered.length === 0
-                  ? <tr><td colSpan="8" className="empty-cell">{t('admin.users.notFound')}</td></tr>
-                  : filtered.map(u => (
+              {filtered.length === 0 ? (
+                <tbody>
+                  <tr><td colSpan="8" className="empty-cell">{t('admin.users.notFound')}</td></tr>
+                </tbody>
+              ) : (
+                <VirtualizedTableBody
+                  rows={filtered}
+                  colSpan={8}
+                  scrollTop={usersTableScrollTop}
+                  viewportHeight={560}
+                  rowHeight={56}
+                  renderRow={(u) => (
                     <tr key={u.id}>
                       <td>{u.name}</td>
                       <td><code>{u.username}</code></td>
@@ -1651,13 +1703,13 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
                       <td>{u.student_number || '—'}</td>
                       <td><span className={`status-badge ${u.is_active ? 'active' : 'inactive'}`}>{u.is_active ? t('admin.users.active') : t('admin.users.inactive')}</span></td>
                       <td className="actions-cell">
-                        <button className="btn-action edit"   onClick={() => setEditingUser(u)}>{t('admin.users.editBtn')}</button>
+                        <button className="btn-action edit" onClick={() => setEditingUser(u)}>{t('admin.users.editBtn')}</button>
                         <button className="btn-action delete" onClick={() => handleDeleteUser(u.id)}>{t('admin.users.deleteBtn')}</button>
                       </td>
                     </tr>
-                  ))
-                }
-              </tbody>
+                  )}
+                />
+              )}
             </table>
           </div>
         )}
@@ -1766,11 +1818,9 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
 
   // ── Reports (read-only) ───────────────────────────────────────────────────────
   const renderReports = () => {
-    const filtered = reportCourseFilter
-      ? attendanceRecords.filter(r => String(r.course_id) === reportCourseFilter)
-      : attendanceRecords;
-
     const statusCls = { present: 'active', absent: 'inactive', excused: 'excused' };
+    const disablePrev = reportPage <= 1 || loading;
+    const disableNext = reportPage >= reportTotalPages || loading;
 
     return (
       <div className="admin-reports">
@@ -1783,7 +1833,10 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
         <div className="report-filter-row">
           <select
             value={reportCourseFilter}
-            onChange={e => setReportCourseFilter(e.target.value)}
+            onChange={e => {
+              setReportCourseFilter(e.target.value);
+              setReportPage(1);
+            }}
             className="enroll-select"
             style={{ maxWidth: '320px' }}
           >
@@ -1792,71 +1845,109 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
               <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
             ))}
           </select>
-          <span className="report-count">{t('admin.reports.recordCount', { count: filtered.length })}</span>
+          <span className="report-count">{t('admin.reports.recordCount', { count: reportTotal })}</span>
         </div>
         {loading ? <div className="loading-inline">{t('common.loading')}</div> : (
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{t('admin.reports.student')}</th>
-                  <th>{t('admin.reports.studentNo')}</th>
-                  <th>{t('admin.reports.course')}</th>
-                  <th>{t('admin.reports.teacher')}</th>
-                  <th>{t('admin.reports.date')}</th>
-                  <th>{t('admin.reports.status')}</th>
-                  <th>{t('admin.reports.flag')}</th>
-                  <th>{t('admin.reports.verification')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0
-                  ? <tr><td colSpan="8" className="empty-cell">{t('admin.reports.notFound')}</td></tr>
-                  : filtered.map(r => {
-                    const course = courses.find(c => c.id === r.course_id);
-                    const instructor = instructors.find(i => i.id === course?.instructor_id);
-                    const steps = r.verification_steps || {};
-                    return (
-                      <tr key={r.id}>
-                        <td>{r.student_name || t('admin.reports.student') + ` #${r.student_id}`}</td>
-                        <td>{r.student_number || '—'}</td>
-                        <td>
-                          <span className="course-code-badge">{r.course_code || `#${r.course_id}`}</span>
-                          {r.course_name && <span style={{ marginLeft: 6, color: '#64748b', fontSize: '0.8rem' }}>{r.course_name}</span>}
-                        </td>
-                        <td>{instructor ? instructor.name : '—'}</td>
-                        <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                          {formatLocaleDateTime(r.marked_at, i18n.resolvedLanguage)}
-                        </td>
-                        <td>
-                          <span className={`status-badge ${statusCls[r.status] || 'inactive'}`}>
-                            {r.status ? t(`admin.reports.statuses.${r.status}`, r.status) : r.status}
-                          </span>
-                        </td>
-                        <td>
-                          {r.is_flagged
-                            ? <span className="flag-badge">{t('admin.reports.flagged')}</span>
-                            : <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</span>
-                          }
-                        </td>
-                        <td style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                          {[
-                            steps.qr_ok      !== false ? 'QR'   : null,
-                            steps.face_ok    !== false ? t('attendancePage.recordDetail.methodParts.face') : null,
-                            steps.location_ok !== false ? 'GPS' : null,
-                          ].filter(Boolean).join(' + ') || '—'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                }
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div
+              className="table-container"
+              style={{ maxHeight: '560px', overflowY: 'auto' }}
+              onScroll={(e) => setReportsTableScrollTop(e.currentTarget.scrollTop)}
+            >
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('admin.reports.student')}</th>
+                    <th>{t('admin.reports.studentNo')}</th>
+                    <th>{t('admin.reports.course')}</th>
+                    <th>{t('admin.reports.teacher')}</th>
+                    <th>{t('admin.reports.date')}</th>
+                    <th>{t('admin.reports.status')}</th>
+                    <th>{t('admin.reports.flag')}</th>
+                    <th>{t('admin.reports.verification')}</th>
+                  </tr>
+                </thead>
+                {attendanceRecords.length === 0 ? (
+                  <tbody>
+                    <tr><td colSpan="8" className="empty-cell">{t('admin.reports.notFound')}</td></tr>
+                  </tbody>
+                ) : (
+                  <VirtualizedTableBody
+                    rows={attendanceRecords}
+                    colSpan={8}
+                    scrollTop={reportsTableScrollTop}
+                    viewportHeight={560}
+                    rowHeight={58}
+                    renderRow={(r) => {
+                      const course = courses.find(c => c.id === r.course_id);
+                      const instructor = instructors.find(i => i.id === course?.instructor_id);
+                      const steps = r.verification_steps || {};
+                      return (
+                        <tr key={r.id}>
+                          <td>{r.student_name || t('admin.reports.student') + ` #${r.student_id}`}</td>
+                          <td>{r.student_number || '—'}</td>
+                          <td>
+                            <span className="course-code-badge">{r.course_code || `#${r.course_id}`}</span>
+                            {r.course_name && <span style={{ marginLeft: 6, color: '#64748b', fontSize: '0.8rem' }}>{r.course_name}</span>}
+                          </td>
+                          <td>{instructor ? instructor.name : '—'}</td>
+                          <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                            {formatLocaleDateTime(r.marked_at, i18n.resolvedLanguage)}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${statusCls[r.status] || 'inactive'}`}>
+                              {r.status ? t(`admin.reports.statuses.${r.status}`, r.status) : r.status}
+                            </span>
+                          </td>
+                          <td>
+                            {r.is_flagged
+                              ? <span className="flag-badge">{t('admin.reports.flagged')}</span>
+                              : <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</span>
+                            }
+                          </td>
+                          <td style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                            {[
+                              steps.qr_ok !== false ? 'QR' : null,
+                              steps.face_ok !== false ? t('attendancePage.recordDetail.methodParts.face') : null,
+                              steps.location_ok !== false ? 'GPS' : null,
+                            ].filter(Boolean).join(' + ') || '—'}
+                          </td>
+                        </tr>
+                      );
+                    }}
+                  />
+                )}
+              </table>
+            </div>
+            <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <button
+                className="btn-secondary"
+                style={{ minWidth: 92 }}
+                disabled={disablePrev}
+                onClick={() => setReportPage((prev) => Math.max(1, prev - 1))}
+              >
+                ‹ {t('common.prev')}
+              </button>
+              <span className="report-count">{reportPage} / {reportTotalPages}</span>
+              <button
+                className="btn-secondary"
+                style={{ minWidth: 92 }}
+                disabled={disableNext}
+                onClick={() => setReportPage((prev) => Math.min(reportTotalPages, prev + 1))}
+              >
+                {t('common.next')} ›
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
   };
+
+  const tabFallback = useMemo(
+    () => <div className="loading-inline">{t('common.loading')}</div>,
+    [t]
+  );
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1865,9 +1956,9 @@ export const AdminDashboardPage = ({ user, onLogout }) => {
       case 'courses':     return renderCourses();
       case 'rooms':       return renderRooms();
       case 'reports':     return renderReports();
-      case 'excuses':     return <ExcusesPage />;
-      case 'disputes':    return <DisputeReviewPage />;
-      case 'audit-logs':  return <AuditLogPage />;
+      case 'excuses':     return <Suspense fallback={tabFallback}><ExcusesPage /></Suspense>;
+      case 'disputes':    return <Suspense fallback={tabFallback}><DisputeReviewPage /></Suspense>;
+      case 'audit-logs':  return <Suspense fallback={tabFallback}><AuditLogPage /></Suspense>;
       default:            return renderOverview();
     }
   };

@@ -4,20 +4,10 @@ import {
   MdPeople, MdSchool, MdWarning, MdTrendingUp, MdLogout, MdNotifications,
 } from 'react-icons/md';
 import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
+import '../shared/chart/registerBarChart';
 import { LanguageSwitcher } from '../shared/components/LanguageSwitcher/LanguageSwitcher';
 import apiClient from '../shared/services/apiClient';
 import './LeadershipDashboardPage.css';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 function LeadershipDashboardPage({ user, onLogout }) {
   const { t } = useTranslation();

@@ -1,21 +1,66 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from '../../../shared/components/layout/Sidebar';
 import { NotificationBell } from '../../../shared/components/NotificationBell/NotificationBell';
 import { LanguageSwitcher } from '../../../shared/components/LanguageSwitcher/LanguageSwitcher';
 import DashboardView from '../components/DashboardView';
-import { AttendancePage } from '../../attendance/pages';
-import { StudentsPage } from '../../attendance/pages/StudentsPage';
-import { RecordsPage } from '../../attendance/pages/RecordsPage';
-import { WeeklySchedulePage } from '../../schedule/pages/WeeklySchedulePage';
-import { SettingsPage } from '../../settings/pages/SettingsPage';
-import { ExcusesPage } from '../../attendance/pages/ExcusesPage';
-import { DisputeReviewPage } from '../../disputes/DisputeReviewPage';
-import { AuditLogPage } from '../../audit/AuditLogPage';
-import { FaceScan } from '../../attendance/components/FaceScan';
-import { QRScan } from '../../attendance/components/QRScan';
-import { ClassroomPage } from '../../classroom/ClassroomPage';
 import './InstructorDashboardPage.css';
+
+const AttendancePage = lazy(() =>
+  import('../../attendance/pages/AttendancePage/AttendancePage').then((module) => ({
+    default: module.AttendancePage,
+  }))
+);
+const StudentsPage = lazy(() =>
+  import('../../attendance/pages/StudentsPage/StudentsPage').then((module) => ({
+    default: module.StudentsPage,
+  }))
+);
+const RecordsPage = lazy(() =>
+  import('../../attendance/pages/RecordsPage/RecordsPage').then((module) => ({
+    default: module.RecordsPage,
+  }))
+);
+const WeeklySchedulePage = lazy(() =>
+  import('../../schedule/pages/WeeklySchedulePage/WeeklySchedulePage').then((module) => ({
+    default: module.WeeklySchedulePage,
+  }))
+);
+const SettingsPage = lazy(() =>
+  import('../../settings/pages/SettingsPage/SettingsPage').then((module) => ({
+    default: module.SettingsPage,
+  }))
+);
+const ExcusesPage = lazy(() =>
+  import('../../attendance/pages/ExcusesPage/ExcusesPage').then((module) => ({
+    default: module.ExcusesPage,
+  }))
+);
+const DisputeReviewPage = lazy(() =>
+  import('../../disputes/DisputeReviewPage').then((module) => ({
+    default: module.DisputeReviewPage,
+  }))
+);
+const AuditLogPage = lazy(() =>
+  import('../../audit/AuditLogPage').then((module) => ({
+    default: module.AuditLogPage,
+  }))
+);
+const FaceScan = lazy(() =>
+  import('../../attendance/components/FaceScan').then((module) => ({
+    default: module.FaceScan,
+  }))
+);
+const QRScan = lazy(() =>
+  import('../../attendance/components/QRScan').then((module) => ({
+    default: module.QRScan,
+  }))
+);
+const ClassroomPage = lazy(() =>
+  import('../../classroom/ClassroomPage').then((module) => ({
+    default: module.ClassroomPage,
+  }))
+);
 
 /**
  * Reads URL parameters and returns flagged triage context if present.
@@ -50,7 +95,7 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
   const [preselectedStudent, setPreselectedStudent] = useState(null);
   const triageContext = useMemo(() => readTriageContextFromUrl(), []);
 
-  const INSTRUCTOR_MENU_ITEMS = [
+  const INSTRUCTOR_MENU_ITEMS = useMemo(() => [
     { id: 'dashboard',  label: t('nav.instructor.dashboard')  },
     { id: 'schedule',   label: t('nav.instructor.schedule')   },
     { id: 'classroom',  label: t('nav.instructor.classroom')  },
@@ -63,57 +108,64 @@ export const InstructorDashboardPage = ({ user, onLogout }) => {
     { id: 'reports',    label: t('nav.instructor.reports')    },
     { id: 'students',   label: t('nav.instructor.students')   },
     { id: 'settings',   label: t('nav.instructor.settings')   },
-  ];
+  ], [t]);
 
   useEffect(() => {
     if (!triageContext) return;
     setActiveTab('attendance');
   }, [triageContext]);
 
-  const handleTabChange = (id) => {
+  const handleTabChange = useCallback((id) => {
     if (id === 'logout') {
       onLogout();
       return;
     }
     setActiveTab(id);
-  };
+  }, [onLogout]);
 
-  const handleManualAttendance = (student) => {
+  const handleManualAttendance = useCallback((student) => {
     setPreselectedStudent(student);
     setActiveTab('face-scan');
-  };
+  }, []);
+
+  const tabFallback = useMemo(
+    () => <div className="loading-inline">{t('common.loading')}</div>,
+    [t]
+  );
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView onNavigate={handleTabChange} />;
       case 'schedule':
-        return <WeeklySchedulePage />;
+        return <Suspense fallback={tabFallback}><WeeklySchedulePage /></Suspense>;
       case 'classroom':
-        return <ClassroomPage onClose={() => setActiveTab('dashboard')} />;
+        return <Suspense fallback={tabFallback}><ClassroomPage onClose={() => setActiveTab('dashboard')} /></Suspense>;
       case 'face-scan':
         return (
-          <FaceScan
-            preselectedStudent={preselectedStudent}
-            onClose={() => { setPreselectedStudent(null); setActiveTab('dashboard'); }}
-          />
+          <Suspense fallback={tabFallback}>
+            <FaceScan
+              preselectedStudent={preselectedStudent}
+              onClose={() => { setPreselectedStudent(null); setActiveTab('dashboard'); }}
+            />
+          </Suspense>
         );
       case 'qr-scan':
-        return <QRScan onClose={() => setActiveTab('dashboard')} />;
+        return <Suspense fallback={tabFallback}><QRScan onClose={() => setActiveTab('dashboard')} /></Suspense>;
       case 'attendance':
-        return <AttendancePage triageContext={triageContext} />;
+        return <Suspense fallback={tabFallback}><AttendancePage triageContext={triageContext} /></Suspense>;
       case 'excuses':
-        return <ExcusesPage />;
+        return <Suspense fallback={tabFallback}><ExcusesPage /></Suspense>;
       case 'disputes':
-        return <DisputeReviewPage />;
+        return <Suspense fallback={tabFallback}><DisputeReviewPage /></Suspense>;
       case 'audit-logs':
-        return <AuditLogPage />;
+        return <Suspense fallback={tabFallback}><AuditLogPage /></Suspense>;
       case 'students':
-        return <StudentsPage onManualAttendance={handleManualAttendance} />;
+        return <Suspense fallback={tabFallback}><StudentsPage onManualAttendance={handleManualAttendance} /></Suspense>;
       case 'reports':
-        return <RecordsPage />;
+        return <Suspense fallback={tabFallback}><RecordsPage /></Suspense>;
       case 'settings':
-        return <SettingsPage />;
+        return <Suspense fallback={tabFallback}><SettingsPage /></Suspense>;
       default:
         return <DashboardView onNavigate={handleTabChange} />;
     }

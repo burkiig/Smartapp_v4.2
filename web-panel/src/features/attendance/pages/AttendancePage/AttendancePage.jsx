@@ -103,7 +103,9 @@ export const AttendancePage = ({ triageContext = null }) => {
     }
   }, [getNextRecordId, isTriageScoped, reject]);
 
-  const handleUndo = useCallback(async (id) => { await undo(id); }, [undo]);
+  const handleUndo = useCallback(async (record) => {
+    await undo(record.id, record.flagReason || record.flag_reason || null);
+  }, [undo]);
 
   const handleExcuseApprove = useCallback(async (id) => {
     try {
